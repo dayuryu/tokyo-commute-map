@@ -8,6 +8,7 @@ const DEST_LABELS: Record<Destination, string> = {
   shinjuku: '新宿',
   shibuya:  '渋谷',
   tokyo:    '東京駅',
+  custom:   'カスタム',
 }
 
 interface AvgScore {
