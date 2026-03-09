@@ -4,6 +4,7 @@ import MapView from '@/components/MapView'
 import TimeSlider from '@/components/TimeSlider'
 import DestinationPicker from '@/components/DestinationPicker'
 import StationDrawer from '@/components/StationDrawer'
+import TransferFilter from '@/components/TransferFilter'
 
 export type Destination = 'shinjuku' | 'shibuya' | 'tokyo' | 'custom'
 
@@ -23,12 +24,16 @@ export interface Station {
   min_to_shibuya?: number
   min_to_tokyo?: number
   min_to_custom?: number
+  transfers_to_shinjuku?: number
+  transfers_to_shibuya?: number
+  transfers_to_tokyo?: number
   bucket: number
 }
 
 export default function Home() {
   const [destination, setDestination] = useState<Destination>('shinjuku')
   const [maxMinutes, setMaxMinutes] = useState(45)
+  const [maxTransfers, setMaxTransfers] = useState(99)
   const [selectedStation, setSelectedStation] = useState<Station | null>(null)
   const [customStation, setCustomStation] = useState<CustomStation | null>(null)
   const [stationList, setStationList] = useState<CustomStation[]>([])
@@ -61,14 +66,19 @@ export default function Home() {
       <MapView
         destination={destination}
         maxMinutes={maxMinutes}
+        maxTransfers={maxTransfers}
         onStationClick={setSelectedStation}
         customStation={customStation}
       />
 
-      {/* 顶部控制栏 */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10
-                      flex items-center gap-4 bg-white/90 backdrop-blur
-                      rounded-2xl shadow-lg px-6 py-3">
+      {/* 顶部控制栏 — モバイル2行 / デスクトップ1行 */}
+      <div className="absolute top-3 left-3 right-3
+                      md:top-4 md:left-1/2 md:right-auto md:-translate-x-1/2
+                      z-10 flex flex-col md:flex-row md:items-center
+                      gap-2 md:gap-4 bg-white/90 backdrop-blur
+                      rounded-2xl shadow-lg px-4 md:px-6 py-3">
+
+        {/* 行1: 目的地ピッカー */}
         <DestinationPicker
           value={destination}
           onChange={handleDestinationChange}
@@ -76,8 +86,20 @@ export default function Home() {
           customStation={customStation}
           onCustomChange={handleCustomChange}
         />
-        <div className="w-px h-6 bg-gray-200" />
-        <TimeSlider value={maxMinutes} onChange={setMaxMinutes} />
+
+        {/* デスクトップ用区切り */}
+        <div className="hidden md:block w-px h-6 bg-gray-200" />
+
+        {/* モバイル区切り線 */}
+        <div className="md:hidden h-px bg-gray-100" />
+
+        {/* 行2: スライダー + 乗換フィルター */}
+        <div className="flex items-center gap-3">
+          <TimeSlider value={maxMinutes} onChange={setMaxMinutes} />
+          <div className="w-px h-5 bg-gray-200" />
+          <TransferFilter value={maxTransfers} onChange={setMaxTransfers} />
+        </div>
+
       </div>
 
       <StationDrawer
