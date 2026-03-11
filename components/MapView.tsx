@@ -57,11 +57,12 @@ function createPinElement(label: string): HTMLElement {
 interface Props {
   destination: Destination
   maxMinutes: number
+  maxTransfers: number
   onStationClick: (station: Station) => void
   customStation: CustomStation | null
 }
 
-export default function MapView({ destination, maxMinutes, onStationClick, customStation }: Props) {
+export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const geojsonRef = useRef<any>(null)
@@ -164,10 +165,13 @@ export default function MapView({ destination, maxMinutes, onStationClick, custo
           name: props.name,
           lat: geo.coordinates[1],
           lon: geo.coordinates[0],
-          min_to_shinjuku: props.min_to_shinjuku,
-          min_to_shibuya:  props.min_to_shibuya,
-          min_to_tokyo:    props.min_to_tokyo,
-          min_to_custom:   props.min_to_custom,
+          min_to_shinjuku:       props.min_to_shinjuku,
+          min_to_shibuya:        props.min_to_shibuya,
+          min_to_tokyo:          props.min_to_tokyo,
+          min_to_custom:         props.min_to_custom,
+          transfers_to_shinjuku: props.transfers_to_shinjuku,
+          transfers_to_shibuya:  props.transfers_to_shibuya,
+          transfers_to_tokyo:    props.transfers_to_tokyo,
           bucket: props.bucket,
         })
       })
@@ -263,11 +267,15 @@ export default function MapView({ destination, maxMinutes, onStationClick, custo
       ? ['<=', ['get', 'min_to_custom'], maxMinutes]
       : ['all', ['has', `min_to_${destination}`], ['<=', ['get', `min_to_${destination}`], maxMinutes]]
 
-    const filter: any = ['all', ['!=', ['get', 'code'], excludeCode], rangeFilter]
+    const transferFilter: any = (destination !== 'custom' && maxTransfers < 99)
+      ? ['<=', ['get', `transfers_to_${destination}`], maxTransfers]
+      : true
+
+    const filter: any = ['all', ['!=', ['get', 'code'], excludeCode], rangeFilter, transferFilter]
 
     map.setFilter('stations-circle', filter)
     if (map.getLayer('stations-label')) map.setFilter('stations-label', filter)
-  }, [destination, maxMinutes, customStation])
+  }, [destination, maxMinutes, maxTransfers, customStation])
 
   return <div ref={containerRef} className="w-full h-full" />
 }
