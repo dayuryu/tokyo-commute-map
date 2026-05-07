@@ -5,8 +5,15 @@ import TimeSlider from '@/components/TimeSlider'
 import DestinationPicker from '@/components/DestinationPicker'
 import StationDrawer from '@/components/StationDrawer'
 import TransferFilter from '@/components/TransferFilter'
+import { supabase } from '@/lib/supabase'
 
 export type Destination = 'shinjuku' | 'shibuya' | 'tokyo' | 'custom'
+
+export type ConsensusEntry = { min: number; count: number }
+export type ConsensusMap = Record<
+  number,
+  Partial<Record<Exclude<Destination, 'custom'>, ConsensusEntry>>
+>
 
 export interface CustomStation {
   code: number
@@ -37,6 +44,7 @@ export default function Home() {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null)
   const [customStation, setCustomStation] = useState<CustomStation | null>(null)
   const [stationList, setStationList] = useState<CustomStation[]>([])
+  const [consensus, setConsensus] = useState<ConsensusMap>({})
 
   useEffect(() => {
     fetch('/data/stations.geojson')
@@ -49,6 +57,25 @@ export default function Home() {
           lon: f.geometry.coordinates[0],
         }))
       ))
+  }, [])
+
+  useEffect(() => {
+    supabase
+      .from('station_time_consensus')
+      .select('station_code, destination, consensus_min, report_count')
+      .then(({ data, error }) => {
+        if (error || !data) return
+        const map: ConsensusMap = {}
+        data.forEach((row: any) => {
+          const dest = row.destination as Exclude<Destination, 'custom'>
+          if (!map[row.station_code]) map[row.station_code] = {}
+          map[row.station_code]![dest] = {
+            min:   Number(row.consensus_min),
+            count: Number(row.report_count),
+          }
+        })
+        setConsensus(map)
+      })
   }, [])
 
   function handleDestinationChange(v: Destination) {
@@ -105,6 +132,8 @@ export default function Home() {
       <StationDrawer
         station={selectedStation}
         destination={destination}
+        customStation={customStation}
+        consensus={consensus}
         onClose={() => setSelectedStation(null)}
       />
     </main>

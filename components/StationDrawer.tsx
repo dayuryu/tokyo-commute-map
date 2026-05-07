@@ -2,13 +2,25 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Destination, Station } from '@/app/page'
+import type { ConsensusMap, CustomStation, Destination, Station } from '@/app/page'
+import CorrectionReporter from './CorrectionReporter'
 
 const DEST_LABELS: Record<Destination, string> = {
   shinjuku: '新宿',
   shibuya:  '渋谷',
   tokyo:    '東京駅',
   custom:   'カスタム',
+}
+
+// Yahoo!乗換案内 検索用の駅名（DEST_LABELS は表示用、こちらは検索クエリ用）
+const DEST_TRANSIT_NAMES: Record<Exclude<Destination, 'custom'>, string> = {
+  shinjuku: '新宿',
+  shibuya:  '渋谷',
+  tokyo:    '東京',
+}
+
+function round5(n: number): number {
+  return Math.round(n / 5) * 5
 }
 
 interface AvgScore {
@@ -26,9 +38,11 @@ interface ReviewForm {
 }
 
 interface Props {
-  station:     Station | null
-  destination: Destination
-  onClose:     () => void
+  station:       Station | null
+  destination:   Destination
+  customStation: CustomStation | null
+  consensus:     ConsensusMap
+  onClose:       () => void
 }
 
 function getDeviceId(): string {
@@ -38,7 +52,7 @@ function getDeviceId(): string {
   return id
 }
 
-export default function StationDrawer({ station, destination, onClose }: Props) {
+export default function StationDrawer({ station, destination, customStation, consensus, onClose }: Props) {
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
   const [reviews,    setReviews]    = useState<any[]>([])
   const [form,       setForm]       = useState<ReviewForm>({
@@ -86,8 +100,27 @@ export default function StationDrawer({ station, destination, onClose }: Props) 
     fetchData(station.code)
   }
 
-  const commuteMin = station
-    ? station[`min_to_${destination}` as keyof Station] as number
+  const algorithmMin = station
+    ? station[`min_to_${destination}` as keyof Station] as number | undefined
+    : null
+
+  // 众包共识值（≥3 票才会出现在 view 中）。custom 目的地不支持校正。
+  const consensusEntry = (
+    station != null
+    && destination !== 'custom'
+    && algorithmMin != null
+  )
+    ? consensus[station.code]?.[destination] ?? null
+    : null
+
+  const commuteMin = consensusEntry?.min ?? algorithmMin ?? null
+
+  // Yahoo!乗換案内 への外部リンク（精確な時間はそちらで確認してもらう）
+  const destStationName = destination === 'custom'
+    ? customStation?.name ?? ''
+    : DEST_TRANSIT_NAMES[destination]
+  const yahooTransitUrl = (station && commuteMin != null && destStationName)
+    ? `https://transit.yahoo.co.jp/search/result?from=${encodeURIComponent(station.name)}&to=${encodeURIComponent(destStationName)}`
     : null
 
   return (
@@ -112,25 +145,56 @@ export default function StationDrawer({ station, destination, onClose }: Props) 
             </div>
 
             {/* 硬数据 */}
-            <div className="bg-blue-50 rounded-2xl p-4 mb-6 grid grid-cols-3 gap-3 text-center">
-              <div>
-                <div className="text-2xl font-bold text-blue-600">
-                  {commuteMin ?? '--'}
+            <div className="mb-6">
+              <div className="bg-blue-50 rounded-2xl p-4 grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {commuteMin != null ? `約${round5(commuteMin)}` : '--'}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    分→{DEST_LABELS[destination]}
+                    {consensusEntry && (
+                      <span
+                        className="ml-1 text-green-600"
+                        title={`コミュニティ確認済み（${consensusEntry.count}件の報告）`}
+                      >
+                        ✓
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500">分→{DEST_LABELS[destination]}</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-orange-500">
-                  {avgScore?.avg_crowd ?? '--'}
+                <div>
+                  <div className="text-2xl font-bold text-orange-500">
+                    {avgScore?.avg_crowd ?? '--'}
+                  </div>
+                  <div className="text-xs text-gray-500">混雑スコア</div>
                 </div>
-                <div className="text-xs text-gray-500">混雑スコア</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-green-600">
-                  {avgScore?.review_count ?? 0}
+                <div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {avgScore?.review_count ?? 0}
+                  </div>
+                  <div className="text-xs text-gray-500">口コミ数</div>
                 </div>
-                <div className="text-xs text-gray-500">口コミ数</div>
               </div>
+              {yahooTransitUrl && (
+                <a
+                  href={yahooTransitUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-center text-xs text-gray-500 hover:text-blue-600 mt-2 underline transition-colors"
+                >
+                  Yahoo!乗換案内で正確な時間を調べる →
+                </a>
+              )}
+              {station != null && destination !== 'custom' && algorithmMin != null && (
+                <CorrectionReporter
+                  key={`${station.code}-${destination}`}
+                  stationCode={station.code}
+                  stationName={station.name}
+                  destination={destination}
+                  algorithmMin={algorithmMin}
+                />
+              )}
             </div>
 
             {/* 平均分条形图 */}
