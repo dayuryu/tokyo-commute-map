@@ -70,6 +70,65 @@
 
 ---
 
+## 📱 App 化検討メモ
+
+> 2026-05-12 時点では「現状は web のみで運用、App 化は将来検討」と決定。
+> 将来再検討する際に下記の比較をそのまま流用できるようストック。
+
+### 4 つの路線（工時・コスト・体験のトレードオフ）
+
+| 路線 | 工時 | 直接コスト | 体験 | 主な強み / 弱み |
+|---|---|---|---|---|
+| **A. PWA**（manifest + service worker） | **1-2 日** | **$0/年** | 接近原生（iOS 制限大） | 「ホーム画面に追加」だけで app らしくなる。App Store には出ない。iOS 16.4 未満は push 不可 |
+| **B. Capacitor wrap**（現 web を native パッケージ化） | **1-2 週** | **¥15,000/年** (iOS $99/年 + Android $25 一回) | 接近原生（webview） | **App Store / Google Play に上架**。コード 90% 共有。更新ごとに審査 |
+| **C. React Native 書き換え** | **4-8 週** | 同上 + 二重保守 | 接近原生（真の RN） | UI 全書き換え。MapLibre は native 版に。維持コスト 2 倍 |
+| **D. Swift + Kotlin フル native** | **3-6 ヶ月** | 同上 + 二重精力 | 最良 | indie 開発者には実質不可能。**非推奨** |
+
+### 推奨ステップ（主人の動機別）
+
+| 動機 | 推奨 |
+|---|---|
+| ホーム画面アイコン + app 感 | **A. PWA** |
+| App Store / Google Play で発見されたい | **B. Capacitor** |
+| Push 通知（特に iOS） | **B. Capacitor** |
+| オフライン対応（地下鉄内など） | **A. PWA** + service worker cache |
+| In-app purchase / 課金 | **B. Capacitor**（必須） |
+| 「app の方が professional」と感じる | **A. PWA** から試す |
+
+### Capacitor 路線の詳細コスト（将来採用時の参考）
+
+**直接費用（年額）**:
+- Apple Developer Program: ¥15,000/年（$99）
+- Google Play Developer: ¥3,750（$25、一回限り）
+- Push (FCM + APNs): 無料
+- アイコン・スプラッシュ外注: ¥0-50,000（自作なら無料）
+
+**工時内訳（1-2 週、約 7-9 営業日）**:
+- Next.js → 静的 export 化（SSR 除去）: 1 日
+- Capacitor 初期化 + iOS / Android プロジェクト: 0.5 日
+- アイコン + スプラッシュ + 起動アニメ: 1 日
+- viewport / safe area 調整（iPhone notch 対応など）: 1 日
+- Supabase 跨域 / native auth flow: 1 日
+- iOS 実機テスト + デバッグ: 2 日
+- Android 実機テスト + デバッグ: 1 日
+- App Store 提出資料（スクショ・説明・プライバシー）: 1 日
+- 審査待ち: **1-2 週**（工時ではないが時間がかかる）
+
+**隠れコスト**:
+- メジャー更新ごとに審査（1-3 日待ち）
+- iOS 17+ Privacy Manifest 強制（SDK 一覧の申告）
+- 個人情報収集ルール申告（/legal/privacy と整合）
+- web + app の二重ビルドフロー保守
+
+### 結論（2026-05-12 時点）
+
+早期 MVP / 0 課金ユーザ / 0 月活の段階では、まず **PWA**（1-2 日）で
+「ホーム画面に追加できる」体験を整え、ユーザ数が 100+ 月活に達した
+時点で **Capacitor** で上架を検討するのが合理的。
+React Native / フル native 書き換えは **永続的に非推奨**。
+
+---
+
 ## 🌐 ドキュメント
 
 - [ ] **CONTRIBUTING.md** 作成（コントリビュータ向けセットアップガイド）
