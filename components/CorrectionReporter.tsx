@@ -1,21 +1,15 @@
 'use client'
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Destination } from '@/app/page'
-
-type ReportDest = Exclude<Destination, 'custom'>
-
-const DEST_LABELS: Record<ReportDest, string> = {
-  shinjuku: '新宿',
-  shibuya:  '渋谷',
-  tokyo:    '東京駅',
-}
 
 interface Props {
   stationCode:  number
   stationName:  string
-  destination:  ReportDest
-  algorithmMin: number
+  destination:  Destination       // 'custom' も受け取る
+  destLabel:    string             // 表示用ラベル（custom の場合は実駅名）
+  algorithmMin: number              // 表示中の算出値
 }
 
 function getDeviceId(): string {
@@ -35,8 +29,23 @@ function isInRange(reported: number, algorithm: number): boolean {
   return Math.abs(reported - algorithm) <= getTolerance(algorithm)
 }
 
+// 共通 link 風スタイル
+const linkBtnStyle: CSSProperties = {
+  background: 'transparent',
+  border: 'none',
+  padding: 0,
+  fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+  fontSize: 12,
+  letterSpacing: '.04em',
+  color: 'var(--ink-mute)',
+  cursor: 'pointer',
+  transition: 'color .2s',
+  textDecoration: 'underline',
+  textUnderlineOffset: 3,
+}
+
 export default function CorrectionReporter({
-  stationCode, stationName, destination, algorithmMin,
+  stationCode, stationName, destination, destLabel, algorithmMin,
 }: Props) {
   const [open,       setOpen]       = useState(false)
   const [value,      setValue]      = useState('')
@@ -44,12 +53,13 @@ export default function CorrectionReporter({
   const [submitted,  setSubmitted]  = useState(false)
   const [error,      setError]      = useState<string | null>(null)
 
+  const isCustom = destination === 'custom'
   const reported = Number(value)
   const isNum    = value !== '' && !isNaN(reported)
-  const valid    = isNum && isInRange(reported, algorithmMin)
+  const valid    = !isCustom && isNum && isInRange(reported, algorithmMin)
 
   async function handleSubmit() {
-    if (!valid) return
+    if (!valid || isCustom) return
     setSubmitting(true)
     setError(null)
 
@@ -74,8 +84,14 @@ export default function CorrectionReporter({
 
   if (submitted) {
     return (
-      <div className="text-center text-xs text-green-600 mt-3 mb-2">
-        ✅ 報告ありがとうございます（3人以上の報告で反映されます）
+      <div style={{
+        marginTop: 8,
+        fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+        fontSize: 12,
+        color: '#5e7044',
+        letterSpacing: '.04em',
+      }}>
+        ✓ 報告ありがとうございます（3人以上で反映）
       </div>
     )
   }
@@ -84,51 +100,169 @@ export default function CorrectionReporter({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="block w-full text-center text-xs text-gray-500
-                   hover:text-blue-600 underline mt-3 mb-2 transition-colors"
+        style={linkBtnStyle}
+        onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-mute)' }}
       >
-        この時間が違う？正しい値を報告 ▼
+        {isCustom
+          ? 'この時間について →'
+          : 'この時間が違う？正しい値を報告 →'}
       </button>
     )
   }
 
+  // Custom destination 時の info panel（校正 backend 未対応のため）
+  if (isCustom) {
+    return (
+      <div style={{
+        marginTop: 8,
+        padding: '12px 14px',
+        background: 'rgba(255,255,255,0.45)',
+        border: '.5px solid rgba(28,24,18,.15)',
+        fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+        fontSize: 12,
+        lineHeight: 1.75,
+        color: 'var(--ink-soft)',
+        letterSpacing: '.04em',
+      }}>
+        <p style={{ margin: '0 0 6px' }}>
+          カスタム目的地（<strong style={{ color: 'var(--ink)' }}>{destLabel}</strong>）への
+          校正報告は今後対応予定です。
+        </p>
+        <p style={{ margin: 0, color: 'var(--ink-mute)', fontSize: 11 }}>
+          現在は <strong>新宿 / 渋谷 / 東京駅</strong> への通勤時間のみコミュニティ校正できます。
+        </p>
+        <button
+          onClick={() => setOpen(false)}
+          style={{
+            ...linkBtnStyle,
+            marginTop: 10,
+            fontSize: 11,
+            textDecoration: 'none',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-mute)' }}
+        >
+          ← 閉じる
+        </button>
+      </div>
+    )
+  }
+
+  // 通常モード（default 3 destination）
   const tol = getTolerance(algorithmMin)
 
   return (
-    <div className="bg-gray-50 rounded-xl p-3 mt-3 mb-2">
-      <div className="text-xs text-gray-600 mb-2">
-        {stationName} → {DEST_LABELS[destination]} の実際の通勤時間（分）
+    <div style={{
+      marginTop: 8,
+      padding: '12px 14px',
+      background: 'rgba(255,255,255,0.5)',
+      border: '.5px solid rgba(28,24,18,.18)',
+    }}>
+      <div style={{
+        fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+        fontSize: 12,
+        color: 'var(--ink-soft)',
+        letterSpacing: '.06em',
+        marginBottom: 10,
+      }}>
+        {stationName} → {destLabel} の実際の通勤時間（分）
       </div>
-      <div className="flex gap-2 items-center">
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
         <input
           type="number" min={5} max={180} step={1}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={e => setValue(e.target.value)}
           placeholder="例: 35"
-          className="flex-1 border rounded-lg px-3 py-1.5 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-300"
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            background: 'rgba(255,255,255,0.7)',
+            border: '.5px solid rgba(28,24,18,.18)',
+            borderRadius: 0,
+            fontFamily: 'var(--mono, monospace)',
+            fontSize: 14,
+            color: 'var(--ink)',
+            letterSpacing: '.02em',
+            outline: 'none',
+            textAlign: 'center',
+            boxSizing: 'border-box',
+          }}
+          onFocusCapture={e => { e.currentTarget.style.borderColor = 'var(--ink)' }}
+          onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(28,24,18,.18)' }}
         />
         <button
           onClick={handleSubmit}
           disabled={!valid || submitting}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-sm
-                     font-medium px-4 py-1.5 rounded-lg disabled:opacity-40
-                     transition-colors"
+          style={{
+            padding: '0 18px',
+            background: 'var(--ink)',
+            color: '#f5e7d2',
+            border: '.5px solid var(--ink)',
+            fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+            fontWeight: 600,
+            fontSize: 12,
+            letterSpacing: '.06em',
+            borderRadius: 0,
+            cursor: (!valid || submitting) ? 'not-allowed' : 'pointer',
+            opacity: (!valid || submitting) ? 0.4 : 1,
+            transition: 'opacity .2s',
+            whiteSpace: 'nowrap',
+          }}
         >
-          {submitting ? '...' : '報告'}
+          {submitting ? '…' : '報告'}
         </button>
       </div>
+
       {isNum && !valid && (
-        <div className="text-xs text-red-500 mt-1.5">
+        <div style={{
+          marginTop: 7,
+          fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+          fontSize: 11,
+          color: 'var(--pin)',
+          letterSpacing: '.04em',
+        }}>
           ※ 推定値 {algorithmMin}分 から ±{tol}分 以内で入力してください
         </div>
       )}
+
       {error && (
-        <div className="text-xs text-red-500 mt-1.5">{error}</div>
+        <div style={{
+          marginTop: 7,
+          fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+          fontSize: 11,
+          color: 'var(--pin)',
+          letterSpacing: '.04em',
+        }}>
+          {error}
+        </div>
       )}
-      <div className="text-xs text-gray-400 mt-2">
+
+      <div style={{
+        marginTop: 9,
+        fontFamily: 'var(--display-italic, "Cormorant Garamond", Garamond, serif)',
+        fontStyle: 'italic',
+        fontSize: 10.5,
+        color: 'var(--ink-mute)',
+        letterSpacing: '.02em',
+      }}>
         ※ 3人以上の報告で表示時間が更新されます
       </div>
+
+      <button
+        onClick={() => setOpen(false)}
+        style={{
+          ...linkBtnStyle,
+          marginTop: 9,
+          fontSize: 11,
+          textDecoration: 'none',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-mute)' }}
+      >
+        ← 閉じる
+      </button>
     </div>
   )
 }

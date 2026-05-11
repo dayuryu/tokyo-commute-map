@@ -150,6 +150,11 @@ export default function StationDrawer({ station, destination, customStation, con
     ? `https://transit.yahoo.co.jp/search/result?from=${encodeURIComponent(station.name)}&to=${encodeURIComponent(destStationName)}`
     : null
 
+  // 表示用ラベル — custom destination の場合は実際の駅名を出す（「カスタム」固定文字を回避）
+  const destLabel = destination === 'custom'
+    ? (customStation?.name ?? 'カスタム')
+    : DEST_LABELS[destination]
+
   // 主要路線 — stations.geojson の register.csv 由来 line タグが現状未注入のためプレースホルダ
   // 後続で stations.geojson 構築時に line_names を持たせれば即接続可能
   const mainLines: string[] = []  // TODO: 実データに接続
@@ -289,7 +294,7 @@ export default function StationDrawer({ station, destination, customStation, con
                   letterSpacing: '.06em',
                 }}
               >
-                分 to {DEST_LABELS[destination]}
+                分 to {destLabel}
                 {consensusEntry && (
                   <span
                     className="ml-1.5"
@@ -314,13 +319,14 @@ export default function StationDrawer({ station, destination, customStation, con
               </a>
             )}
 
-            {station != null && destination !== 'custom' && algorithmMin != null && (
+            {station != null && algorithmMin != null && (
               <div className="mt-3">
                 <CorrectionReporter
                   key={`${station.code}-${destination}`}
                   stationCode={station.code}
                   stationName={station.name}
                   destination={destination}
+                  destLabel={destLabel}
                   algorithmMin={algorithmMin}
                 />
               </div>
