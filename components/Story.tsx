@@ -3,22 +3,18 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import type { CSSProperties } from 'react'
 import { useIsMobile } from '@/lib/useIsMobile'
 
-// 7 ページ構成（タイトル + 六章 + 終）。1 スクロール = 1 章。
-// 各章ごとに固有の SVG モチーフを持つ：
-//   0 タイトル        — calligraphic 圖
-//   1 旅人           — city-light dots scatter
-//   2 見知らぬ名のリスト — 斜めの定規が station name に変わる
-//   3 老婆のことば    — concentric tea-steam ripples
-//   4 もうひとつの地図 — isochrone rings emerge
-//   5 駅は、暮らしである — minute clock + pull quote
-//   6 終 + CTA      — final coda
+// 3 ページ構成（旧 7 章から精選）。
+// 各章は「テーマ → 産品価値 → CTA」の流れで、文学密度を抑え行動への導線を最短化する。
+//   1 知らない名前       — city-light scatter + AI との対比
+//   2 もうひとつの地図   — isochrone rings + 駅の色点で価値を視覚化
+//   終 あなたの番        — 探索のための CTA
 
 const STORY_BG  = '#f3ecdd'
 const STORY_INK = '#1c1812'
 const STORY_RED = '#a8332b'
 const STORY_DIM = '#7d7060'
 
-const TOTAL = 7
+const TOTAL = 3
 
 interface StoryProps {
   onEnterMap: () => void
@@ -46,8 +42,6 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
     if (c) c.scrollTo({ top: clamped * c.clientHeight, behavior: 'smooth' })
   }, [])
 
-  // closing fade out と同時に親へ即通知。親が次のレイヤーを先に mount し、
-  // Story 自身は ~900ms 後に unmount される（page.tsx 側の setTimeout）。
   const enter = useCallback(() => {
     if (closing) return
     setClosing(true)
@@ -171,13 +165,9 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
         overflowY: 'hidden', overflowX: 'hidden',
         scrollSnapType: 'y mandatory',
       }}>
-        <PageTitle    active={index === 0} isMobile={isMobile} />
-        <PageArrival  active={index === 1} isMobile={isMobile} />
-        <PageRuler    active={index === 2} isMobile={isMobile} />
-        <PageOldWoman active={index === 3} isMobile={isMobile} />
-        <PageRings    active={index === 4} isMobile={isMobile} />
-        <PageMinutes  active={index === 5} isMobile={isMobile} />
-        <PageCoda     active={index === 6} onEnter={enter} isMobile={isMobile} />
+        <PageNames    active={index === 0} isMobile={isMobile} />
+        <PageOtherMap active={index === 1} isMobile={isMobile} />
+        <PageYourTurn active={index === 2} onEnter={enter} isMobile={isMobile} />
       </div>
 
       {/* hint */}
@@ -265,7 +255,6 @@ function Page({ children, active, isMobile, n, en, jp, style }: PageProps) {
       {jp && (
         <div style={{
           position: 'absolute',
-          // mobile: 移到左侧 n 标题下方，避免左右双栏挤
           top: isMobile ? 'calc(8vh + 60px)' : '14vh',
           left: isMobile ? '5vw' : 'auto',
           right: isMobile ? 'auto' : '6vw',
@@ -310,68 +299,8 @@ function PageRail({ total, index, onJump }: { total: number; index: number; onJu
   )
 }
 
-// ─── 0 · Title ────────────────────────────────────────────────────────────
-function PageTitle({ active, isMobile }: { active: boolean; isMobile: boolean }) {
-  return (
-    <Page active={active} isMobile={isMobile}>
-      <div style={{
-        display: 'inline-flex', alignItems: 'center',
-        gap: isMobile ? 14 : 22,
-        color: STORY_RED,
-        marginBottom: isMobile ? 22 : 32,
-        opacity: active ? 1 : 0,
-        transform: active ? 'translateX(0)' : 'translateX(-12px)',
-        transition: 'opacity 1.2s .1s, transform 1.2s .1s',
-      }}>
-        <span style={{ width: isMobile ? 50 : 80, height: '.5px', background: 'currentColor' }} />
-        <span style={{
-          fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
-          fontSize: isMobile ? 26 : 34, fontWeight: 500,
-        }}>圖</span>
-        <span style={{ width: isMobile ? 50 : 80, height: '.5px', background: 'currentColor' }} />
-      </div>
-      <div style={{
-        fontFamily: 'var(--mono, "JetBrains Mono",monospace)',
-        fontSize: isMobile ? 9 : 11,
-        letterSpacing: isMobile ? '.24em' : '.32em',
-        textTransform: 'uppercase', color: STORY_DIM,
-        marginBottom: isMobile ? 22 : 30,
-        opacity: active ? 1 : 0,
-        transition: 'opacity 1.2s .25s',
-      }}>
-        A Fable in Six Chapters
-      </div>
-      <h1 style={{
-        margin: 0, textAlign: 'center',
-        fontFamily: 'var(--display-italic, "Cormorant Garamond","Shippori Mincho",serif)',
-        fontStyle: 'italic', fontWeight: 400,
-        fontSize: isMobile ? 'clamp(34px, 10vw, 52px)' : 'clamp(46px, 6.4vw, 96px)',
-        lineHeight: 1.08, letterSpacing: '-.012em',
-        color: STORY_INK, textWrap: 'balance' as CSSProperties['textWrap'],
-        padding: isMobile ? '0 4px' : 0,
-        opacity: active ? 1 : 0,
-        transform: active ? 'translateY(0)' : 'translateY(20px)',
-        transition: 'opacity 1.4s .35s, transform 1.4s .35s',
-      }}>
-        A Thousand<br />Stations, A Thousand Lives
-      </h1>
-      <p style={{
-        margin: isMobile ? '24px 0 0' : '34px 0 0',
-        maxWidth: 520, textAlign: 'center',
-        fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
-        fontSize: isMobile ? 'clamp(12px, 3.5vw, 15px)' : 'clamp(14px, 1.3vw, 17px)',
-        lineHeight: 2, letterSpacing: isMobile ? '.12em' : '.18em', color: '#5b574c',
-        opacity: active ? 1 : 0,
-        transition: 'opacity 1.4s .55s',
-      }}>
-        千の駅でできた、都のはなし。
-      </p>
-    </Page>
-  )
-}
-
-// ─── 1 · Arrival — city light dots scatter in ────────────────────────────
-function PageArrival({ active, isMobile }: { active: boolean; isMobile: boolean }) {
+// ─── 1 · 知らない名前 — city light dots scatter + AI 対比 ────────────────
+function PageNames({ active, isMobile }: { active: boolean; isMobile: boolean }) {
   // deterministic pseudo-random dot field
   const dots = useMemo(() => {
     const arr: { x: number; y: number; r: number; d: number }[] = []
@@ -383,7 +312,7 @@ function PageArrival({ active, isMobile }: { active: boolean; isMobile: boolean 
     return arr
   }, [])
   return (
-    <Page active={active} isMobile={isMobile} n="一" en="I · Arrival" jp="旅人">
+    <Page active={active} isMobile={isMobile} n="一" en="I · A Sea of Names" jp="知らない名前">
       <div aria-hidden style={{
         position: 'absolute', inset: 0, opacity: active ? .9 : 0, transition: 'opacity 1.6s',
       }}>
@@ -408,7 +337,7 @@ function PageArrival({ active, isMobile }: { active: boolean; isMobile: boolean 
       </div>
       <div style={{
         position: 'relative',
-        maxWidth: isMobile ? '100%' : 540,
+        maxWidth: isMobile ? '100%' : 580,
         fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
         fontSize: isMobile ? 'clamp(14px, 4.2vw, 17px)' : 'clamp(18px, 1.55vw, 22px)',
         lineHeight: isMobile ? 2 : 2.25,
@@ -420,172 +349,66 @@ function PageArrival({ active, isMobile }: { active: boolean; isMobile: boolean 
         transform: active ? 'translateY(0)' : 'translateY(20px)',
         transition: 'opacity 1.2s .9s, transform 1.2s .9s',
       }}>
-        <p style={{ margin: '0 0 .35em' }}>むかし、ある旅人が、</p>
-        <p style={{ margin: '0 0 .35em' }}>東京という名の都に、降り立った。</p>
-        <p style={{ margin: '.6em 0 .35em' }}>駅は千を数え、夜の灯は、</p>
-        <p style={{ margin: '0 0 .35em' }}>名前の海のように、ひろがっていた。</p>
-        <p style={{ margin: '.6em 0 0', color: STORY_RED }}>そのどれもが、彼の知らない、名前であった。</p>
-      </div>
-    </Page>
-  )
-}
-
-// ─── 2 · A List of Strangers — diagonal ruler with station names ─────────
-function PageRuler({ active, isMobile }: { active: boolean; isMobile: boolean }) {
-  // mobile: 11 ticks（少一些站名，避免重叠），desktop: 21
-  const tickCount = isMobile ? 11 : 21
-  const ticks = Array.from({ length: tickCount })
-  const STATION_NAMES = [
-    '北与野','志木','朝霞台','新小岩','綾瀬','北赤羽','南行徳',
-    '本八幡','千歳烏山','西高島平','東中神','八広','梅島','五反野',
-    '金町','西新井','竹ノ塚','馬込','大鳥居','京成立石','青砥',
-  ]
-  return (
-    <Page active={active} isMobile={isMobile} n="二" en="II · A List of Strangers" jp="見知らぬ名のリスト">
-      <div aria-hidden style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden',
-      }}>
-        <div style={{
-          position: 'absolute',
-          left: isMobile ? '6%' : '8%',
-          top: isMobile ? '82%' : '78%',
-          width: isMobile ? '88%' : '84%',
-          height: 56,
-          transform: `rotate(${isMobile ? -5 : -7}deg) scaleX(${active ? 1 : 0})`,
-          transformOrigin: 'left center',
-          transition: 'transform 1.6s cubic-bezier(.2,.8,.2,1) .2s',
-        }}>
-          <div style={{ position: 'absolute', left: 0, right: 0, top: 28, height: 1, background: STORY_INK }} />
-          {ticks.map((_, i) => {
-            const major = i % 5 === 0
-            const name = STATION_NAMES[i] || ''
-            return (
-              <div key={i} style={{
-                position: 'absolute', left: `${(i / (ticks.length - 1)) * 100}%`,
-                top: 28 - (major ? 18 : 10),
-                width: 1, height: major ? 18 : 10,
-                background: STORY_INK,
-                opacity: active ? 1 : 0,
-                transition: `opacity .5s ${0.4 + i * 0.04}s`,
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: major ? -34 : -22,
-                  left: isMobile ? -28 : -38,
-                  width: isMobile ? 60 : 80,
-                  textAlign: 'center',
-                  fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
-                  fontSize: isMobile ? (major ? 10 : 9) : (major ? 12 : 10),
-                  fontWeight: major ? 600 : 400,
-                  letterSpacing: '.04em', color: major ? STORY_INK : STORY_DIM,
-                  whiteSpace: 'nowrap',
-                }}>{name}</div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      <div style={{
-        position: 'relative',
-        maxWidth: isMobile ? '100%' : 620,
-        marginTop: isMobile ? '6vh' : '4vh',
-        fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
-        fontSize: isMobile ? 'clamp(14px, 4.2vw, 17px)' : 'clamp(18px, 1.55vw, 22px)',
-        lineHeight: isMobile ? 1.95 : 2.2,
-        letterSpacing: '.08em', color: STORY_INK,
-        opacity: active ? 1 : 0,
-        transform: active ? 'translateY(0)' : 'translateY(20px)',
-        transition: 'opacity 1.1s .8s, transform 1.1s .8s',
-      }}>
-        <p style={{ margin: '0 0 .35em' }}>彼は、画面に問うた——</p>
-        <p style={{ margin: '0 0 .35em' }}>「渋谷まで、三十分。家賃、七万。」</p>
-        <p style={{ margin: '0 0 1em' }}>するとそこに、ずらりと、見知らぬ名前が、ならんだ。</p>
-        <p style={{ margin: '0 0 .35em', color: STORY_DIM, fontStyle: 'italic' }}>
-          名前を、ひとつひとつ、検索した。
+        <p style={{ margin: '0 0 .35em' }}>東京には、千の駅がある。</p>
+        <p style={{ margin: '0 0 .35em' }}>夜の灯は、名前の海のように、ひろがっている。</p>
+        <p style={{ margin: '.7em 0 .35em', color: STORY_DIM, fontStyle: 'italic' }}>
+          AI に、問うてみる——
         </p>
-        <p style={{ margin: '0 0 .35em', color: STORY_DIM, fontStyle: 'italic' }}>
-          地図を開き、口コミを読み、写真をめくった。
+        <p style={{ margin: '0 0 .35em' }}>「渋谷まで 30 分、家賃 7 万」</p>
+        <p style={{ margin: '0 0 .35em' }}>ずらりと、見知らぬ名前が、ならぶ。</p>
+        <p style={{ margin: '.7em 0 0', color: STORY_RED }}>
+          けれど、その駅で暮らすことが<br />どんな朝なのかは、<br />名前のままでは、わからない。
         </p>
-        <p style={{ margin: '.5em 0 0', color: STORY_RED }}>けれど、駅は、ただの名前のままだった。</p>
       </div>
     </Page>
   )
 }
 
-// ─── 3 · The Old Woman — concentric tea-steam ripples ────────────────────
-function PageOldWoman({ active, isMobile }: { active: boolean; isMobile: boolean }) {
-  return (
-    <Page active={active} isMobile={isMobile} n="三" en="III · The Old Woman" jp="老婆のことば">
-      <div aria-hidden style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        {[1, 2, 3, 4, 5].map(i => (
-          <div key={i} style={{
-            position: 'absolute',
-            width: `${i * 14 + 12}vmin`, height: `${i * 14 + 12}vmin`,
-            borderRadius: '50%',
-            border: `.5px solid ${STORY_RED}`,
-            opacity: active ? (0.42 - i * 0.06) : 0,
-            transform: active ? 'scale(1)' : 'scale(.6)',
-            transition: `opacity 1.4s ${0.2 + i * 0.12}s, transform 1.6s cubic-bezier(.2,.8,.2,1) ${0.2 + i * 0.12}s`,
-          }} />
-        ))}
-      </div>
+// PageOtherMap 用の同心リング半径。module-level に置いて useMemo 依存性問題を回避。
+const OTHER_MAP_RINGS = [70, 130, 210, 300, 400, 510]
 
-      <p style={{
-        position: 'relative',
-        margin: isMobile ? '0 0 24px' : '0 0 36px',
-        maxWidth: isMobile ? '100%' : 600,
-        textAlign: 'center',
-        fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
-        fontSize: isMobile ? 'clamp(12px, 3.5vw, 15px)' : 'clamp(15px, 1.3vw, 18px)',
-        lineHeight: isMobile ? 1.95 : 2.1,
-        letterSpacing: '.1em', color: STORY_DIM,
-        opacity: active ? 1 : 0, transform: active ? 'translateY(0)' : 'translateY(12px)',
-        transition: 'opacity 1s .6s, transform 1s .6s',
-      }}>
-        ある雨の昼、軒先で、老婆に出会った。<br />
-        湯気の立つ茶碗を、彼にすすめながら、<br />
-        彼女は、しずかに、言った——
-      </p>
-
-      <blockquote style={{
-        position: 'relative', margin: 0, padding: 0,
-        maxWidth: isMobile ? '100%' : 900,
-        textAlign: 'center',
-        fontFamily: 'var(--display-italic, "Cormorant Garamond","Shippori Mincho",serif)',
-        fontWeight: 500,
-        fontSize: isMobile ? 'clamp(20px, 6.4vw, 32px)' : 'clamp(28px, 3.6vw, 50px)',
-        lineHeight: isMobile ? 1.45 : 1.5,
-        letterSpacing: '.04em', color: STORY_INK,
-        opacity: active ? 1 : 0, transform: active ? 'translateY(0)' : 'translateY(18px)',
-        transition: 'opacity 1.2s 1s, transform 1.2s 1s',
-      }}>
-        <span style={{ color: STORY_RED, fontSize: '1.4em', verticalAlign: '-.1em' }}>「</span>
-        駅の名は、<br />
-        まだ、なにも、語っていない
-        <span style={{ color: STORY_RED, fontSize: '1.4em', verticalAlign: '-.1em' }}>」</span>
-      </blockquote>
-    </Page>
-  )
-}
-
-// ─── 4 · The Other Map — isochrone rings emerge ──────────────────────────
-function PageRings({ active, isMobile }: { active: boolean; isMobile: boolean }) {
-  const rings = [70, 130, 210, 300, 400, 510]
-  // mobile: rings 中心を画面下部に移して文字と重ならないようにする
+// ─── 2 · もうひとつの地図 — isochrone rings + 駅の色点 ────────────────────
+function PageOtherMap({ active, isMobile }: { active: boolean; isMobile: boolean }) {
   const ringTransform = isMobile ? 'translate(500, 540)' : 'translate(680, 320)'
+
+  // 駅の色点 — 通勤時間によって色を変える。
+  // 各リング上に等角分布 + オフセットで決定論的に配置（mutable PRNG を避け
+  // React の immutability lint をパスする）。
+  const stationDots = useMemo(() => {
+    const palettes: string[][] = [
+      ['#5e7044', '#84a16b'],  // ring 0 — green (近)
+      ['#5e7044', '#84a16b'],  // ring 1
+      ['#c9a35a', '#d7b870'],  // ring 2 — yellow (中)
+      ['#c9a35a', '#d7b870'],  // ring 3
+      ['#a8332b', '#c45a51'],  // ring 4 — red (遠)
+      ['#a8332b', '#c45a51'],  // ring 5
+    ]
+    const dotsPerRing = 6
+    return OTHER_MAP_RINGS.flatMap((radius, ringIdx) =>
+      Array.from({ length: dotsPerRing }, (_, j) => {
+        const baseAngle = (j / dotsPerRing) * Math.PI * 2
+        const offset    = (ringIdx * 0.37 + j * 0.13) % (Math.PI * 2)
+        const angle     = baseAngle + offset
+        return {
+          dx:    Math.cos(angle) * radius,
+          dy:    Math.sin(angle) * radius * 0.7,  // 楕円扁平で地図感
+          color: palettes[ringIdx][j % palettes[ringIdx].length],
+          d:     0.3 + ((j + ringIdx) % 5) * 0.15,
+          r:     3 + ((j + ringIdx * 2) % 3),
+        }
+      })
+    )
+  }, [])
+
   return (
-    <Page active={active} isMobile={isMobile} n="四" en="IV · The Other Map" jp="もうひとつの地図">
+    <Page active={active} isMobile={isMobile} n="二" en="II · The Other Map" jp="もうひとつの地図">
       <svg aria-hidden viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice"
         style={{
           position: 'absolute', inset: 0, width: '100%', height: '100%',
           opacity: active ? 1 : 0, transition: 'opacity 1s',
         }}>
         <g transform={ringTransform}>
-          {rings.map((r, i) => (
+          {OTHER_MAP_RINGS.map((r, i) => (
             <circle key={i} cx="0" cy="0" r={r}
               fill="none" stroke={STORY_RED} strokeWidth=".6"
               strokeDasharray={2 * Math.PI * r}
@@ -594,7 +417,19 @@ function PageRings({ active, isMobile }: { active: boolean; isMobile: boolean })
               style={{ transition: `stroke-dashoffset 1.6s cubic-bezier(.2,.8,.2,1) ${0.2 + i * 0.18}s` }}
             />
           ))}
-          <circle cx="0" cy="0" r="4" fill={STORY_RED}
+          {/* 駅の色点 — 通勤時間で色を変える */}
+          {stationDots.map((dot, i) => (
+            <circle key={`s-${i}`}
+              cx={dot.dx} cy={dot.dy} r={dot.r}
+              fill={dot.color}
+              opacity={active ? 0.88 : 0}
+              style={{
+                transition: `opacity 0.7s cubic-bezier(.2,.8,.2,1) ${1.4 + dot.d}s`,
+              }}
+            />
+          ))}
+          {/* 中心の目的地 */}
+          <circle cx="0" cy="0" r="5" fill={STORY_INK}
             opacity={active ? 1 : 0}
             style={{ transition: 'opacity .6s .15s' }}
           />
@@ -613,32 +448,33 @@ function PageRings({ active, isMobile }: { active: boolean; isMobile: boolean })
         opacity: active ? 1 : 0, transform: active ? 'translateY(0)' : 'translateY(20px)',
         transition: 'opacity 1.2s .8s, transform 1.2s .8s',
       }}>
-        <p style={{ margin: '0 0 .8em' }}>老婆は、卓のうえに、しわくちゃの紙を広げた。</p>
-        <p style={{ margin: '0 0 .35em' }}>ひとつひとつの駅に、</p>
-        <p style={{ margin: '0 0 .35em' }}>家賃の輪、通勤の輪、</p>
-        <p style={{ margin: '0 0 .35em' }}>市場の輪、人の声の輪が、</p>
-        <p style={{ margin: '0', color: STORY_RED }}>暮らしのかたちで、ひろがっていた。</p>
+        <p style={{ margin: '0 0 .8em' }}>通勤時間で、地図が、色を変える。</p>
+        <p style={{ margin: '0 0 .35em' }}>1,793 の駅が、あなたから何分かを語る。</p>
+        <p style={{ margin: '0 0 .35em', color: STORY_DIM }}>近い駅は緑、遠い駅は朱。</p>
+        <p style={{ margin: '.8em 0 .35em' }}>スクロールひとつで、世界がほどけてゆく。</p>
+        <p style={{ margin: '0', color: STORY_RED }}>
+          名前の向こうに、<br />あなたのまちが、ひろがっている。
+        </p>
       </div>
     </Page>
   )
 }
 
-// ─── 5 · A Station is a Life — minute clock + pull quote ─────────────────
-function PageMinutes({ active, isMobile }: { active: boolean; isMobile: boolean }) {
+// ─── 終 · あなたの番 — minute clock + CTA ────────────────────────────────
+function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter: () => void; isMobile: boolean }) {
   const minutes = Array.from({ length: 60 })
   return (
-    <Page active={active} isMobile={isMobile} n="五" en="V · A Station is a Life" jp="駅は、暮らしである">
+    <Page active={active} isMobile={isMobile} n="終" en="Coda · Your Turn" jp="あなたの番">
+      {/* minute clock — 時計の針が「いまから」のはじまりを暗示 */}
       <div aria-hidden style={{
         position: 'absolute',
-        // mobile: 钟表移到右下角小尺寸，避免遮文字
         left: isMobile ? 'auto' : '8%',
         right: isMobile ? '6%' : 'auto',
-        top: isMobile ? 'auto' : '50%',
-        bottom: isMobile ? '8vh' : 'auto',
+        top: isMobile ? '14vh' : '50%',
         transform: isMobile ? 'none' : 'translateY(-50%)',
-        width: isMobile ? 'min(35vw, 160px)' : 'min(40vh, 38vw)',
+        width: isMobile ? 'min(28vw, 130px)' : 'min(36vh, 32vw)',
         aspectRatio: '1/1',
-        opacity: active ? (isMobile ? 0.55 : 1) : 0,
+        opacity: active ? (isMobile ? 0.45 : 0.9) : 0,
         transition: 'opacity 1s .2s',
       }}>
         <div style={{
@@ -660,7 +496,6 @@ function PageMinutes({ active, isMobile }: { active: boolean; isMobile: boolean 
             }} />
           )
         })}
-        {/* sweeping hand */}
         <div style={{
           position: 'absolute', left: '50%', top: '50%',
           width: 1.5, height: '46%', background: STORY_RED,
@@ -678,90 +513,46 @@ function PageMinutes({ active, isMobile }: { active: boolean; isMobile: boolean 
       <div style={{
         position: 'relative',
         marginLeft: isMobile ? 0 : 'auto',
-        maxWidth: isMobile ? '100%' : 520,
+        textAlign: isMobile ? 'left' : 'right',
+        maxWidth: isMobile ? '100%' : 540,
         marginTop: isMobile ? '6vh' : '2vh',
-        opacity: active ? 1 : 0, transform: active ? 'translateY(0)' : 'translateY(18px)',
-        transition: 'opacity 1.2s .8s, transform 1.2s .8s',
+        opacity: active ? 1 : 0, transform: active ? 'translateY(0)' : 'translateY(20px)',
+        transition: 'opacity 1.2s .5s, transform 1.2s .5s',
       }}>
         <p style={{
-          margin: isMobile ? '0 0 20px' : '0 0 28px',
-          fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
-          fontSize: isMobile ? 'clamp(13px, 4vw, 16px)' : 'clamp(16px, 1.35vw, 19px)',
-          lineHeight: isMobile ? 1.95 : 2.1,
-          letterSpacing: '.08em', color: STORY_DIM,
-        }}>
-          老婆は、ゆびで、わを、なぞった——<br />
-          「自由が丘の朝、荻窪の夕、三鷹の灯。<br />
-          人は、区ではなく、駅で、自分を語る。<br />
-          ひとつの駅は、ひとつの、暮らしのかたち。」
-        </p>
-
-        <div style={{
-          height: 1, width: 60, background: STORY_RED,
-          margin: isMobile ? '14px 0 18px' : '18px 0 22px',
-        }} />
-
-        <h3 style={{
-          margin: 0,
-          fontFamily: 'var(--display-italic, "Cormorant Garamond","Shippori Mincho",serif)',
-          fontStyle: 'italic', fontWeight: 500,
-          fontSize: isMobile ? 'clamp(24px, 7.4vw, 38px)' : 'clamp(34px, 4.2vw, 60px)',
-          lineHeight: isMobile ? 1.2 : 1.25,
-          letterSpacing: '.02em', color: STORY_INK,
-        }}>
-          東京は、千の<br />暮らしで、できている。
-        </h3>
-      </div>
-    </Page>
-  )
-}
-
-// ─── 6 · Coda + CTA ───────────────────────────────────────────────────────
-function PageCoda({ active, onEnter, isMobile }: { active: boolean; onEnter: () => void; isMobile: boolean }) {
-  return (
-    <Page active={active} isMobile={isMobile} n="終" en="Coda · Your Station" jp="あなたの駅">
-      <div style={{
-        position: 'relative', textAlign: 'center',
-        maxWidth: isMobile ? '100%' : 760,
-        opacity: active ? 1 : 0, transform: active ? 'translateY(0)' : 'translateY(20px)',
-        transition: 'opacity 1.2s .3s, transform 1.2s .3s',
-      }}>
-        <div style={{
+          margin: isMobile ? '0 0 24px' : '0 0 30px',
           fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
           fontSize: isMobile ? 'clamp(14px, 4.2vw, 17px)' : 'clamp(18px, 1.55vw, 22px)',
-          lineHeight: isMobile ? 2.1 : 2.4,
+          lineHeight: isMobile ? 2 : 2.2,
           letterSpacing: '.08em', color: STORY_INK,
-          marginBottom: isMobile ? 32 : 56,
         }}>
-          <p style={{ margin: '0 0 .35em' }}>あなたの住むべき駅は、</p>
-          <p style={{ margin: '0 0 .35em' }}>知らない名前の、その先に、</p>
-          <p style={{ margin: '0', color: STORY_RED }}>暮らしの輪として、ひろがっている。</p>
-        </div>
+          ここからは、<br />
+          <span style={{ color: STORY_RED }}>あなたの番。</span>
+        </p>
 
         <h2 style={{
-          margin: isMobile ? '0 0 18px' : '0 0 24px',
+          margin: isMobile ? '0 0 22px' : '0 0 28px',
           fontFamily: 'var(--display-italic, "Cormorant Garamond","Shippori Mincho",serif)',
           fontStyle: 'italic', fontWeight: 400,
-          fontSize: isMobile ? 'clamp(26px, 8vw, 42px)' : 'clamp(36px, 4.8vw, 64px)',
-          lineHeight: isMobile ? 1.15 : 1.1,
+          fontSize: isMobile ? 'clamp(24px, 7.2vw, 38px)' : 'clamp(32px, 4vw, 56px)',
+          lineHeight: isMobile ? 1.2 : 1.15,
           letterSpacing: '-.012em', color: STORY_INK,
           textWrap: 'balance' as CSSProperties['textWrap'],
-          padding: isMobile ? '0 4px' : 0,
         }}>
-          見知らぬ駅から、<br />暮らしを、読む。
+          自分の足で、<br />自分のまちを、探そう。
         </h2>
 
         <p style={{
-          margin: isMobile ? '0 auto 32px' : '0 auto 50px',
-          maxWidth: isMobile ? '100%' : 560,
+          margin: isMobile ? '0 0 30px' : '0 0 40px',
           fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
           fontSize: isMobile ? 'clamp(12px, 3.5vw, 14px)' : 'clamp(14px, 1.2vw, 16px)',
           lineHeight: isMobile ? 1.85 : 1.95,
-          letterSpacing: '.06em', color: '#3a3328',
+          letterSpacing: '.06em', color: STORY_DIM,
         }}>
-          東京通勤<span style={{ color: STORY_RED }}>圖</span>は、
-          千の駅を、家賃と通勤と暮らしの輪として、
-          数秒で読みなおすための一冊です。
+          東京には、まだあなたの知らない、<br />
+          あなただけの 1 駅がある。<br />
+          見つけるのは、AI でも、口コミでもない——<br />
+          スクロールしてゆく、あなたの好奇心。
         </p>
 
         <button onClick={onEnter} style={{
@@ -777,16 +568,16 @@ function PageCoda({ active, onEnter, isMobile }: { active: boolean; onEnter: () 
           onMouseEnter={e => { e.currentTarget.style.background = STORY_RED; e.currentTarget.style.borderColor = STORY_RED }}
           onMouseLeave={e => { e.currentTarget.style.background = STORY_INK; e.currentTarget.style.borderColor = STORY_INK }}
         >
-          ← マップへ
+          地図を開く →
         </button>
 
         <div style={{
-          marginTop: isMobile ? 20 : 30,
+          marginTop: isMobile ? 18 : 26,
           fontFamily: 'var(--mono, "JetBrains Mono",monospace)',
           fontSize: isMobile ? 9 : 10,
           letterSpacing: '.32em', color: '#a89c82',
         }}>
-          Tokyo Commute Atlas · MMXXVI
+          1,793 stations · waiting
         </div>
       </div>
     </Page>
