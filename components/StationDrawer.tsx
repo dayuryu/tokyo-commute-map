@@ -46,12 +46,30 @@ interface ReviewForm {
 }
 
 interface Props {
-  station:       Station | null
-  destination:   Destination
+  station:           Station | null
+  destination:       Destination
+  customStation:     CustomStation | null
+  consensus:         ConsensusMap
+  suumoMap:          SuumoStationMap | null
+  onSetAsDestination: (station: Station) => void
+  onClose:           () => void
+}
+
+// 駅が現在の通勤先と同じかを判定。default 3 種は駅名で、custom は code で照合。
+function isStationCurrentDestination(
+  station: Station,
+  destination: Destination,
   customStation: CustomStation | null
-  consensus:     ConsensusMap
-  suumoMap:      SuumoStationMap | null
-  onClose:       () => void
+): boolean {
+  if (destination === 'custom') {
+    return customStation?.code === station.code
+  }
+  const namesByDest: Record<Exclude<Destination, 'custom'>, string[]> = {
+    shinjuku: ['新宿'],
+    shibuya:  ['渋谷'],
+    tokyo:    ['東京', '東京駅'],
+  }
+  return namesByDest[destination].includes(station.name)
 }
 
 function getDeviceId(): string {
@@ -61,7 +79,7 @@ function getDeviceId(): string {
   return id
 }
 
-export default function StationDrawer({ station, destination, customStation, consensus, suumoMap, onClose }: Props) {
+export default function StationDrawer({ station, destination, customStation, consensus, suumoMap, onSetAsDestination, onClose }: Props) {
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
   const [reviews,    setReviews]    = useState<any[]>([])
   const [form,       setForm]       = useState<ReviewForm>({
@@ -211,6 +229,38 @@ export default function StationDrawer({ station, destination, customStation, con
             >
               Station #{station.code}
             </div>
+
+            {/* 「ここを通勤先にする」アクション — 駅名直下、現在の通勤先と同じなら disabled */}
+            {(() => {
+              const isCurrent = isStationCurrentDestination(station, destination, customStation)
+              return (
+                <button
+                  onClick={() => { if (!isCurrent) onSetAsDestination(station) }}
+                  disabled={isCurrent}
+                  style={{
+                    marginTop: 14,
+                    background: 'transparent',
+                    border: 'none',
+                    padding: 0,
+                    fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    letterSpacing: '.06em',
+                    color: isCurrent ? '#5e7044' : 'var(--pin)',
+                    cursor: isCurrent ? 'default' : 'pointer',
+                    opacity: isCurrent ? 1 : 0.92,
+                    transition: 'opacity .2s',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                  onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.opacity = '1' }}
+                  onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.opacity = '0.92' }}
+                >
+                  {isCurrent ? '✓ 通勤先に設定中' : 'ここを通勤先にする →'}
+                </button>
+              )
+            })()}
 
             {/* hairline divider */}
             <div className="h-px my-6" style={{ background: 'rgba(28,24,18,.10)' }} />

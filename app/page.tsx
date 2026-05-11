@@ -179,6 +179,24 @@ export default function Home() {
     }, WELCOME_FADE_MS)
   }
 
+  // StationDrawer から「ここを通勤先にする」ボタン押下時の処理。
+  // 駅を custom destination として設定 + localStorage 保存 + drawer を閉じて
+  // 地図の再色付けに集中させる。比較フローでユーザが連続的に試せるよう設計。
+  function handleSetAsDestination(station: Station) {
+    const custom: CustomStation = {
+      code: station.code,
+      name: station.name,
+      lat:  station.lat,
+      lon:  station.lon,
+    }
+    setCustomStation(custom)
+    setDestination('custom')
+    try {
+      localStorage.setItem(DESTINATION_KEY, JSON.stringify({ type: 'custom', station: custom }))
+    } catch {}
+    setSelectedStation(null)
+  }
+
   // DestinationAsk から通勤先確定が返ってきた時の処理。
   // destination / customStation を反映 + localStorage に保存 + map をマウント。
   function handleConfirmDestination(dest: Destination, custom: CustomStation | null) {
@@ -273,6 +291,7 @@ export default function Home() {
               customStation={customStation}
               consensus={consensus}
               suumoMap={suumoMap}
+              onSetAsDestination={handleSetAsDestination}
               onClose={() => setSelectedStation(null)}
             />
 
