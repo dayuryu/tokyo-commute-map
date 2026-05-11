@@ -1,21 +1,17 @@
 // components/MapView.tsx
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { Destination, Station, CustomStation } from '@/app/page'
 import { BUCKET_COLORS, getBucketThresholds, bucketize } from '@/lib/buckets'
 import { DESTINATIONS_META } from '@/lib/destinations'
 
-const DEST_COORDS: Record<string, [number, number]> = {
-  shinjuku: [139.7003, 35.6905],
-  shibuya:  [139.7016, 35.6580],
-  tokyo:    [139.7671, 35.6812],
-}
-
-const DEST_LABELS: Record<string, string> = {
-  shinjuku: '新宿',
-  shibuya:  '渋谷',
-  tokyo:    '東京駅',
+// 30 個の fixed destination の coord / code / label は stations.geojson 読み込み時に
+// 動的検索する（旧 v3.4 の hardcode 3 件を完全廃止）。
+interface DestInfo {
+  code:   number
+  coords: [number, number]
+  label:  string
 }
 
 // zoom < 9 で表示する主要乗換駅（関東核心 25 駅）
@@ -63,13 +59,16 @@ function createPinElement(label: string): HTMLElement {
 //
 // bucket 属性は maxMinutes に応じて毎回再計算する（lib/buckets.ts）。
 // これにより通勤上限スライダーを動かすたびに散点の色が範囲全体に再分布する。
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildFilteredFeatures(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rawFeatures: any[],
   destination: Destination,
   maxMinutes: number,
   maxTransfers: number,
   customStation: CustomStation | null,
-  destCodes: Record<string, number>,
+  destInfo: Record<string, DestInfo>,
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any[] {
   const thresholds = getBucketThresholds(maxMinutes)
 
@@ -88,7 +87,7 @@ function buildFilteredFeatures(
 
   const excludeCode = destination === 'custom'
     ? (customStation?.code ?? -1)
-    : (destCodes[destination] ?? -1)
+    : (destInfo[destination]?.code ?? -1)
 
   // 絞り込み + bucket 動的再計算（properties.bucket を上書き）
   return features.flatMap((f: any) => {
@@ -161,9 +160,12 @@ interface Props {
 export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const geojsonRef = useRef<any>(null)
   const markerRef = useRef<maplibregl.Marker | null>(null)
-  const destCodesRef = useRef<Record<string, number>>({})
+  // 30 個の fixed destination の info（onload で計算、destInfoReady を立てて re-render）
+  const destInfoRef = useRef<Record<string, DestInfo>>({})
+  const [destInfoReady, setDestInfoReady] = useState(false)
   const isFirstRender = useRef(true)
 
   useEffect(() => {
@@ -198,22 +200,28 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
 
       geojsonRef.current = geojson
 
-      // 固定目的地の station code を事前検索
-      const destCodes: Record<string, number> = {}
-      for (const [key, [dlon, dlat]] of Object.entries(DEST_COORDS)) {
-        let minDist = Infinity, minCode = -1
-        for (const f of geojson.features) {
-          const [lon, lat] = f.geometry.coordinates
-          const d = (lon - dlon) ** 2 + (lat - dlat) ** 2
-          if (d < minDist) { minDist = d; minCode = f.properties.code }
+      // 30 個の fixed destination の info（coords / code / label）を geojson から動的検索
+      const destInfo: Record<string, DestInfo> = {}
+      for (const meta of DESTINATIONS_META) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const matched = geojson.features.find((f: any) =>
+          f.properties.name === meta.displayName || f.properties.name === meta.transitName
+        )
+        if (matched) {
+          const [lon, lat] = matched.geometry.coordinates
+          destInfo[meta.slug] = {
+            code:   matched.properties.code,
+            coords: [lon, lat],
+            label:  meta.displayName,
+          }
         }
-        destCodes[key] = minCode
       }
-      destCodesRef.current = destCodes
+      destInfoRef.current = destInfo
+      setDestInfoReady(true)
 
       // 初期 props で絞り込み済みの features を作成し、両 source に流す
       const initialFiltered = buildFilteredFeatures(
-        geojson.features, destination, maxMinutes, maxTransfers, customStation, destCodes,
+        geojson.features, destination, maxMinutes, maxTransfers, customStation, destInfo,
       )
       const initialData = { ...geojson, features: initialFiltered }
 
@@ -429,7 +437,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
     const filtered = buildFilteredFeatures(
       geojsonRef.current.features,
       destination, maxMinutes, maxTransfers, customStation,
-      destCodesRef.current,
+      destInfoRef.current,
     )
     const data = { ...geojsonRef.current, features: filtered }
     ;(map.getSource('stations')           as maplibregl.GeoJSONSource).setData(data)
@@ -442,6 +450,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
   }, [destination, maxMinutes, maxTransfers, customStation])
 
   // ── 目的地変化 → ピン更新 + flyTo + cluster 円色更新 ──
+  // destInfoReady を依存に含めることで、geojson load 完了後の初回 marker 設置を保証
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -453,8 +462,11 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
       coords = [customStation.lon, customStation.lat]
       label = customStation.name
     } else if (destination !== 'custom') {
-      coords = DEST_COORDS[destination]
-      label = DEST_LABELS[destination]
+      const info = destInfoRef.current[destination]
+      if (info) {
+        coords = info.coords
+        label = info.label
+      }
     }
 
     markerRef.current?.remove()
@@ -474,7 +486,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
       isFirstRender.current = false
     }
 
-  }, [destination, customStation])
+  }, [destination, customStation, destInfoReady])
 
   return <div ref={containerRef} className="w-full h-full" />
 }
