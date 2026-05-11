@@ -10,6 +10,7 @@ import Story from '@/components/Story'
 import Legend from '@/components/Legend'
 import HelpButton from '@/components/HelpButton'
 import LegalLink from '@/components/LegalLink'
+import CookieConsent from '@/components/CookieConsent'
 import { supabase } from '@/lib/supabase'
 import type { SuumoStationMap, SuumoStationEntry } from '@/lib/affiliate'
 
@@ -233,6 +234,7 @@ export default function Home() {
 
             <HelpButton onClick={handleHelpClick} />
             <LegalLink />
+            <CookieConsent />
           </>
         )}
       </main>
