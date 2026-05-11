@@ -11,10 +11,14 @@ import Legend from '@/components/Legend'
 import HelpButton from '@/components/HelpButton'
 import LegalLink from '@/components/LegalLink'
 import CookieConsent from '@/components/CookieConsent'
+import DestinationAsk from '@/components/DestinationAsk'
 import { supabase } from '@/lib/supabase'
 import type { SuumoStationMap, SuumoStationEntry } from '@/lib/affiliate'
 
 const VISITED_KEY = 'tcm.visited.v1'
+// DestinationAsk で選ばれた通勤先を保存。リピート訪問時は復元して
+// 「もう一度通勤先を聞かれる」体験を回避する。
+const DESTINATION_KEY = 'tcm.destination.v1'
 
 export type Destination = 'shinjuku' | 'shibuya' | 'tokyo' | 'custom'
 
@@ -63,6 +67,7 @@ export default function Home() {
   // 初回判定中は null（SSR / hydration 安全）。
   const [welcomeOpen, setWelcomeOpen] = useState<boolean | null>(null)
   const [storyOpen, setStoryOpen] = useState(false)
+  const [destinationAskOpen, setDestinationAskOpen] = useState(false)
   const [mapMounted, setMapMounted] = useState(false)
 
   // localStorage 読み取り（初回のみ）
@@ -70,8 +75,27 @@ export default function Home() {
     let visited = false
     try { visited = localStorage.getItem(VISITED_KEY) === '1' } catch {}
     setWelcomeOpen(!visited)
-    // 一度訪問済みのユーザーはマップを直接マウント
-    if (visited) setMapMounted(true)
+    // 一度訪問済みのユーザーはマップを直接マウント、かつ保存済みの通勤先を復元
+    if (visited) {
+      setMapMounted(true)
+      try {
+        const stored = localStorage.getItem(DESTINATION_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored) as
+            | { type: 'custom'; station: CustomStation }
+            | { type: 'default'; dest: Exclude<Destination, 'custom'> }
+          if (parsed.type === 'custom' && parsed.station) {
+            setDestination('custom')
+            setCustomStation(parsed.station)
+          } else if (
+            parsed.type === 'default' &&
+            (parsed.dest === 'shinjuku' || parsed.dest === 'shibuya' || parsed.dest === 'tokyo')
+          ) {
+            setDestination(parsed.dest)
+          }
+        }
+      } catch {}
+    }
   }, [])
 
   useEffect(() => {
@@ -144,16 +168,36 @@ export default function Home() {
   // ⇒ 次のレイヤーを先に mount し、Welcome は ~900ms 後に外す。
   const WELCOME_FADE_MS = 900
 
-  // Welcome / Story の「地図へ」CTA — 共通の出口
+  // Welcome / Story の「地図へ」CTA — DestinationAsk を経由してから Map へ。
+  // mapMounted はここでは true にせず、DestinationAsk で確定したタイミングで上げる。
   function handleEnterMap() {
     persistVisited()
-    setMapMounted(true)
-    // Welcome と Story、両方とも fade out 完了後に unmount。
-    // どちらも z-index が高いので fade 中は地図を覆い、闪现しない。
+    setDestinationAskOpen(true)
     window.setTimeout(() => {
       setStoryOpen(false)
       setWelcomeOpen(false)
     }, WELCOME_FADE_MS)
+  }
+
+  // DestinationAsk から通勤先確定が返ってきた時の処理。
+  // destination / customStation を反映 + localStorage に保存 + map をマウント。
+  function handleConfirmDestination(dest: Destination, custom: CustomStation | null) {
+    if (dest === 'custom' && custom) {
+      setCustomStation(custom)
+      setDestination('custom')
+    } else {
+      setDestination(dest)
+      setCustomStation(null)
+    }
+    try {
+      const payload = dest === 'custom' && custom
+        ? { type: 'custom' as const, station: custom }
+        : { type: 'default' as const, dest }
+      localStorage.setItem(DESTINATION_KEY, JSON.stringify(payload))
+    } catch {}
+    setMapMounted(true)
+    // DestinationAsk 自身の fade out アニメ完了後に unmount
+    window.setTimeout(() => setDestinationAskOpen(false), WELCOME_FADE_MS)
   }
 
   // Welcome の Ghost CTA — Story を開く（マップはまだマウントしない）
@@ -266,6 +310,13 @@ export default function Home() {
         <Story
           onEnterMap={handleEnterMap}
           onBack={handleStoryBack}
+        />
+      )}
+
+      {destinationAskOpen && (
+        <DestinationAsk
+          stationList={stationList}
+          onConfirm={handleConfirmDestination}
         />
       )}
     </>
