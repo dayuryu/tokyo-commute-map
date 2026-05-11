@@ -159,4 +159,12 @@ tokyo-commute-map/
 
 ## License
 
-MIT (コードのみ)。データソースの著作権は上記表を参照。
+**コード**: [GNU AGPL-3.0-or-later](./LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
+本プロジェクトのソースコードは GNU Affero General Public License v3.0 で配布されます。
+ネットワーク経由で改変版を提供する場合も、改変箇所を含む完全なソースコードの公開が義務付けられます。
+
+**データ**: 各ソースの著作権は上記「データ著作権」セクションを参照。データソースは AGPL の対象外です。
+
+**商業的利用・帰属表記**: [`NOTICE`](./NOTICE) ファイルを参照。

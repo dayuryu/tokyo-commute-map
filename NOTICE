@@ -1,0 +1,48 @@
+Tokyo Commute Map (東京圏通勤マップ)
+Copyright (C) 2026 dayuryu
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+See the LICENSE file in the project root for the full text of the
+GNU Affero General Public License v3.0.
+
+---
+
+Project: Tokyo Commute Map (東京圏通勤マップ)
+Live: https://tokyo-commute-map.vercel.app/
+Source: https://github.com/dayuryu/tokyo-commute-map
+
+---
+
+Third-party data sources and their licenses (NOT covered by AGPL-3.0):
+
+- Station coordinates and adjacency data:
+    Seo-4d696b75/station_database
+    https://github.com/Seo-4d696b75/station_database
+    License: CC BY 4.0
+    Attribution: Required when redistributing the underlying data.
+
+- Public transit timetables (GTFS):
+    TrainGTFSGenerator (by fksms)
+    https://github.com/fksms/TrainGTFSGenerator
+    License: Subject to the publication conditions of each transit operator.
+    Source operators include JR East, Tokyo Metro, Toei, Tokyu, Odakyu, Keio,
+    and 17 other Kanto-region rail operators.
+
+- Train congestion data:
+    Ministry of Land, Infrastructure, Transport and Tourism (Japan)
+    "Urban Rail Congestion Rate" 2023 fiscal year edition
+    Source: https://www.mlit.go.jp/
+
+- Map tiles:
+    OpenFreeMap (https://openfreemap.org/) — derived from OpenStreetMap data.
+    License: ODbL (Open Database License).
+    © OpenStreetMap contributors.
+
+---
+
+Commercial inquiries, partnership requests, and legal notices:
+    See /legal/contact on the live site, or open an issue on GitHub.
