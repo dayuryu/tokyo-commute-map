@@ -52,7 +52,44 @@ FALLBACK_DETOUR    = 1.3
 CUTOFF_MINUTES     = 120
 
 KANTO_EXTENDED = {8, 9, 10, 11, 12, 13, 14, 19}
-DESTINATIONS   = {"shinjuku": "新宿", "shibuya": "渋谷", "tokyo": "東京"}
+
+# 通勤・通学目的地 30 駅。
+# オフィス / ビジネス街 / 大学 集中度で選定。「乗換だけ多い駅」
+# (北千住・上野等) や「住宅地」(自由が丘・吉祥寺等) は除外。
+# scripts/lookup_destinations.py で station_database から code を逆引き済み。
+# format: (station_code, slug, display_name)
+DESTINATIONS = [
+    (1130208, 'shinjuku',       '新宿'),
+    ( 100201, 'tokyo',          '東京'),
+    (1130205, 'shibuya',        '渋谷'),
+    (1130212, 'ikebukuro',      '池袋'),
+    ( 100202, 'shinagawa',      '品川'),
+    (1130228, 'tamachi',        '田町'),
+    (1130227, 'hamamatsucho',   '浜松町'),
+    (1130102, 'shimbashi',      '新橋'),
+    (1130225, 'yurakucho',      '有楽町'),
+    (1130222, 'akihabara',      '秋葉原'),
+    (1130201, 'osaki',          '大崎'),
+    (1130202, 'gotanda',        '五反田'),
+    (1130203, 'meguro',         '目黒'),
+    (1130210, 'takadanobaba',   '高田馬場'),
+    (2800208, 'otemachi',       '大手町'),
+    (2800319, 'roppongi',       '六本木'),
+    (2800113, 'toranomon',      '虎ノ門'),
+    (2800115, 'akasakamitsuke', '赤坂見附'),
+    (1131316, 'iidabashi',      '飯田橋'),
+    (1130223, 'kanda',          '神田'),
+    (1131203, 'ochanomizu',     '御茶ノ水'),
+    (2800118, 'omotesando',     '表参道'),
+    (1130105, 'yokohama',       '横浜'),
+    (9931003, 'minatomirai',    'みなとみらい'),
+    (1130307, 'musashikosugi',  '武蔵小杉'),
+    ( 100403, 'omiya',          '大宮'),
+    (1131339, 'chiba',          '千葉'),
+    (1130325, 'tachikawa',      '立川'),
+    (2300201, 'oshiage',        '押上'),
+    (2800622, 'toyosu',         '豊洲'),
+]
 
 # fallback の頻度（station_database 由来。GTFS データがないので保守的に推定）
 FALLBACK_FREQ_PER_HOUR = 4.0  # 15分1本
@@ -648,22 +685,21 @@ def main():
     adj = build_adjacency(edge_routes, edge_route_freq, edges_per_route_trips, stations)
     print(f"   ノード数: {len(adj)}")
 
-    print("\n⚙️  Step 5: 高精度 Dijkstra（エッジ別頻度感知）")
+    print(f"\n⚙️  Step 5: 高精度 Dijkstra ({len(DESTINATIONS)} 目的地)")
     results = {}
-    for dest_key, dest_name in DESTINATIONS.items():
-        src = find_station_code(stations, dest_name)
-        if not src:
-            print(f"  ❌ {dest_name} 見つからず")
+    for dest_code, dest_key, dest_name in DESTINATIONS:
+        if dest_code not in stations:
+            print(f"  ❌ {dest_name} (code={dest_code}) station_database 内に存在しない")
             continue
-        print(f"  → {dest_name} (code={src}) ...", end=" ", flush=True)
-        best_pr = dijkstra_v3(adj, src)
+        print(f"  → {dest_name:<10s} (code={dest_code}) ...", end=" ", flush=True)
+        best_pr = dijkstra_v3(adj, dest_code)
         per_station = best_per_station(best_pr)
         results[dest_key] = per_station
 
         in_30 = sum(1 for m, _, _ in per_station.values() if m <= 30)
         in_60 = sum(1 for m, _, _ in per_station.values() if m <= 60)
         direct = sum(1 for m, t, _ in per_station.values() if t == 0 and m <= 60)
-        print(f"{len(per_station)}駅到達  30分:{in_30}  60分:{in_60}  直通:{direct}")
+        print(f"{len(per_station):>4d}駅到達  30分:{in_30:>3d}  60分:{in_60:>3d}  直通:{direct:>3d}")
 
     print("\n💾 Step 6: GeoJSON 生成")
     geojson = build_geojson(stations, results)

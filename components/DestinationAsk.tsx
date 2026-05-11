@@ -3,18 +3,13 @@ import { useState, useRef, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { useIsMobile } from '@/lib/useIsMobile'
 import type { Destination, CustomStation } from '@/app/page'
+import { QUICK_DESTINATIONS, POPULAR_DESTINATIONS } from '@/lib/destinations'
 
 // editorial palette は Story と統一
 const ASK_BG  = '#f3ecdd'
 const ASK_INK = '#1c1812'
 const ASK_RED = '#a8332b'
 const ASK_DIM = '#7d7060'
-
-const QUICK_OPTIONS: { value: Destination; label: string }[] = [
-  { value: 'shinjuku', label: '新宿' },
-  { value: 'shibuya',  label: '渋谷' },
-  { value: 'tokyo',    label: '東京駅' },
-]
 
 interface Props {
   stationList: CustomStation[]
@@ -35,6 +30,7 @@ export default function DestinationAsk({ stationList, onConfirm }: Props) {
   const [closing, setClosing] = useState(false)
   const [query, setQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
+  const [showMorePopular, setShowMorePopular] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -227,18 +223,18 @@ export default function DestinationAsk({ stationList, onConfirm }: Props) {
           — or 定番の駅から —
         </div>
 
-        {/* Quick CTAs */}
+        {/* Quick CTAs (3 駅) */}
         <div style={{
           display: 'flex',
           gap: isMobile ? 8 : 12,
           justifyContent: 'center',
           flexWrap: 'wrap',
-          margin: isMobile ? '0 0 32px' : '0 0 40px',
+          margin: isMobile ? '0 0 14px' : '0 0 18px',
         }}>
-          {QUICK_OPTIONS.map(opt => (
+          {QUICK_DESTINATIONS.map(opt => (
             <button
-              key={opt.value}
-              onClick={() => close(opt.value, null)}
+              key={opt.slug}
+              onClick={() => close(opt.slug as Destination, null)}
               style={{
                 padding: isMobile ? '10px 18px' : '12px 26px',
                 background: 'transparent',
@@ -261,10 +257,76 @@ export default function DestinationAsk({ stationList, onConfirm }: Props) {
                 e.currentTarget.style.color = ASK_INK
               }}
             >
-              {opt.label}
+              {opt.displayName}
             </button>
           ))}
         </div>
+
+        {/* Popular 27 駅 — 展開可能 */}
+        {!showMorePopular ? (
+          <button
+            onClick={() => setShowMorePopular(true)}
+            style={{
+              background: 'transparent', border: 'none',
+              fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
+              fontSize: isMobile ? 12 : 13,
+              letterSpacing: '.06em',
+              color: ASK_DIM,
+              cursor: 'pointer',
+              padding: 4,
+              margin: isMobile ? '0 0 28px' : '0 0 36px',
+              transition: 'color .25s',
+              textDecoration: 'underline',
+              textUnderlineOffset: 3,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = ASK_INK }}
+            onMouseLeave={e => { e.currentTarget.style.color = ASK_DIM }}
+          >
+            他の人気通勤先 27 駅 ▼
+          </button>
+        ) : (
+          <div style={{
+            margin: isMobile ? '0 0 28px' : '0 0 36px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: isMobile ? 6 : 8,
+            justifyContent: 'center',
+            maxWidth: '100%',
+          }}>
+            {POPULAR_DESTINATIONS.map(opt => (
+              <button
+                key={opt.slug}
+                onClick={() => close(opt.slug as Destination, null)}
+                style={{
+                  padding: isMobile ? '7px 12px' : '8px 14px',
+                  background: 'rgba(255,255,255,.4)',
+                  border: '.5px solid rgba(28,24,18,.25)',
+                  color: ASK_INK,
+                  fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
+                  fontWeight: 500,
+                  fontSize: isMobile ? 12 : 12.5,
+                  letterSpacing: '.04em',
+                  borderRadius: 0,
+                  cursor: 'pointer',
+                  transition: 'all .2s',
+                  whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = ASK_INK
+                  e.currentTarget.style.color = '#f5e7d2'
+                  e.currentTarget.style.borderColor = ASK_INK
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,.4)'
+                  e.currentTarget.style.color = ASK_INK
+                  e.currentTarget.style.borderColor = 'rgba(28,24,18,.25)'
+                }}
+              >
+                {opt.displayName}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Skip CTA */}
         <button

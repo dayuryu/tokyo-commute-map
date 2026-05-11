@@ -14,18 +14,23 @@ import CookieConsent from '@/components/CookieConsent'
 import DestinationAsk from '@/components/DestinationAsk'
 import { supabase } from '@/lib/supabase'
 import type { SuumoStationMap, SuumoStationEntry } from '@/lib/affiliate'
+import {
+  type Destination,
+  type FixedDestination,
+  isFixedDestination,
+} from '@/lib/destinations'
+
+export type { Destination, FixedDestination } from '@/lib/destinations'
 
 const VISITED_KEY = 'tcm.visited.v1'
 // DestinationAsk で選ばれた通勤先を保存。リピート訪問時は復元して
 // 「もう一度通勤先を聞かれる」体験を回避する。
 const DESTINATION_KEY = 'tcm.destination.v1'
 
-export type Destination = 'shinjuku' | 'shibuya' | 'tokyo' | 'custom'
-
 export type ConsensusEntry = { min: number; count: number }
 export type ConsensusMap = Record<
   number,
-  Partial<Record<Exclude<Destination, 'custom'>, ConsensusEntry>>
+  Partial<Record<FixedDestination, ConsensusEntry>>
 >
 
 export interface CustomStation {
@@ -35,19 +40,26 @@ export interface CustomStation {
   lon: number
 }
 
-export interface Station {
-  code: number
-  name: string
-  lat: number
-  lon: number
-  min_to_shinjuku?: number
-  min_to_shibuya?: number
-  min_to_tokyo?: number
-  min_to_custom?: number
-  transfers_to_shinjuku?: number
-  transfers_to_shibuya?: number
-  transfers_to_tokyo?: number
-  bucket: number
+// 30 個の fixed destination ごとに自動生成される通勤時間フィールド。
+// build_stations_geojson_v3.py がこれらを stations.geojson の properties に書き出す。
+type CommuteFields = {
+  [K in FixedDestination as `min_to_${K}`]?:       number
+} & {
+  [K in FixedDestination as `transfers_to_${K}`]?: number
+} & {
+  [K in FixedDestination as `bucket_${K}`]?:       number
+} & {
+  // custom destination は client 側で別途算出されることがある
+  min_to_custom?:       number
+  transfers_to_custom?: number
+}
+
+export interface Station extends CommuteFields {
+  code:   number
+  name:   string
+  lat:    number
+  lon:    number
+  bucket: number  // shinjuku ベースのデフォルト bucket
 }
 
 export default function Home() {
@@ -87,10 +99,7 @@ export default function Home() {
           if (parsed.type === 'custom' && parsed.station) {
             setDestination('custom')
             setCustomStation(parsed.station)
-          } else if (
-            parsed.type === 'default' &&
-            (parsed.dest === 'shinjuku' || parsed.dest === 'shibuya' || parsed.dest === 'tokyo')
-          ) {
+          } else if (parsed.type === 'default' && isFixedDestination(parsed.dest)) {
             setDestination(parsed.dest)
           }
         }

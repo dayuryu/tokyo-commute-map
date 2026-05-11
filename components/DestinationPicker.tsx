@@ -2,12 +2,23 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import type { Destination, CustomStation } from '@/app/page'
+import { QUICK_DESTINATIONS, DESTINATIONS_META } from '@/lib/destinations'
 
-const OPTIONS: { value: Destination; label: string }[] = [
-  { value: 'shinjuku', label: '新宿' },
-  { value: 'shibuya',  label: '渋谷' },
-  { value: 'tokyo',    label: '東京駅' },
-]
+const OPTIONS = QUICK_DESTINATIONS.map(d => ({
+  value: d.slug as Destination,
+  label: d.displayName,
+}))
+
+// 駅名 → fixed destination slug の逆引きマップ。検索選択時に
+// 30 駅のいずれかに一致したら custom ではなく fixed として扱う。
+const NAME_TO_FIXED_SLUG: Record<string, string> = (() => {
+  const m: Record<string, string> = {}
+  for (const d of DESTINATIONS_META) {
+    m[d.displayName] = d.slug
+    m[d.transitName] = d.slug
+  }
+  return m
+})()
 
 interface Props {
   value: Destination
@@ -60,7 +71,14 @@ export default function DestinationPicker({ value, onChange, stationList, custom
   }
 
   function selectCustomStation(station: CustomStation) {
-    onCustomChange(station)
+    // 30 個の fixed destination のいずれかに一致したら精度の高い fixed として扱う
+    // （min_to_<slug> がプリ計算済み）。それ以外は custom（距離推算 fallback）。
+    const fixedSlug = NAME_TO_FIXED_SLUG[station.name]
+    if (fixedSlug) {
+      onChange(fixedSlug as Destination)
+    } else {
+      onCustomChange(station)
+    }
     setQuery('')
     setShowDropdown(false)
   }

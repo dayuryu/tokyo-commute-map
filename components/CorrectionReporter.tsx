@@ -130,7 +130,8 @@ export default function CorrectionReporter({
           校正報告は今後対応予定です。
         </p>
         <p style={{ margin: 0, color: 'var(--ink-mute)', fontSize: 11 }}>
-          現在は <strong>新宿 / 渋谷 / 東京駅</strong> への通勤時間のみコミュニティ校正できます。
+          現在は <strong>30 個の主要通勤駅</strong>（新宿・渋谷・東京駅・池袋・品川 等）への
+          通勤時間をコミュニティ校正できます。
         </p>
         <button
           onClick={() => setOpen(false)}

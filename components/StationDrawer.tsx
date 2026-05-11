@@ -5,26 +5,13 @@ import { supabase } from '@/lib/supabase'
 import type { ConsensusMap, CustomStation, Destination, Station } from '@/app/page'
 import CorrectionReporter from './CorrectionReporter'
 import { buildAffiliateLink, ALL_PROGRAMS, type AffiliateProgram, type SuumoStationMap } from '@/lib/affiliate'
-
-const DEST_LABELS: Record<Destination, string> = {
-  shinjuku: '新宿',
-  shibuya:  '渋谷',
-  tokyo:    '東京駅',
-  custom:   'カスタム',
-}
+import { getDestinationDisplayName, getDestinationTransitName, DESTINATIONS_META } from '@/lib/destinations'
 
 // 住居検索アフィリエイトボタン用の短縮ラベル（3 等分カード幅に収まるよう調整）
 const AFFILIATE_SHORT_LABELS: Record<AffiliateProgram, string> = {
   suumo:   'SUUMO',
   homes:   "HOME'S",
   chintai: 'CHINTAI',
-}
-
-// Yahoo!乗換案内 検索用の駅名（DEST_LABELS は表示用、こちらは検索クエリ用）
-const DEST_TRANSIT_NAMES: Record<Exclude<Destination, 'custom'>, string> = {
-  shinjuku: '新宿',
-  shibuya:  '渋谷',
-  tokyo:    '東京',
 }
 
 function round5(n: number): number {
@@ -55,7 +42,8 @@ interface Props {
   onClose:           () => void
 }
 
-// 駅が現在の通勤先と同じかを判定。default 3 種は駅名で、custom は code で照合。
+// 駅が現在の通勤先と同じかを判定。custom は code で、fixed は駅名で照合
+// （DESTINATIONS_META の displayName / transitName の両方とマッチさせる）。
 function isStationCurrentDestination(
   station: Station,
   destination: Destination,
@@ -64,12 +52,10 @@ function isStationCurrentDestination(
   if (destination === 'custom') {
     return customStation?.code === station.code
   }
-  const namesByDest: Record<Exclude<Destination, 'custom'>, string[]> = {
-    shinjuku: ['新宿'],
-    shibuya:  ['渋谷'],
-    tokyo:    ['東京', '東京駅'],
-  }
-  return namesByDest[destination].includes(station.name)
+  const meta = DESTINATIONS_META.find(d => d.slug === destination)
+  if (!meta) return false
+  // 「東京駅」と「東京」の揺れに対応するため両方とマッチさせる
+  return station.name === meta.displayName || station.name === meta.transitName
 }
 
 function getDeviceId(): string {
@@ -145,7 +131,7 @@ export default function StationDrawer({ station, destination, customStation, con
   // Yahoo!乗換案内 への外部リンク
   const destStationName = destination === 'custom'
     ? customStation?.name ?? ''
-    : DEST_TRANSIT_NAMES[destination]
+    : getDestinationTransitName(destination)
   const yahooTransitUrl = (station && commuteMin != null && destStationName)
     ? `https://transit.yahoo.co.jp/search/result?from=${encodeURIComponent(station.name)}&to=${encodeURIComponent(destStationName)}`
     : null
@@ -153,7 +139,7 @@ export default function StationDrawer({ station, destination, customStation, con
   // 表示用ラベル — custom destination の場合は実際の駅名を出す（「カスタム」固定文字を回避）
   const destLabel = destination === 'custom'
     ? (customStation?.name ?? 'カスタム')
-    : DEST_LABELS[destination]
+    : getDestinationDisplayName(destination)
 
   // 主要路線 — stations.geojson の register.csv 由来 line タグが現状未注入のためプレースホルダ
   // 後続で stations.geojson 構築時に line_names を持たせれば即接続可能
