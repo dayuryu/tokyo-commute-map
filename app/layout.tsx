@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Shippori_Mincho, Cormorant_Garamond, Inter, JetBrains_Mono } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 const shippori = Shippori_Mincho({
@@ -52,7 +53,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="ja"
       className={`${shippori.variable} ${cormorant.variable} ${inter.variable} ${jetbrains.variable}`}
     >
-      <body className="overflow-hidden h-screen w-screen">{children}</body>
+      <body className="overflow-hidden h-screen w-screen">
+        {children}
+        <Analytics />
+      </body>
     </html>
   )
 }
