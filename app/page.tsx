@@ -80,6 +80,10 @@ export default function Home() {
   const [welcomeOpen, setWelcomeOpen] = useState<boolean | null>(null)
   const [storyOpen, setStoryOpen] = useState(false)
   const [destinationAskOpen, setDestinationAskOpen] = useState(false)
+  // DestinationAsk が fade in 中（Welcome/Story の fade out と重なる時間帯）。
+  // この間は z=82 の curtain で地図を覆って、両 overlay の opacity が混じる
+  // 瞬間に下層の地図が「闪现」するのを防ぐ。
+  const [destinationAskFadeIn, setDestinationAskFadeIn] = useState(false)
   const [mapMounted, setMapMounted] = useState(false)
 
   // localStorage 読み取り（初回のみ）
@@ -182,9 +186,11 @@ export default function Home() {
   function handleEnterMap() {
     persistVisited()
     setDestinationAskOpen(true)
+    setDestinationAskFadeIn(true)  // curtain を z=82 に出す
     window.setTimeout(() => {
       setStoryOpen(false)
       setWelcomeOpen(false)
+      setDestinationAskFadeIn(false)  // fade in 完了 → curtain を外す
     }, WELCOME_FADE_MS)
   }
 
@@ -321,6 +327,22 @@ export default function Home() {
             position: 'fixed',
             inset: 0,
             zIndex: 80,
+            background: '#f3ecdd',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
+      {/* curtain — Welcome/Story → DestinationAsk 過渡中、両者の opacity が
+          混じる瞬間に下層の地図が透けるのを防ぐ。z=82 (Map=base, DestinationAsk=85,
+          Welcome=100 の間)。fade in 完了後に自動的に外れる。 */}
+      {destinationAskFadeIn && (
+        <div
+          aria-hidden
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 82,
             background: '#f3ecdd',
             pointerEvents: 'none',
           }}
