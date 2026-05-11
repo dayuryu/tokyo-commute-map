@@ -115,7 +115,7 @@ export default function StationDrawer({ station, destination, customStation, con
 
   const commuteMin = consensusEntry?.min ?? algorithmMin ?? null
 
-  // Yahoo!乗換案内 への外部リンク（精確な時間はそちらで確認してもらう）
+  // Yahoo!乗換案内 への外部リンク
   const destStationName = destination === 'custom'
     ? customStation?.name ?? ''
     : DEST_TRANSIT_NAMES[destination]
@@ -123,70 +123,140 @@ export default function StationDrawer({ station, destination, customStation, con
     ? `https://transit.yahoo.co.jp/search/result?from=${encodeURIComponent(station.name)}&to=${encodeURIComponent(destStationName)}`
     : null
 
+  // 主要路線 — stations.geojson の register.csv 由来 line タグが現状未注入のためプレースホルダ
+  // 後続で stations.geojson 構築時に line_names を持たせれば即接続可能
+  const mainLines: string[] = []  // TODO: 実データに接続
+
   return (
     <>
       {station && (
-        <div className="absolute inset-0 z-20 bg-black/20" onClick={onClose} />
+        <div
+          className="absolute inset-0 z-20"
+          style={{ background: 'rgba(28,24,18,0.18)' }}
+          onClick={onClose}
+        />
       )}
 
-      <div className={`absolute right-0 top-0 h-full z-30 w-full max-w-sm
-                       bg-white shadow-2xl overflow-y-auto
-                       transition-transform duration-300
-                       ${station ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div
+        className={`absolute right-0 top-0 h-full z-30 w-full sm:w-[380px]
+                    overflow-y-auto
+                    ${station ? 'translate-x-0' : 'translate-x-full'}`}
+        style={{
+          background: '#f4f1ea',
+          color: 'var(--ink)',
+          fontFamily: 'var(--ui-font, system-ui, sans-serif)',
+          boxShadow: '-1px 0 2px rgba(0,0,0,.04), -16px 0 48px rgba(0,0,0,.16)',
+          transition: 'transform 350ms cubic-bezier(.2,.8,.2,1)',
+          borderLeft: '.5px solid rgba(28,24,18,.10)',
+        }}
+      >
         {station && (
-          <div className="p-6">
-            {/* ヘッダー */}
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">{station.name}</h2>
-              <button onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none">
-                ×
-              </button>
+          <div className="px-7 py-7">
+            {/* close button */}
+            <button
+              onClick={onClose}
+              aria-label="close"
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+              style={{
+                color: 'var(--ink-mute)',
+                fontFamily: 'var(--display-italic, "Cormorant Garamond", Garamond, serif)',
+                fontSize: 22,
+                lineHeight: 1,
+              }}
+            >
+              ×
+            </button>
+
+            {/* eyebrow */}
+            <div
+              className="smallcaps mb-4"
+              style={{ color: 'var(--ink-mute)' }}
+            >
+              STATION · 駅
             </div>
 
-            {/* 硬数据 */}
-            <div className="mb-6">
-              <div className="bg-blue-50 rounded-2xl p-4 grid grid-cols-3 gap-3 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {commuteMin != null ? `約${round5(commuteMin)}` : '--'}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    分→{DEST_LABELS[destination]}
-                    {consensusEntry && (
-                      <span
-                        className="ml-1 text-green-600"
-                        title={`コミュニティ確認済み（${consensusEntry.count}件の報告）`}
-                      >
-                        ✓
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-orange-500">
-                    {avgScore?.avg_crowd ?? '--'}
-                  </div>
-                  <div className="text-xs text-gray-500">混雑スコア</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {avgScore?.review_count ?? 0}
-                  </div>
-                  <div className="text-xs text-gray-500">口コミ数</div>
-                </div>
-              </div>
-              {yahooTransitUrl && (
-                <a
-                  href={yahooTransitUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block text-center text-xs text-gray-500 hover:text-blue-600 mt-2 underline transition-colors"
-                >
-                  Yahoo!乗換案内で正確な時間を調べる →
-                </a>
-              )}
-              {station != null && destination !== 'custom' && algorithmMin != null && (
+            {/* station name (大字 36px) + romaji */}
+            <h2
+              style={{
+                margin: 0,
+                fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                fontWeight: 600,
+                fontSize: 36,
+                lineHeight: 1.15,
+                letterSpacing: '.01em',
+                color: 'var(--ink)',
+              }}
+            >
+              {station.name}
+            </h2>
+            <div
+              style={{
+                marginTop: 4,
+                fontFamily: 'var(--display-italic, "Cormorant Garamond", Garamond, serif)',
+                fontStyle: 'italic',
+                fontSize: 18,
+                color: 'var(--ink-soft)',
+                opacity: 0.7,
+                letterSpacing: '.01em',
+              }}
+            >
+              Station #{station.code}
+            </div>
+
+            {/* hairline divider */}
+            <div className="h-px my-6" style={{ background: 'rgba(28,24,18,.10)' }} />
+
+            {/* big minute number */}
+            <div className="flex items-baseline gap-3">
+              <span
+                className="font-mono-num tabular-nums"
+                style={{
+                  fontFamily: 'var(--display-italic, "Cormorant Garamond", Garamond, serif)',
+                  fontStyle: 'italic',
+                  fontWeight: 500,
+                  fontSize: 56,
+                  lineHeight: 1,
+                  color: 'var(--ink)',
+                  letterSpacing: '-.02em',
+                }}
+              >
+                {commuteMin != null ? round5(commuteMin) : '—'}
+              </span>
+              <span
+                style={{
+                  fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                  fontSize: 14,
+                  color: 'var(--ink-soft)',
+                  letterSpacing: '.06em',
+                }}
+              >
+                分 to {DEST_LABELS[destination]}
+                {consensusEntry && (
+                  <span
+                    className="ml-1.5"
+                    style={{ color: '#5e7044' }}
+                    title={`コミュニティ確認済み（${consensusEntry.count}件の報告）`}
+                  >
+                    ✓
+                  </span>
+                )}
+              </span>
+            </div>
+
+            {yahooTransitUrl && (
+              <a
+                href={yahooTransitUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 text-xs underline transition-colors hover:opacity-80"
+                style={{ color: 'var(--ink-mute)' }}
+              >
+                Yahoo!乗換案内で正確な時間を調べる →
+              </a>
+            )}
+
+            {station != null && destination !== 'custom' && algorithmMin != null && (
+              <div className="mt-3">
                 <CorrectionReporter
                   key={`${station.code}-${destination}`}
                   stationCode={station.code}
@@ -194,51 +264,128 @@ export default function StationDrawer({ station, destination, customStation, con
                   destination={destination}
                   algorithmMin={algorithmMin}
                 />
-              )}
+              </div>
+            )}
+
+            {/* hairline divider */}
+            <div className="h-px my-6" style={{ background: 'rgba(28,24,18,.10)' }} />
+
+            {/* detail rows: 家賃目安 / 主要路線 / 周辺の特徴 */}
+            <div className="space-y-3.5">
+              <DetailRow label="家賃目安" value="—" hint="（データ未接続）" />
+              <DetailRow
+                label="主要路線"
+                value={mainLines.length > 0 ? mainLines.join('・') : '—'}
+                hint={mainLines.length === 0 ? '（データ未接続）' : undefined}
+              />
+              <DetailRow
+                label="周辺の特徴"
+                value={avgScore?.review_count ? '—' : '—'}
+                hint="（口コミから生成）"
+              />
             </div>
 
-            {/* 平均分条形图 */}
+            {/* hairline divider */}
+            <div className="h-px my-6" style={{ background: 'rgba(28,24,18,.10)' }} />
+
+            {/* community ratings */}
             {avgScore && avgScore.review_count > 0 && (
               <div className="mb-6">
-                <h3 className="font-semibold text-gray-700 mb-3">コミュニティ評価</h3>
+                <div
+                  className="smallcaps mb-3"
+                  style={{ color: 'var(--ink-mute)' }}
+                >
+                  コミュニティ評価 · {avgScore.review_count} 件
+                </div>
                 {[
-                  { label: '💰 物価水準', value: avgScore.avg_price },
-                  { label: '🔒 治安状況', value: avgScore.avg_safety },
-                  { label: '🚃 電車混雑', value: avgScore.avg_crowd },
+                  { label: '物価水準', value: avgScore.avg_price },
+                  { label: '治安状況', value: avgScore.avg_safety },
+                  { label: '電車混雑', value: avgScore.avg_crowd },
                 ].map(({ label, value }) => (
-                  <div key={label} className="flex items-center gap-3 mb-2">
-                    <span className="text-sm w-24">{label}</span>
-                    <div className="flex-1 bg-gray-100 rounded-full h-2">
-                      <div className="bg-blue-500 h-2 rounded-full transition-all"
-                           style={{ width: `${(value / 10) * 100}%` }} />
+                  <div key={label} className="flex items-center gap-3 mb-2.5">
+                    <span
+                      style={{
+                        fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                        fontSize: 13,
+                        color: 'var(--ink)',
+                        width: 80,
+                        letterSpacing: '.04em',
+                      }}
+                    >
+                      {label}
+                    </span>
+                    <div
+                      className="flex-1 rounded-full h-1.5"
+                      style={{ background: 'rgba(28,24,18,.08)' }}
+                    >
+                      <div
+                        className="h-1.5 rounded-full transition-all"
+                        style={{
+                          width: `${(value / 10) * 100}%`,
+                          background: 'var(--ink)',
+                        }}
+                      />
                     </div>
-                    <span className="text-sm font-bold w-6 text-right">{value}</span>
+                    <span
+                      className="font-mono-num tabular-nums"
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: 'var(--ink)',
+                        width: 28,
+                        textAlign: 'right',
+                      }}
+                    >
+                      {value}
+                    </span>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* 投稿フォーム */}
+            {/* review form */}
             {!submitted ? (
-              <div className="border-t pt-5">
-                <h3 className="font-semibold text-gray-700 mb-4">あなたの評価を投稿</h3>
-                <div className="space-y-4">
+              <div>
+                <div
+                  className="smallcaps mb-3"
+                  style={{ color: 'var(--ink-mute)' }}
+                >
+                  あなたの評価を投稿
+                </div>
+                <div className="space-y-3.5">
                   {[
-                    { key: 'price_score',  label: '💰 物価水準' },
-                    { key: 'safety_score', label: '🔒 治安状況' },
-                    { key: 'crowd_score',  label: '🚃 電車混雑' },
+                    { key: 'price_score',  label: '物価水準' },
+                    { key: 'safety_score', label: '治安状況' },
+                    { key: 'crowd_score',  label: '電車混雑' },
                   ].map(({ key, label }) => (
                     <div key={key}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>{label}</span>
-                        <span className="font-bold">
+                      <div className="flex justify-between mb-1.5">
+                        <span
+                          style={{
+                            fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                            fontSize: 13,
+                            color: 'var(--ink)',
+                            letterSpacing: '.04em',
+                          }}
+                        >
+                          {label}
+                        </span>
+                        <span
+                          className="font-mono-num tabular-nums"
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: 'var(--ink)',
+                          }}
+                        >
                           {form[key as keyof ReviewForm]} / 10
                         </span>
                       </div>
-                      <input type="range" min={1} max={10} step={1}
+                      <input
+                        type="range" min={1} max={10} step={1}
                         value={form[key as keyof ReviewForm] as number}
                         onChange={(e) => setForm(f => ({ ...f, [key]: Number(e.target.value) }))}
-                        className="w-full accent-blue-500"
+                        className="pretty w-full"
                       />
                     </div>
                   ))}
@@ -246,40 +393,141 @@ export default function StationDrawer({ station, destination, customStation, con
                     placeholder="一言コメント（任意）..."
                     value={form.comment}
                     onChange={(e) => setForm(f => ({ ...f, comment: e.target.value }))}
-                    className="w-full border rounded-xl p-3 text-sm resize-none h-20
-                               focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    className="w-full p-3 text-sm resize-none h-20 focus:outline-none"
+                    style={{
+                      background: 'rgba(255,255,255,0.6)',
+                      border: '.5px solid rgba(28,24,18,.18)',
+                      borderRadius: 4,
+                      fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                      color: 'var(--ink)',
+                      letterSpacing: '.02em',
+                    }}
                   />
-                  <button onClick={submitReview} disabled={submitting}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white
-                               font-semibold py-3 rounded-xl transition-colors
-                               disabled:opacity-50">
-                    {submitting ? '送信中...' : '投稿する'}
+                  <button
+                    onClick={submitReview} disabled={submitting}
+                    className="w-full transition-all disabled:opacity-50 hover:opacity-90"
+                    style={{
+                      padding: '14px 0',
+                      background: 'var(--ink)',
+                      color: '#f5e7d2',
+                      fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                      fontWeight: 600,
+                      fontSize: 14,
+                      letterSpacing: '.06em',
+                      borderRadius: 0,
+                      cursor: submitting ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {submitting ? '送信中…' : '投稿する'}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="border-t pt-5 text-center text-green-600 font-semibold">
-                ✅ 投稿ありがとうございます！
+              <div
+                className="text-center py-4"
+                style={{
+                  fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                  fontSize: 14,
+                  color: '#5e7044',
+                  fontWeight: 600,
+                  letterSpacing: '.06em',
+                }}
+              >
+                ✓ 投稿ありがとうございます
               </div>
             )}
 
-            {/* 最新コメント */}
+            {/* recent comments */}
             {reviews.filter(r => r.comment).length > 0 && (
-              <div className="border-t pt-5 mt-5">
-                <h3 className="font-semibold text-gray-700 mb-3">最新コメント</h3>
-                {reviews.filter(r => r.comment).map((r) => (
-                  <div key={r.id} className="bg-gray-50 rounded-xl p-3 text-sm mb-2">
-                    <p className="text-gray-700">{r.comment}</p>
-                    <p className="text-gray-400 text-xs mt-1">
-                      {new Date(r.created_at).toLocaleDateString('ja-JP')}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="h-px my-6" style={{ background: 'rgba(28,24,18,.10)' }} />
+                <div
+                  className="smallcaps mb-3"
+                  style={{ color: 'var(--ink-mute)' }}
+                >
+                  最新コメント
+                </div>
+                <div className="space-y-2.5">
+                  {reviews.filter(r => r.comment).map((r) => (
+                    <div
+                      key={r.id}
+                      className="px-3.5 py-3 text-sm"
+                      style={{
+                        background: 'rgba(255,255,255,0.5)',
+                        border: '.5px solid rgba(28,24,18,.08)',
+                        borderRadius: 4,
+                        fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                        color: 'var(--ink)',
+                        lineHeight: 1.7,
+                        letterSpacing: '.02em',
+                      }}
+                    >
+                      <p className="m-0">{r.comment}</p>
+                      <p
+                        className="m-0 mt-1"
+                        style={{
+                          fontFamily: 'var(--mono, monospace)',
+                          fontSize: 10,
+                          color: 'var(--ink-mute)',
+                          letterSpacing: '.1em',
+                        }}
+                      >
+                        {new Date(r.created_at).toLocaleDateString('ja-JP')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
       </div>
     </>
+  )
+}
+
+// ── detail row helper ─────────────────────────────────────────────
+function DetailRow({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <div
+        style={{
+          width: 80,
+          flexShrink: 0,
+          fontFamily: 'var(--mono, monospace)',
+          fontSize: 10,
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '.18em',
+          color: 'var(--ink-mute)',
+        }}
+      >
+        {label}
+      </div>
+      <div
+        className="flex-1"
+        style={{
+          fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+          fontSize: 14,
+          color: 'var(--ink)',
+          letterSpacing: '.02em',
+        }}
+      >
+        {value}
+        {hint && (
+          <span
+            className="ml-2"
+            style={{
+              fontFamily: 'var(--display-italic, Garamond, serif)',
+              fontStyle: 'italic',
+              fontSize: 11,
+              color: 'var(--ink-mute)',
+            }}
+          >
+            {hint}
+          </span>
+        )}
+      </div>
+    </div>
   )
 }

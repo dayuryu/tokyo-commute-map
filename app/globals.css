@@ -1,32 +1,184 @@
 @import "tailwindcss";
 @import 'maplibre-gl/dist/maplibre-gl.css';
 
+/* ──────────────────────────────────────────────────────────────
+   Springs editorial palette + design tokens (README §7)
+   ──────────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Springs map palette — visual DNA */
+  --sp-bg:        #ece4d2;  /* cream paper */
+  --sp-park:      #b9c094;  /* sage */
+  --sp-park-s:    #c9cfa6;  /* sage highlight */
+  --sp-river:     #9ab2c0;  /* slate-blue water */
+  --sp-river-s:   #b3c4ce;  /* river highlight */
+  --sp-road:      #d4c8af;  /* hairline tan */
+  --sp-ink:       #2d3a26;  /* deep olive ink */
+  --sp-ink-soft:  #5b6b4f;  /* secondary olive */
+  --sp-txt:       #3a3a30;  /* body text */
+  --sp-txt-soft:  #7a7868;  /* caption text */
+
+  /* Editorial chrome (overlays, drawer, control bar) */
+  --bg:          #f4f1ea;
+  --land:        #ebe6db;
+  --water:       #d8d3c4;
+  --park:        #d2dcc6;
+  --ink:         #1f1d18;
+  --ink-soft:    #5b574c;
+  --ink-mute:    #908a7c;
+  --accent:      #14365b;
+  --pin:         #a8332b;
+
+  /* Type families — Google Fonts via next/font (variables set in layout.tsx) */
+  --display-font: var(--font-shippori), "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --display-italic: var(--font-cormorant), "Cormorant Garamond", Garamond, serif;
+  --ui-font: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  --mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+/* Background / foreground retained for system theme defaults */
+:root {
+  --background: var(--bg);
+  --foreground: var(--ink);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Tailwind v4 theme tokens — exposes sp-* + chrome as utilities
+   (e.g. bg-sp-bg, text-sp-ink, border-sp-ink-soft)
+   ──────────────────────────────────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-sp-bg:       var(--sp-bg);
+  --color-sp-park:     var(--sp-park);
+  --color-sp-park-s:   var(--sp-park-s);
+  --color-sp-river:    var(--sp-river);
+  --color-sp-river-s:  var(--sp-river-s);
+  --color-sp-road:     var(--sp-road);
+  --color-sp-ink:      var(--sp-ink);
+  --color-sp-ink-soft: var(--sp-ink-soft);
+  --color-sp-txt:      var(--sp-txt);
+  --color-sp-txt-soft: var(--sp-txt-soft);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-ed-bg:       var(--bg);
+  --color-ed-ink:      var(--ink);
+  --color-ed-ink-soft: var(--ink-soft);
+  --color-ed-ink-mute: var(--ink-mute);
+  --color-ed-accent:   var(--accent);
+  --color-ed-pin:      var(--pin);
+
+  --font-display: var(--display-font);
+  --font-italic:  var(--display-italic);
+  --font-ui:      var(--ui-font);
+  --font-mono:    var(--mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--ui-font);
 }
 
-/* ── 駅名ホバーポップアップ */
+/* ──────────────────────────────────────────────────────────────
+   Editorial utilities
+   ──────────────────────────────────────────────────────────── */
+.smallcaps {
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink-mute);
+}
+
+.font-display { font-family: var(--display-font); }
+.font-italic-display { font-family: var(--display-italic); font-style: italic; }
+.font-mono-num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ──────────────────────────────────────────────────────────────
+   .pretty range slider (README §4.3 — editorial slider)
+   ──────────────────────────────────────────────────────────── */
+.pretty {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 24px;
+  background: transparent;
+  cursor: pointer;
+}
+.pretty::-webkit-slider-runnable-track {
+  height: 2px;
+  background: rgba(31, 29, 24, 0.18);
+  border-radius: 999px;
+}
+.pretty::-moz-range-track {
+  height: 2px;
+  background: rgba(31, 29, 24, 0.18);
+  border-radius: 999px;
+}
+.pretty::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid #ffffff;
+  margin-top: -6px;
+  box-shadow: 0 1px 4px rgba(31, 29, 24, 0.3);
+  transition: transform .15s, box-shadow .15s;
+}
+.pretty::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(31, 29, 24, 0.4);
+}
+.pretty::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(31, 29, 24, 0.3);
+}
+.pretty:focus { outline: none; }
+
+/* ──────────────────────────────────────────────────────────────
+   Animation keyframes (README §5)
+   ──────────────────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fadeUp 0.5s cubic-bezier(.2,.8,.2,1) both;
+}
+
+@keyframes ringPulse {
+  0%   { r: 8;  opacity: 0.6; }
+  100% { r: 28; opacity: 0;   }
+}
+
+@keyframes welcomeCaretBlink {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes welcomeParticleFloat {
+  from { transform: translate(0,0); opacity: .15; }
+  to   { transform: translate(20px,-30px); opacity: .45; }
+}
+
+/* Story chapter dash-in (story-rule SVG ticks) */
+@keyframes dashIn {
+  from { stroke-dashoffset: 200; opacity: 0; }
+  to   { stroke-dashoffset: 0;   opacity: 1; }
+}
+
+/* Story concentric rings expansion */
+@keyframes ringExpand {
+  0%   { transform: scale(0); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 0;   }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   駅名ホバーポップアップ
+   ──────────────────────────────────────────────────────────── */
 .station-popup .maplibregl-popup-content {
   padding: 5px 10px;
   border-radius: 8px;
@@ -42,4 +194,3 @@ body {
   color: #1e293b;
   white-space: nowrap;
 }
-

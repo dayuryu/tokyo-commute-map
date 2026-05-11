@@ -83,11 +83,18 @@ export default function DestinationPicker({ value, onChange, stationList, custom
           <button
             key={opt.value}
             onClick={() => onChange(opt.value)}
-            className={`px-3 py-1 rounded-xl text-sm font-medium transition-all whitespace-nowrap
+            className={`px-3 py-1 rounded text-sm transition-all whitespace-nowrap
               ${value === opt.value
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 hover:bg-gray-100'
+                ? 'shadow-sm'
+                : 'hover:bg-black/5'
               }`}
+            style={{
+              fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+              fontWeight: value === opt.value ? 600 : 500,
+              letterSpacing: '.04em',
+              background: value === opt.value ? 'var(--ink)' : 'transparent',
+              color: value === opt.value ? '#f5e7d2' : 'var(--ink-soft)',
+            }}
           >
             {opt.label}
           </button>
@@ -95,7 +102,8 @@ export default function DestinationPicker({ value, onChange, stationList, custom
         {/* 検索アイコンボタン */}
         <button
           onClick={activateSearch}
-          className="px-2 py-1 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all text-sm leading-none"
+          className="px-2 py-1 rounded hover:bg-black/5 transition-all text-sm leading-none"
+          style={{ color: 'var(--ink-mute)' }}
           title="駅を検索"
         >
           <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
@@ -115,7 +123,16 @@ export default function DestinationPicker({ value, onChange, stationList, custom
       >
         {isCustomMode ? (
           /* カスタム駅チップ */
-          <div className="flex items-center gap-1 px-3 py-1 rounded-xl text-sm font-medium bg-blue-600 text-white shadow-sm whitespace-nowrap">
+          <div
+            className="flex items-center gap-1 px-3 py-1 rounded text-sm shadow-sm whitespace-nowrap"
+            style={{
+              background: 'var(--ink)',
+              color: '#f5e7d2',
+              fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+              fontWeight: 600,
+              letterSpacing: '.04em',
+            }}
+          >
             <span>{customStation.name}</span>
             <button onClick={clearCustom} className="ml-1 hover:opacity-70 leading-none">×</button>
           </div>
@@ -133,17 +150,35 @@ export default function DestinationPicker({ value, onChange, stationList, custom
                 if (e.key === 'Enter' && filtered.length > 0) selectCustomStation(filtered[0])
               }}
               placeholder="駅を検索..."
-              className="w-36 px-3 py-1 rounded-xl text-sm border border-gray-200
-                         focus:outline-none focus:border-blue-400 bg-white/80"
+              className="w-36 px-3 py-1 rounded text-sm bg-white/80 focus:outline-none transition-colors"
+              style={{
+                border: '.5px solid rgba(28,24,18,.18)',
+                fontFamily: 'var(--ui-font, system-ui, sans-serif)',
+                color: 'var(--ink)',
+              }}
+              onFocusCapture={e => { e.currentTarget.style.borderColor = 'var(--ink)' }}
+              onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(28,24,18,.18)' }}
             />
             {showDropdown && filtered.length > 0 && (
-              <div className="absolute top-full mt-1 left-0 bg-white rounded-xl shadow-lg
-                              border border-gray-100 py-1 z-50 w-44 max-h-60 overflow-y-auto">
+              <div
+                className="absolute top-full mt-1 left-0 rounded-xl shadow-lg py-1 z-50 w-44 max-h-60 overflow-y-auto"
+                style={{
+                  background: 'rgba(244, 241, 234, 0.95)',
+                  backdropFilter: 'blur(20px) saturate(160%)',
+                  WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+                  border: '.5px solid rgba(28,24,18,.10)',
+                }}
+              >
                 {filtered.map(s => (
                   <button
                     key={s.code}
                     onClick={() => selectCustomStation(s)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors whitespace-nowrap"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-black/5 transition-colors whitespace-nowrap"
+                    style={{
+                      fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                      color: 'var(--ink)',
+                      letterSpacing: '.02em',
+                    }}
                   >
                     {s.name}
                   </button>
@@ -157,7 +192,8 @@ export default function DestinationPicker({ value, onChange, stationList, custom
         {!isCustomMode && (
           <button
             onClick={deactivateSearch}
-            className="px-2 py-1 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all text-sm leading-none"
+            className="px-2 py-1 rounded hover:bg-black/5 transition-all text-sm leading-none"
+            style={{ color: 'var(--ink-mute)' }}
           >
             ✕
           </button>
