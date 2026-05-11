@@ -15,7 +15,11 @@ const AFFILIATE_SHORT_LABELS: Record<AffiliateProgram, string> = {
 }
 
 function round5(n: number): number {
-  return Math.round(n / 5) * 5
+  // n <= 0 は destination 自身（自分への通勤時間）。0 のまま表示。
+  if (n <= 0) return 0
+  // 0 より大きい場合は「ほぼ着いてる距離」も最低 5 分として表示する。
+  // 神泉 → 渋谷 (raw 1-2 分) が「0 分」と表示される bug を回避。
+  return Math.max(5, Math.round(n / 5) * 5)
 }
 
 interface AvgScore {

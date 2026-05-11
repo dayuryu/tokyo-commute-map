@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { Destination, Station, CustomStation } from '@/app/page'
 import { BUCKET_COLORS, getBucketThresholds, bucketize } from '@/lib/buckets'
+import { DESTINATIONS_META } from '@/lib/destinations'
 
 const DEST_COORDS: Record<string, [number, number]> = {
   shinjuku: [139.7003, 35.6905],
@@ -108,12 +109,33 @@ function buildFilteredFeatures(
   })
 }
 
+// cluster の集計プロパティを動的生成（30 個の fixed destination + custom 用）。
+// MapLibre は source 作成時に clusterProperties を fix するため、destination 全種
+// 分を予め declare する必要がある。
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildClusterProperties(): Record<string, any> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const props: Record<string, any> = {}
+  for (const meta of DESTINATIONS_META) {
+    const field = `min_to_${meta.slug}`
+    props[`sum_${meta.slug}`] = ['+', ['case', ['has', field], ['get', field], 0]]
+    props[`cnt_${meta.slug}`] = ['+', ['case', ['has', field], 1, 0]]
+  }
+  // custom（実行時に inject される min_to_custom 用）
+  props.sum_custom = ['+', ['case', ['has', 'min_to_custom'], ['get', 'min_to_custom'], 0]]
+  props.cnt_custom = ['+', ['case', ['has', 'min_to_custom'], 1, 0]]
+  return props
+}
+
 // cluster 円の色：destination の平均通勤時間で動的染色。
 // thresholds は maxMinutes に応じて変動するため、毎回式を組み直す。
+// custom も同じ step expression で扱う（sum_custom / cnt_custom が
+// clusterProperties で集計されている）。
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getClusterColor(destination: Destination, maxMinutes: number): any {
-  if (destination === 'custom') return '#94a3b8'
   const thresholds = getBucketThresholds(maxMinutes)
   // step 式: [step, value, default, stop1, color1, stop2, color2, ...]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const expr: any[] = [
     'step',
     ['/',
@@ -205,14 +227,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
         cluster: true,
         clusterRadius: 50,
         clusterMaxZoom: 13,
-        clusterProperties: {
-          sum_shinjuku: ['+', ['case', ['has', 'min_to_shinjuku'], ['get', 'min_to_shinjuku'], 0]],
-          cnt_shinjuku: ['+', ['case', ['has', 'min_to_shinjuku'], 1, 0]],
-          sum_shibuya:  ['+', ['case', ['has', 'min_to_shibuya'],  ['get', 'min_to_shibuya'],  0]],
-          cnt_shibuya:  ['+', ['case', ['has', 'min_to_shibuya'],  1, 0]],
-          sum_tokyo:    ['+', ['case', ['has', 'min_to_tokyo'],    ['get', 'min_to_tokyo'],    0]],
-          cnt_tokyo:    ['+', ['case', ['has', 'min_to_tokyo'],    1, 0]],
-        },
+        clusterProperties: buildClusterProperties(),
       })
 
       // ── 個別表示 Layers（zoom >= 11 で出現、デフォルトズーム 10 では非表示） ──
