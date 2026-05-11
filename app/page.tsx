@@ -10,6 +10,7 @@ import Story from '@/components/Story'
 import Legend from '@/components/Legend'
 import HelpButton from '@/components/HelpButton'
 import { supabase } from '@/lib/supabase'
+import type { SuumoStationMap, SuumoStationEntry } from '@/lib/affiliate'
 
 const VISITED_KEY = 'tcm.visited.v1'
 
@@ -51,6 +52,7 @@ export default function Home() {
   const [customStation, setCustomStation] = useState<CustomStation | null>(null)
   const [stationList, setStationList] = useState<CustomStation[]>([])
   const [consensus, setConsensus] = useState<ConsensusMap>({})
+  const [suumoMap, setSuumoMap] = useState<SuumoStationMap | null>(null)
 
   // Welcome → Story → Map handshake (README §5)
   // - welcomeOpen : true 表示 Welcome 浮层
@@ -81,6 +83,24 @@ export default function Home() {
           lon: f.geometry.coordinates[0],
         }))
       ))
+  }, [])
+
+  // SUUMO 駅 deep link 用マップを scripts/build_suumo_station_map.py の出力から読み込む。
+  // ファイル未生成（クロール未実行）の場合は 404 で suumoMap が null のまま、
+  // affiliate.ts 側で SUUMO 賃貸トップへの fallback が走る（壊れない）。
+  useEffect(() => {
+    fetch('/data/suumo_stations.json')
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('suumo map not available')))
+      .then((list: SuumoStationEntry[]) => {
+        const map: SuumoStationMap = {}
+        for (const e of list) {
+          if (!map[e.name]) map[e.name] = e
+        }
+        setSuumoMap(map)
+      })
+      .catch(() => {
+        // suumo map 未配信時は SUUMO トップへの fallback で動作するため何もしない
+      })
   }, [])
 
   useEffect(() => {
@@ -206,6 +226,7 @@ export default function Home() {
               destination={destination}
               customStation={customStation}
               consensus={consensus}
+              suumoMap={suumoMap}
               onClose={() => setSelectedStation(null)}
             />
 

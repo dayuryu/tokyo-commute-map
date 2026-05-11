@@ -4,12 +4,20 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { ConsensusMap, CustomStation, Destination, Station } from '@/app/page'
 import CorrectionReporter from './CorrectionReporter'
+import { buildAffiliateLink, ALL_PROGRAMS, type AffiliateProgram, type SuumoStationMap } from '@/lib/affiliate'
 
 const DEST_LABELS: Record<Destination, string> = {
   shinjuku: '新宿',
   shibuya:  '渋谷',
   tokyo:    '東京駅',
   custom:   'カスタム',
+}
+
+// 住居検索アフィリエイトボタン用の短縮ラベル（3 等分カード幅に収まるよう調整）
+const AFFILIATE_SHORT_LABELS: Record<AffiliateProgram, string> = {
+  suumo:   'SUUMO',
+  homes:   "HOME'S",
+  chintai: 'CHINTAI',
 }
 
 // Yahoo!乗換案内 検索用の駅名（DEST_LABELS は表示用、こちらは検索クエリ用）
@@ -42,6 +50,7 @@ interface Props {
   destination:   Destination
   customStation: CustomStation | null
   consensus:     ConsensusMap
+  suumoMap:      SuumoStationMap | null
   onClose:       () => void
 }
 
@@ -52,7 +61,7 @@ function getDeviceId(): string {
   return id
 }
 
-export default function StationDrawer({ station, destination, customStation, consensus, onClose }: Props) {
+export default function StationDrawer({ station, destination, customStation, consensus, suumoMap, onClose }: Props) {
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
   const [reviews,    setReviews]    = useState<any[]>([])
   const [form,       setForm]       = useState<ReviewForm>({
@@ -266,6 +275,83 @@ export default function StationDrawer({ station, destination, customStation, con
                 />
               </div>
             )}
+
+            {/* hairline divider */}
+            <div className="h-px my-6" style={{ background: 'rgba(28,24,18,.10)' }} />
+
+            {/* affiliate 広告 — 住居検索（景表法 PR 表記済み）
+                a8mat 未設定時は targetUrl をそのまま開く fallback 動作
+                rel="sponsored" は Google + 景表法ガイドラインの推奨 */}
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="smallcaps" style={{ color: 'var(--ink-mute)' }}>
+                  住居を探す
+                </div>
+                <span
+                  style={{
+                    fontFamily: 'var(--mono, monospace)',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: '.1em',
+                    color: 'var(--ink)',
+                    background: 'rgba(28,24,18,.08)',
+                    padding: '1px 6px',
+                    borderRadius: 2,
+                  }}
+                >
+                  PR
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {ALL_PROGRAMS.map((id) => (
+                  <a
+                    key={id}
+                    href={buildAffiliateLink(station.name, id, suumoMap ?? undefined)}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                    className="text-center transition-opacity hover:opacity-70"
+                    style={{
+                      padding: '10px 6px',
+                      fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                      fontSize: 11,
+                      color: 'var(--ink)',
+                      background: 'rgba(255,255,255,0.5)',
+                      border: '.5px solid rgba(28,24,18,.18)',
+                      borderRadius: 4,
+                      letterSpacing: '.04em',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    {AFFILIATE_SHORT_LABELS[id]}
+                    <span
+                      style={{
+                        fontFamily: 'var(--display-italic, Garamond, serif)',
+                        marginLeft: 4,
+                        fontSize: 10,
+                      }}
+                    >
+                      ↗
+                    </span>
+                  </a>
+                ))}
+              </div>
+              <p
+                style={{
+                  fontFamily: 'var(--display-italic, Garamond, serif)',
+                  fontStyle: 'italic',
+                  fontSize: 10.5,
+                  color: 'var(--ink-mute)',
+                  letterSpacing: '.02em',
+                  lineHeight: 1.5,
+                  margin: '8px 0 0 0',
+                }}
+              >
+                ※通勤時間は当サイト推算値（誤差 ±5〜10 分）です。
+                <a href="/legal/ads" className="ml-1 underline" style={{ color: 'var(--ink-mute)' }}>
+                  広告について
+                </a>
+              </p>
+            </div>
 
             {/* hairline divider */}
             <div className="h-px my-6" style={{ background: 'rgba(28,24,18,.10)' }} />
