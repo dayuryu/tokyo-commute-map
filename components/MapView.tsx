@@ -445,6 +445,14 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
           const props = e.features?.[0]?.properties
           const geo = e.features?.[0]?.geometry as any
           if (!props || !geo) return
+          // MapLibre は GeoJSON properties の配列を JSON 文字列に
+          // シリアライズすることがあるため、両方のケースを許容する
+          let lineNames: string[] = []
+          if (Array.isArray(props.line_names)) {
+            lineNames = props.line_names
+          } else if (typeof props.line_names === 'string' && props.line_names) {
+            try { lineNames = JSON.parse(props.line_names) } catch { /* noop */ }
+          }
           onStationClick({
             code: props.code,
             name: props.name,
@@ -459,6 +467,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
             transfers_to_tokyo:    props.transfers_to_tokyo,
             transfers_to_custom:   props.transfers_to_custom,
             bucket: props.bucket,
+            line_names: lineNames,
           })
         })
         map.on('mouseenter', layerId, (e) => {

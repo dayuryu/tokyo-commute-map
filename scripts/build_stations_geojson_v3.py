@@ -150,6 +150,47 @@ def load_stations(csv_path: Path) -> dict:
     return stations
 
 
+def load_station_lines(db_dir: Path) -> dict:
+    """
+    station_database/out/main/line/*.json から
+    駅 code → 所属路線名リスト の dict を構築する。
+
+    重複は排除し、登録順を保つ（同じ路線が 2 回現れない & 抽屉での
+    表示順が安定する）。closed: true の路線は除外。
+    """
+    line_dir = db_dir / "line"
+    if not line_dir.exists():
+        print(f"  ⚠️  路線データディレクトリが見つかりません: {line_dir} — 路線名はスキップ")
+        return {}
+
+    station_lines: dict = defaultdict(list)
+    seen: dict = defaultdict(set)
+    line_count = 0
+    for line_file in sorted(line_dir.glob("*.json")):
+        try:
+            with open(line_file, encoding="utf-8") as f:
+                line_data = json.load(f)
+        except Exception:
+            continue
+        if line_data.get("closed"):
+            continue
+        line_name = line_data.get("name")
+        if not line_name:
+            continue
+        line_count += 1
+        for st in line_data.get("station_list", []):
+            try:
+                code = int(st["code"])
+            except (KeyError, ValueError, TypeError):
+                continue
+            if line_name in seen[code]:
+                continue
+            seen[code].add(line_name)
+            station_lines[code].append(line_name)
+    print(f"  路線データ: {line_count} 路線、{len(station_lines)} 駅にラベル付与")
+    return dict(station_lines)
+
+
 class SpatialIndex:
     def __init__(self, stations: dict):
         self.stations = stations
@@ -674,13 +715,19 @@ def find_station_code(stations: dict, name: str):
     return None
 
 
-def build_geojson(stations: dict, results: dict) -> dict:
+def build_geojson(stations: dict, results: dict, station_lines: dict | None = None) -> dict:
     """
     results: {dest_key: {station: (total_mins, transfers, route)}}
+    station_lines: {station_code: [line_name, ...]} — 抽屉表示用、未指定なら空
     """
+    if station_lines is None:
+        station_lines = {}
     features = []
     for code, info in stations.items():
         props = {"code": code, "name": info["name"]}
+        lines = station_lines.get(code)
+        if lines:
+            props["line_names"] = lines
         has_any = False
 
         for dest_key, dest_result in results.items():
@@ -743,6 +790,9 @@ def main():
     stations = load_stations(station_csv)
     idx = SpatialIndex(stations)
 
+    print("\n🚇 Step 1.5: 路線名読込（駅 → 所属路線リスト）")
+    station_lines = load_station_lines(db_dir)
+
     print("\n🌐 Step 2: GTFS 解析（平日 + ラッシュアワー）")
     edge_routes, route_freq, edge_route_freq, edges_per_route_trips = build_gtfs_data(gtfs_cache, idx)
 
@@ -782,7 +832,7 @@ def main():
         print(f"{len(per_station):>4d}駅到達  30分:{in_30:>3d}  60分:{in_60:>3d}  直通:{direct:>3d}")
 
     print("\n💾 Step 6: GeoJSON 生成")
-    geojson = build_geojson(stations, results)
+    geojson = build_geojson(stations, results, station_lines)
     out = Path("./stations.geojson")
     with open(out, "w", encoding="utf-8") as f:
         json.dump(geojson, f, ensure_ascii=False, separators=(",", ":"))

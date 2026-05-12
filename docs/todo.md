@@ -46,11 +46,21 @@
   - Cookie 同意横幅で「すべて承認」を選んだ時のみアクティブ化
 
 ### コンテンツ
-- [ ] **DetailRow の「家賃目安」「主要路線」「周辺の特徴」データ接続**
-  - 現状全部「— (データ未接続)」のプレースホルダ
-  - 主要路線: stations.geojson に `line_names` 配列を持たせる
-  - 家賃目安: SUUMO スクレイピング or 不動産 API 検討
-  - 周辺の特徴: 口コミから自動生成 / 編集人力
+- [x] **主要路線データ接続**（2026-05-13 完了）
+  - `build_stations_geojson_v3.py` に `load_station_lines()` 追加、`stations.geojson` の `line_names` プロパティとして注入
+  - `StationDrawer.tsx:256` で `station.line_names` から表示
+- [x] **家賃目安 Phase 1: 通勤目的地 30 駅の SUUMO 駅別相場**（2026-05-13 完了）
+  - `public/data/manual_rent_data.json` に 30 駅収録（1R / 1K / 1DK / 1LDK / 2LDK / 3LDK）
+  - `lib/manual-rent.ts` から StationDrawer に「12.4 万円〜 · 1LDK 22.7 万円」形式で展開
+  - 詳細: [`rent-data-plan.md`](./rent-data-plan.md)
+- [x] **家賃目安 Phase 2: 政府住宅統計 baseline**（2026-05-13 完了）
+  - e-Stat 統計表 0004021452 から関東 305 市区町村の家賃データ取得
+  - station.csv の address を解析 → 1940/2043 駅（95%）に家賃マッピング
+  - StationDrawer で SUUMO（101 駅）→ 政府（1940 駅）→ 未収録 の二層 fallback
+  - 次回更新は 2028 年（5 年に 1 回の調査）
+- [ ] **周辺の特徴データ**
+  - AI 駅推薦機能（`ai-advisor-plan.md`）と一緒に LLM batch 生成（~$2-5）
+  - `public/data/area_features.json` に焼く設計
 
 ---
 

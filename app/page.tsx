@@ -13,6 +13,9 @@ import CookieConsent from '@/components/CookieConsent'
 import DestinationAsk from '@/components/DestinationAsk'
 import { supabase } from '@/lib/supabase'
 import type { SuumoStationMap, SuumoStationEntry } from '@/lib/affiliate'
+import { loadManualRentData, type RentMap } from '@/lib/manual-rent'
+import { loadGovernmentRentData, type GovernmentRentMap } from '@/lib/government-rent'
+import { loadLineStyles, type LineStyleMap } from '@/lib/line-styles'
 import {
   type Destination,
   type FixedDestination,
@@ -60,6 +63,7 @@ export interface Station extends CommuteFields {
   lat:    number
   lon:    number
   bucket: number  // shinjuku ベースのデフォルト bucket
+  line_names?: string[]  // 所属路線名（build_stations_geojson_v3.py が station_database から注入）
 }
 
 export default function Home() {
@@ -71,6 +75,12 @@ export default function Home() {
   const [stationList, setStationList] = useState<CustomStation[]>([])
   const [consensus, setConsensus] = useState<ConsensusMap>({})
   const [suumoMap, setSuumoMap] = useState<SuumoStationMap | null>(null)
+  // 手動収録家賃データ（101 駅、SUUMO 駅別相場ページから取得）
+  const [rentMap, setRentMap] = useState<RentMap>({})
+  // 政府住宅統計家賃データ（1940 駅、市区町村粒度の baseline）
+  const [governmentRent, setGovernmentRent] = useState<GovernmentRentMap>({})
+  // 路線スタイル map（線路名 → {color, symbol}）。主要路線 DetailRow の色条用。
+  const [lineStyles, setLineStyles] = useState<LineStyleMap>({})
   // クライアント側 Dijkstra 用グラフ。カスタム目的地で haversine を置き換える。
   // 未ロード中は null（MapView 側で fallback として haversine が動作）。
   const [graph, setGraph] = useState<PreparedGraph | null>(null)
@@ -154,6 +164,27 @@ export default function Home() {
       .catch(() => {
         // suumo map 未配信時は SUUMO トップへの fallback で動作するため何もしない
       })
+  }, [])
+
+  // 手動収録家賃データ（101 駅）。未収録 station は空 dict にフォールバック。
+  useEffect(() => {
+    loadManualRentData().then(data => {
+      if (data?.stations) setRentMap(data.stations)
+    })
+  }, [])
+
+  // 政府住宅統計家賃データ（1940 駅 baseline）。SUUMO 未収録駅の fallback 用。
+  useEffect(() => {
+    loadGovernmentRentData().then(data => {
+      if (data?.stations) setGovernmentRent(data.stations)
+    })
+  }, [])
+
+  // 路線スタイル（color/symbol）map。未取得時は空 dict、StationDrawer 側で fallback 色。
+  useEffect(() => {
+    loadLineStyles().then(map => {
+      if (map) setLineStyles(map)
+    })
   }, [])
 
   useEffect(() => {
@@ -321,6 +352,9 @@ export default function Home() {
               customStation={customStation}
               consensus={consensus}
               suumoMap={suumoMap}
+              rentMap={rentMap}
+              governmentRent={governmentRent}
+              lineStyles={lineStyles}
               onSetAsDestination={handleSetAsDestination}
               onClose={() => setSelectedStation(null)}
             />

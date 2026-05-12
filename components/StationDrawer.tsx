@@ -6,6 +6,9 @@ import type { ConsensusMap, CustomStation, Destination, Station } from '@/app/pa
 import CorrectionReporter from './CorrectionReporter'
 import { buildAffiliateLink, ALL_PROGRAMS, type AffiliateProgram, type SuumoStationMap } from '@/lib/affiliate'
 import { getDestinationDisplayName, getDestinationTransitName, DESTINATIONS_META } from '@/lib/destinations'
+import { getSingleRentLabel, getCoupleRentLabel, type RentMap } from '@/lib/manual-rent'
+import { formatGovernmentRent, type GovernmentRentMap } from '@/lib/government-rent'
+import { getLineColor, type LineStyleMap } from '@/lib/line-styles'
 
 // 住居検索アフィリエイトボタン用の短縮ラベル（3 等分カード幅に収まるよう調整）
 const AFFILIATE_SHORT_LABELS: Record<AffiliateProgram, string> = {
@@ -44,6 +47,9 @@ interface Props {
   customStation:     CustomStation | null
   consensus:         ConsensusMap
   suumoMap:          SuumoStationMap | null
+  rentMap:           RentMap
+  governmentRent:    GovernmentRentMap
+  lineStyles:        LineStyleMap
   onSetAsDestination: (station: Station) => void
   onClose:           () => void
 }
@@ -71,7 +77,7 @@ function getDeviceId(): string {
   return id
 }
 
-export default function StationDrawer({ station, destination, customStation, consensus, suumoMap, onSetAsDestination, onClose }: Props) {
+export default function StationDrawer({ station, destination, customStation, consensus, suumoMap, rentMap, governmentRent, lineStyles, onSetAsDestination, onClose }: Props) {
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
   const [reviews,    setReviews]    = useState<any[]>([])
   const [form,       setForm]       = useState<ReviewForm>({
@@ -251,9 +257,22 @@ export default function StationDrawer({ station, destination, customStation, con
     ? (customStation?.name ?? 'カスタム')
     : getDestinationDisplayName(destination)
 
-  // 主要路線 — stations.geojson の register.csv 由来 line タグが現状未注入のためプレースホルダ
-  // 後続で stations.geojson 構築時に line_names を持たせれば即接続可能
-  const mainLines: string[] = []  // TODO: 実データに接続
+  // 主要路線 — build_stations_geojson_v3.py が station_database/out/main/line/*.json
+  // を反向走査して駅 code → 路線名リストとして注入する（MapView 側で Station に展開）。
+  const mainLines: string[] = station?.line_names ?? []
+
+  // 家賃目安 — 二層 fallback:
+  //   Layer 1 (SUUMO): 101 駅、新築・徒歩 5 分→ 0.9 倍率で徒歩 10 分換算
+  //   Layer 2 (政府住宅統計): 1940 駅、市区町村単位の借家全体平均（baseline）
+  //   Layer 3 (なし): 残り 100 駅（人口 1.5 万未満の小町村）→「未収録」表示
+  const rentRow = station ? rentMap[station.name] : undefined
+  const suumoSingle = getSingleRentLabel(rentRow)
+  const suumoCouple = getCoupleRentLabel(rentRow)
+  const govRentLabel = station && !suumoSingle
+    ? formatGovernmentRent(governmentRent[String(station.code)])
+    : null
+  const rentSource: 'suumo' | 'government' | null =
+    suumoSingle ? 'suumo' : govRentLabel ? 'government' : null
 
   return (
     <>
@@ -517,15 +536,40 @@ export default function StationDrawer({ station, destination, customStation, con
 
             {/* detail rows: 家賃目安 / 主要路線 / 周辺の特徴 */}
             <div className="space-y-3.5">
-              <DetailRow label="家賃目安" value="—" hint="（データ未接続）" />
+              <DetailRow
+                label="家賃目安"
+                value={
+                  rentSource === 'suumo' ? (
+                    <span>
+                      <span style={{ fontWeight: 600 }}>{suumoSingle}</span>
+                      {suumoCouple && (
+                        <span style={{ color: 'var(--ink-soft)' }}>
+                          {' · 1LDK '}{suumoCouple}
+                        </span>
+                      )}
+                    </span>
+                  ) : rentSource === 'government' ? (
+                    <span style={{ fontWeight: 600 }}>{govRentLabel}</span>
+                  ) : '—'
+                }
+                hint={
+                  rentSource === 'suumo'      ? '徒歩 10 分以内目安（SUUMO 由来）' :
+                  rentSource === 'government' ? '住宅・土地統計調査（区平均）' :
+                                                'データなし（人口 1.5 万未満）'
+                }
+              />
               <DetailRow
                 label="主要路線"
-                value={mainLines.length > 0 ? mainLines.join('・') : '—'}
+                value={
+                  mainLines.length > 0
+                    ? <LineList lines={mainLines} styles={lineStyles} />
+                    : '—'
+                }
                 hint={mainLines.length === 0 ? '（データ未接続）' : undefined}
               />
               <DetailRow
                 label="周辺の特徴"
-                value={avgScore?.review_count ? '—' : '—'}
+                value="—"
                 hint="（口コミから生成）"
               />
             </div>
@@ -755,7 +799,42 @@ export default function StationDrawer({ station, destination, customStation, con
 }
 
 // ── detail row helper ─────────────────────────────────────────────
-function DetailRow({ label, value, hint }: { label: string; value: string; hint?: string }) {
+// ── 主要路線リスト（方案 D：左側色條 + 路線名） ──────────────────────
+// 各路線を「3.5px の色条 + 路線名」のインライン span として並べる。
+// 1 駅あたり最大 14 路線なので、自然な flex-wrap で 2-4 行に折り返す想定。
+// whiteSpace: nowrap で各 item が内部で折れないようにし、コンテナ側で行替えする。
+function LineList({ lines, styles }: { lines: string[]; styles: LineStyleMap }) {
+  return (
+    <span style={{ display: 'inline', lineHeight: 1.95 }}>
+      {lines.map((name, i) => (
+        <span
+          key={`${name}-${i}`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            marginRight: 12,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: 3.5,
+              height: 14,
+              borderRadius: 1,
+              flexShrink: 0,
+              background: getLineColor(name, styles),
+            }}
+          />
+          <span>{name}</span>
+        </span>
+      ))}
+    </span>
+  )
+}
+
+function DetailRow({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
     <div className="flex items-baseline gap-3">
       <div
