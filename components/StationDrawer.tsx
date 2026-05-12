@@ -1,6 +1,6 @@
 // components/StationDrawer.tsx
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { ConsensusMap, CustomStation, Destination, Station } from '@/app/page'
 import CorrectionReporter from './CorrectionReporter'
@@ -30,11 +30,13 @@ interface AvgScore {
 }
 
 interface ReviewForm {
-  price_score:  number
-  safety_score: number
-  crowd_score:  number
+  price_score:  number | null
+  safety_score: number | null
+  crowd_score:  number | null
   comment:      string
 }
+
+type ScoreKey = 'price_score' | 'safety_score' | 'crowd_score'
 
 interface Props {
   station:           Station | null
@@ -73,16 +75,112 @@ export default function StationDrawer({ station, destination, customStation, con
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
   const [reviews,    setReviews]    = useState<any[]>([])
   const [form,       setForm]       = useState<ReviewForm>({
-    price_score: 5, safety_score: 5, crowd_score: 5, comment: ''
+    price_score: null, safety_score: null, crowd_score: null, comment: ''
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted,  setSubmitted]  = useState(false)
+
+  // ── History API 連携 ──────────────────────────────────────────────
+  // 抽屉打开时 pushState、システムバック（popstate）で閉じる。
+  // モバイル UX：戻るボタンで地図へ戻れる挙動。
+  // pushedRef は「自分が push した entry が history 上に残っているか」を追跡。
+  const pushedRef = useRef(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!station) {
+      // 外部で station=null になった → 自前 entry を消費
+      if (pushedRef.current) {
+        pushedRef.current = false
+        window.history.back()
+      }
+      return
+    }
+    if (!pushedRef.current) {
+      window.history.pushState({ tcmDrawer: true }, '')
+      pushedRef.current = true
+    }
+    const onPop = () => {
+      // システムバック → 抽屉閉じる（自前 entry は browser が既に消費済み）
+      pushedRef.current = false
+      onClose()
+    }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+    }
+  }, [station, onClose])
+
+  // ── スワイプジェスチャ（右滑り→閉じる、モバイル） ────────────────
+  // drawerRef.transform を直接操作して跟手反馈を出す。React state を介さず、
+  // 60fps を保つ。close 時は transform をリセットして className 経由の
+  // translate-x-full に滑らかに遷移させる。
+  const drawerRef = useRef<HTMLDivElement | null>(null)
+  const swipeRef = useRef<{
+    x0: number
+    y0: number
+    t0: number
+    dir: 'pending' | 'horizontal' | 'vertical'
+  } | null>(null)
+
+  function onTouchStart(e: React.TouchEvent) {
+    if (!station) return
+    swipeRef.current = {
+      x0: e.touches[0].clientX,
+      y0: e.touches[0].clientY,
+      t0: Date.now(),
+      dir: 'pending',
+    }
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    const s = swipeRef.current
+    const el = drawerRef.current
+    if (!s || !el) return
+    const dx = e.touches[0].clientX - s.x0
+    const dy = e.touches[0].clientY - s.y0
+    if (s.dir === 'pending') {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+      // 右向き優位なら横方向 swipe として tracking、それ以外はスクロールに譲る
+      if (dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        s.dir = 'horizontal'
+        el.style.transition = 'none'
+      } else {
+        s.dir = 'vertical'
+      }
+    }
+    if (s.dir === 'horizontal') {
+      el.style.transform = `translateX(${Math.max(0, dx)}px)`
+    }
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    const s = swipeRef.current
+    const el = drawerRef.current
+    swipeRef.current = null
+    if (!s || !el || s.dir !== 'horizontal') return
+    const dx = e.changedTouches[0].clientX - s.x0
+    const dt = Math.max(1, Date.now() - s.t0)
+    const vel = dx / dt
+    el.style.transition = ''
+    el.style.transform = ''
+    if (dx > el.offsetWidth * 0.3 || vel > 0.5) {
+      onClose()
+    }
+  }
+  function onTouchCancel() {
+    const el = drawerRef.current
+    swipeRef.current = null
+    if (el) {
+      el.style.transition = ''
+      el.style.transform = ''
+    }
+  }
 
   useEffect(() => {
     if (!station) return
     setSubmitted(false)
     setAvgScore(null)
     setReviews([])
+    // 駅切替時に評価フォームを「未評価」状態にリセット
+    setForm({ price_score: null, safety_score: null, crowd_score: null, comment: '' })
     fetchData(station.code)
   }, [station])
 
@@ -103,14 +201,22 @@ export default function StationDrawer({ station, destination, customStation, con
     setReviews(revs || [])
   }
 
+  // 3 項目すべてに評価が入っているかチェック。null が 1 つでもあれば送信不可。
+  const allScored = form.price_score != null
+    && form.safety_score != null
+    && form.crowd_score != null
+
   async function submitReview() {
-    if (!station) return
+    if (!station || !allScored) return
     setSubmitting(true)
     await supabase.from('station_reviews').insert({
       station_code: station.code,
       station_name: station.name,
       device_id:    getDeviceId(),
-      ...form,
+      price_score:  form.price_score,
+      safety_score: form.safety_score,
+      crowd_score:  form.crowd_score,
+      comment:      form.comment,
     })
     setSubmitting(false)
     setSubmitted(true)
@@ -160,6 +266,11 @@ export default function StationDrawer({ station, destination, customStation, con
       )}
 
       <div
+        ref={drawerRef}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
         className={`absolute right-0 top-0 h-full z-30 w-full sm:w-[380px]
                     overflow-y-auto
                     ${station ? 'translate-x-0' : 'translate-x-full'}`}
@@ -170,6 +281,8 @@ export default function StationDrawer({ station, destination, customStation, con
           boxShadow: '-1px 0 2px rgba(0,0,0,.04), -16px 0 48px rgba(0,0,0,.16)',
           transition: 'transform 350ms cubic-bezier(.2,.8,.2,1)',
           borderLeft: '.5px solid rgba(28,24,18,.10)',
+          // iOS Safari の touch スクロール慣性を有効化（駅情報が長いため）
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         {station && (
@@ -485,42 +598,59 @@ export default function StationDrawer({ station, destination, customStation, con
                   あなたの評価を投稿
                 </div>
                 <div className="space-y-3.5">
-                  {[
+                  {([
                     { key: 'price_score',  label: '物価水準' },
                     { key: 'safety_score', label: '治安状況' },
                     { key: 'crowd_score',  label: '電車混雑' },
-                  ].map(({ key, label }) => (
-                    <div key={key}>
-                      <div className="flex justify-between mb-1.5">
-                        <span
-                          style={{
-                            fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
-                            fontSize: 13,
-                            color: 'var(--ink)',
-                            letterSpacing: '.04em',
+                  ] as { key: ScoreKey; label: string }[]).map(({ key, label }) => {
+                    const v = form[key]
+                    const scored = v != null
+                    return (
+                      <div key={key}>
+                        <div className="flex justify-between mb-1.5">
+                          <span
+                            style={{
+                              fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                              fontSize: 13,
+                              color: 'var(--ink)',
+                              letterSpacing: '.04em',
+                            }}
+                          >
+                            {label}
+                          </span>
+                          <span
+                            className="font-mono-num tabular-nums"
+                            style={{
+                              fontSize: 12,
+                              fontWeight: scored ? 600 : 500,
+                              color: scored ? 'var(--ink)' : 'var(--ink-mute)',
+                              fontStyle: scored ? 'normal' : 'italic',
+                            }}
+                          >
+                            {scored ? `${v} / 10` : '未評価'}
+                          </span>
+                        </div>
+                        <input
+                          type="range" min={1} max={10} step={1}
+                          // 未評価時は中央表示（5）にしておくが、value はあくまで null。
+                          // input 操作（change/click/touch）で初めて数値化する。
+                          value={scored ? v : 5}
+                          onChange={(e) => setForm(f => ({ ...f, [key]: Number(e.target.value) }))}
+                          // モバイル：タッチで初回スコア確定
+                          onTouchStart={() => {
+                            if (!scored) setForm(f => ({ ...f, [key]: 5 }))
                           }}
-                        >
-                          {label}
-                        </span>
-                        <span
-                          className="font-mono-num tabular-nums"
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: 'var(--ink)',
+                          // デスクトップ：クリック確定（タッチ環境ではこれも発火するため重複セットを避ける）
+                          onClick={() => {
+                            if (!scored) setForm(f => ({ ...f, [key]: 5 }))
                           }}
-                        >
-                          {form[key as keyof ReviewForm]} / 10
-                        </span>
+                          className="pretty w-full"
+                          style={{ opacity: scored ? 1 : 0.45 }}
+                          aria-valuetext={scored ? `${v} / 10` : '未評価'}
+                        />
                       </div>
-                      <input
-                        type="range" min={1} max={10} step={1}
-                        value={form[key as keyof ReviewForm] as number}
-                        onChange={(e) => setForm(f => ({ ...f, [key]: Number(e.target.value) }))}
-                        className="pretty w-full"
-                      />
-                    </div>
-                  ))}
+                    )
+                  })}
                   <textarea
                     placeholder="一言コメント（任意）..."
                     value={form.comment}
@@ -536,8 +666,9 @@ export default function StationDrawer({ station, destination, customStation, con
                     }}
                   />
                   <button
-                    onClick={submitReview} disabled={submitting}
-                    className="w-full transition-all disabled:opacity-50 hover:opacity-90"
+                    onClick={submitReview}
+                    disabled={submitting || !allScored}
+                    className="w-full transition-all disabled:opacity-40 hover:opacity-90"
                     style={{
                       padding: '14px 0',
                       background: 'var(--ink)',
@@ -547,10 +678,15 @@ export default function StationDrawer({ station, destination, customStation, con
                       fontSize: 14,
                       letterSpacing: '.06em',
                       borderRadius: 0,
-                      cursor: submitting ? 'wait' : 'pointer',
+                      cursor: submitting
+                        ? 'wait'
+                        : (allScored ? 'pointer' : 'not-allowed'),
                     }}
+                    title={allScored ? '' : '3 項目すべて評価してください'}
                   >
-                    {submitting ? '送信中…' : '投稿する'}
+                    {submitting
+                      ? '送信中…'
+                      : (allScored ? '投稿する' : '3 項目を評価してください')}
                   </button>
                 </div>
               </div>

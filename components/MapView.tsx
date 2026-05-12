@@ -1,10 +1,11 @@
 // components/MapView.tsx
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { Destination, Station, CustomStation } from '@/app/page'
 import { BUCKET_COLORS, getBucketThresholds, bucketize } from '@/lib/buckets'
 import { DESTINATIONS_META } from '@/lib/destinations'
+import { computeCommutes, type PreparedGraph } from '@/lib/dijkstra'
 
 // 30 個の fixed destination の coord / code / label は stations.geojson 読み込み時に
 // 動的検索する（旧 v3.4 の hardcode 3 件を完全廃止）。
@@ -24,6 +25,8 @@ const MAJOR_STATION_NAMES = new Set([
   '船橋', '千葉', '柏',
 ])
 
+// graph 未ロード時のみ使用される fallback 推算（直線距離 × 1.3 ÷ 35km/h）。
+// graph がロードされていれば custom destination も Dijkstra で計算される。
 function haversineMin(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371
   const dLat = (lat2 - lat1) * Math.PI / 180
@@ -32,6 +35,9 @@ function haversineMin(lat1: number, lon1: number, lat2: number, lon2: number): n
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.3 / 35 * 60
 }
+
+// custom destination 通勤時間 Map: { stationCode: { mins, transfers } }
+type CustomCommutesMap = Map<number, { mins: number; transfers: number }> | null
 
 // 目的地ピンをインラインスタイルで生成（CSS クラス依存なし）
 function createPinElement(label: string): HTMLElement {
@@ -68,19 +74,39 @@ function buildFilteredFeatures(
   maxTransfers: number,
   customStation: CustomStation | null,
   destInfo: Record<string, DestInfo>,
+  customCommutes: CustomCommutesMap,
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any[] {
   const thresholds = getBucketThresholds(maxMinutes)
 
-  // custom destination は haversine で再計算
+  // custom destination は graph があれば Dijkstra 結果を、なければ haversine fallback。
+  // どちらの場合も min_to_custom / transfers_to_custom プロパティに書き込む。
   let features = rawFeatures
   if (customStation) {
     features = features.map((f: any) => {
-      const [lon, lat] = f.geometry.coordinates
-      const minutes = haversineMin(customStation.lat, customStation.lon, lat, lon)
+      let mins: number | null = null
+      let xfers: number | null = null
+      if (customCommutes) {
+        const r = customCommutes.get(f.properties.code)
+        if (r) {
+          mins  = r.mins
+          xfers = r.transfers
+        } else if (f.properties.code === customStation.code) {
+          mins  = 0
+          xfers = 0
+        }
+      } else {
+        // graph 未ロード時の fallback
+        const [lon, lat] = f.geometry.coordinates
+        mins = Math.round(haversineMin(customStation.lat, customStation.lon, lat, lon))
+      }
       return {
         ...f,
-        properties: { ...f.properties, min_to_custom: Math.round(minutes) },
+        properties: {
+          ...f.properties,
+          min_to_custom:       mins ?? undefined,
+          transfers_to_custom: xfers ?? undefined,
+        },
       }
     })
   }
@@ -97,9 +123,18 @@ function buildFilteredFeatures(
       ? p.min_to_custom
       : p[`min_to_${destination}`]
     if (min == null || min > maxMinutes) return []
-    if (destination !== 'custom' && maxTransfers < 99) {
-      const tr = p[`transfers_to_${destination}`]
-      if (tr == null || tr > maxTransfers) return []
+    if (maxTransfers < 99) {
+      // custom / fixed 両方とも乗換数フィルタが効くようにする。
+      // custom かつ graph 未ロード（haversine fallback）の場合は transfers が
+      // 取れないので、安全側に倒して filter を無効化する（= 全表示）。
+      const tr = destination === 'custom'
+        ? p.transfers_to_custom
+        : p[`transfers_to_${destination}`]
+      if (destination === 'custom' && tr == null) {
+        // haversine fallback 中 → filter skip
+      } else if (tr == null || tr > maxTransfers) {
+        return []
+      }
     }
     return [{
       ...f,
@@ -155,9 +190,10 @@ interface Props {
   maxTransfers: number
   onStationClick: (station: Station) => void
   customStation: CustomStation | null
+  graph: PreparedGraph | null
 }
 
-export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation }: Props) {
+export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation, graph }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -167,6 +203,14 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
   const destInfoRef = useRef<Record<string, DestInfo>>({})
   const [destInfoReady, setDestInfoReady] = useState(false)
   const isFirstRender = useRef(true)
+
+  // ── カスタム目的地：Dijkstra 結果 cache ─────────────────────────────────
+  // customStation / graph が変化したときのみ再計算（重い処理を maxMinutes
+  // スライダー操作で毎回走らせない）。Map<code, {mins, transfers}>。
+  const customCommutes = useMemo<CustomCommutesMap>(() => {
+    if (!customStation || !graph) return null
+    return computeCommutes(graph, customStation.code)
+  }, [customStation, graph])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -222,6 +266,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
       // 初期 props で絞り込み済みの features を作成し、両 source に流す
       const initialFiltered = buildFilteredFeatures(
         geojson.features, destination, maxMinutes, maxTransfers, customStation, destInfo,
+        customCommutes,
       )
       const initialData = { ...geojson, features: initialFiltered }
 
@@ -282,26 +327,52 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
         filter: ['==', ['get', 'is_major'], false],
       })
 
-      // 駅名ラベル（zoom >= 12）
+      // 主要駅名ラベル（zoom >= 10、cluster 段階でも代表駅名は見える）
       map.addLayer({
-        id: 'stations-label',
+        id: 'stations-label-major',
         type: 'symbol',
         source: 'stations',
-        minzoom: 12,
+        minzoom: 10,
         layout: {
           'text-field': ['get', 'name'],
-          'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-          'text-size': 12,
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 10, 11, 14, 13],
           'text-offset': [0, 1.2],
           'text-anchor': 'top',
           'text-allow-overlap': false,
           'text-ignore-placement': false,
+          'text-padding': 4,
+        },
+        paint: {
+          'text-color': '#1c1812',
+          'text-halo-color': '#f4f1ea',
+          'text-halo-width': 1.8,
+        },
+        filter: ['==', ['get', 'is_major'], true],
+      })
+
+      // 一般駅名ラベル（zoom >= 11、単点 layer と同期出現）
+      map.addLayer({
+        id: 'stations-label',
+        type: 'symbol',
+        source: 'stations',
+        minzoom: 11,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 12],
+          'text-offset': [0, 1.1],
+          'text-anchor': 'top',
+          'text-allow-overlap': false,
+          'text-ignore-placement': false,
+          'text-padding': 2,
         },
         paint: {
           'text-color': '#1e293b',
           'text-halo-color': '#ffffff',
           'text-halo-width': 1.5,
         },
+        filter: ['==', ['get', 'is_major'], false],
       })
 
       // ── 集約 Layers（zoom < 11 で出現、デフォルトズーム 10 で表示） ──
@@ -386,6 +457,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
             transfers_to_shinjuku: props.transfers_to_shinjuku,
             transfers_to_shibuya:  props.transfers_to_shibuya,
             transfers_to_tokyo:    props.transfers_to_tokyo,
+            transfers_to_custom:   props.transfers_to_custom,
             bucket: props.bucket,
           })
         })
@@ -438,6 +510,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
       geojsonRef.current.features,
       destination, maxMinutes, maxTransfers, customStation,
       destInfoRef.current,
+      customCommutes,
     )
     const data = { ...geojsonRef.current, features: filtered }
     ;(map.getSource('stations')           as maplibregl.GeoJSONSource).setData(data)
@@ -447,7 +520,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
     if (map.getLayer('clusters')) {
       map.setPaintProperty('clusters', 'circle-color', getClusterColor(destination, maxMinutes))
     }
-  }, [destination, maxMinutes, maxTransfers, customStation])
+  }, [destination, maxMinutes, maxTransfers, customStation, customCommutes])
 
   // ── 目的地変化 → ピン更新 + flyTo + cluster 円色更新 ──
   // destInfoReady を依存に含めることで、geojson load 完了後の初回 marker 設置を保証

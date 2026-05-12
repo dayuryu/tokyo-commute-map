@@ -43,4 +43,5 @@ next-env.d.ts
 # build artifacts
 /gtfs_cache/
 /stations.geojson
+/graph.json
 /diagnose_output/

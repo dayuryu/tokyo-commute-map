@@ -8,8 +8,7 @@ import TransferFilter from '@/components/TransferFilter'
 import WelcomeOverlay from '@/components/WelcomeOverlay'
 import Story from '@/components/Story'
 import Legend from '@/components/Legend'
-import HelpButton from '@/components/HelpButton'
-import LegalLink from '@/components/LegalLink'
+import HeaderMenu from '@/components/HeaderMenu'
 import CookieConsent from '@/components/CookieConsent'
 import DestinationAsk from '@/components/DestinationAsk'
 import { supabase } from '@/lib/supabase'
@@ -19,6 +18,7 @@ import {
   type FixedDestination,
   isFixedDestination,
 } from '@/lib/destinations'
+import { prepareGraph, type GraphData, type PreparedGraph } from '@/lib/dijkstra'
 
 export type { Destination, FixedDestination } from '@/lib/destinations'
 
@@ -71,6 +71,9 @@ export default function Home() {
   const [stationList, setStationList] = useState<CustomStation[]>([])
   const [consensus, setConsensus] = useState<ConsensusMap>({})
   const [suumoMap, setSuumoMap] = useState<SuumoStationMap | null>(null)
+  // クライアント側 Dijkstra 用グラフ。カスタム目的地で haversine を置き換える。
+  // 未ロード中は null（MapView 側で fallback として haversine が動作）。
+  const [graph, setGraph] = useState<PreparedGraph | null>(null)
 
   // Welcome → Story → Map handshake (README §5)
   // - welcomeOpen : true 表示 Welcome 浮层
@@ -122,6 +125,17 @@ export default function Home() {
           lon: f.geometry.coordinates[0],
         }))
       ))
+  }, [])
+
+  // graph.json （カスタム目的地用 adjacency graph）の遅延ロード。
+  // 失敗時は graph=null のまま、MapView は haversine fallback で動作する。
+  useEffect(() => {
+    fetch('/data/graph.json')
+      .then(r => r.ok ? r.json() as Promise<GraphData> : Promise.reject(new Error('graph not available')))
+      .then(raw => setGraph(prepareGraph(raw)))
+      .catch(() => {
+        // graph 未配信時は haversine fallback。あえてエラーログを出さない。
+      })
   }, [])
 
   // SUUMO 駅 deep link 用マップを scripts/build_suumo_station_map.py の出力から読み込む。
@@ -265,11 +279,12 @@ export default function Home() {
               maxTransfers={maxTransfers}
               onStationClick={setSelectedStation}
               customStation={customStation}
+              graph={graph}
             />
 
-            {/* 顶部控制栏 — README §4.3 glass card */}
-            <div className="absolute top-3 left-3 right-3
-                            md:top-5 md:left-1/2 md:right-auto md:-translate-x-1/2
+            {/* 顶部控制栏 — README §4.3 glass card
+                glass-top class が safe-area-inset 込みの top/left/right を担当 */}
+            <div className="glass-top absolute
                             z-10 flex flex-col md:flex-row md:items-center
                             gap-2 md:gap-4
                             rounded-2xl px-4 md:px-6 py-3
@@ -310,8 +325,7 @@ export default function Home() {
               onClose={() => setSelectedStation(null)}
             />
 
-            <HelpButton onClick={handleHelpClick} />
-            <LegalLink />
+            <HeaderMenu onHelp={handleHelpClick} />
             <CookieConsent />
           </>
         )}

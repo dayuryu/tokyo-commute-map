@@ -177,6 +177,26 @@ body {
 }
 
 /* ──────────────────────────────────────────────────────────────
+   Top control bar — safe-area aware
+   モバイルは画面端から 12px + iPhone notch / Android status bar 分。
+   デスクトップは中央寄せ。inline style だと md: の上書きができない
+   ため、ここで CSS として表現する。
+   ──────────────────────────────────────────────────────────── */
+.glass-top {
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: max(12px, env(safe-area-inset-left, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+}
+@media (min-width: 768px) {
+  .glass-top {
+    top: calc(env(safe-area-inset-top, 0px) + 20px);
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
    駅名ホバーポップアップ
    ──────────────────────────────────────────────────────────── */
 .station-popup .maplibregl-popup-content {

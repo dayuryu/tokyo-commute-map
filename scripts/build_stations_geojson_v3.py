@@ -504,6 +504,83 @@ def build_adjacency(edge_routes: dict, edge_route_freq: dict,
     return adj
 
 
+# ── STEP 5.5: クライアント側 Dijkstra 用 graph.json 出力 ─────────────────
+#
+# カスタム目的地（30 駅 fixed 以外）に対応するため、隣接グラフを
+# JSON で書き出して client 側で同等 Dijkstra を実行できるようにする。
+#
+# 出力フォーマット（lib/dijkstra.ts と 1:1 対応）:
+#   {
+#     "version": "v3.4-graph",
+#     "routes": ["JR-East-Train::abc", "FALLBACK::line_123", ...],
+#     "edges": [
+#       {"a": 100201, "b": 100202, "t": 2.5, "p": 0, "r": [0,3], "f": 12.0},
+#       ...
+#     ],
+#     "params": {
+#       "transferWalkMin": 2.0,
+#       "minHeadwayMin": 1.0,
+#       "maxHeadwayMin": 15.0,
+#       "cutoffMin": 120
+#     }
+#   }
+#
+# - a / b: 駅コード（昇順）
+# - t:     travel time（クロスルート pooled median）
+# - p:     primary route index
+# - r:     このエッジを通過するすべての route の index 配列
+# - f:     edge_freq_total（trips/hour、全 route 合算）— 換乗待ち時間算出用
+def export_graph_json(adj: dict, out_path: Path):
+    """adjacency dict から client 用 graph.json を生成"""
+    # route_id を index に変換（route_id pool）
+    route_index: dict = {}
+    def route_idx(rid: str) -> int:
+        if rid not in route_index:
+            route_index[rid] = len(route_index)
+        return route_index[rid]
+
+    # 同じエッジが adj[a] と adj[b] に 2 度入っているので
+    # (min, max) key で重複排除
+    seen_keys = set()
+    edges = []
+    for station, neighbors in adj.items():
+        for neighbor, edge_data in neighbors:
+            key = (min(station, neighbor), max(station, neighbor))
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            primary = edge_data["primary_route"]
+            routes = list(edge_data["routes"].keys())
+            edges.append({
+                "a": key[0],
+                "b": key[1],
+                "t": round(edge_data["median_travel"], 3),
+                "p": route_idx(primary) if primary else 0,
+                "r": [route_idx(r) for r in routes],
+                "f": round(edge_data["edge_freq_total"], 2),
+            })
+
+    # route_index を index 順の配列に逆変換
+    routes_list = [None] * len(route_index)
+    for rid, i in route_index.items():
+        routes_list[i] = rid
+
+    graph = {
+        "version": "v3.4-graph",
+        "routes": routes_list,
+        "edges": edges,
+        "params": {
+            "transferWalkMin": TRANSFER_WALK_MIN,
+            "minHeadwayMin":   MIN_HEADWAY_MIN,
+            "maxHeadwayMin":   MAX_HEADWAY_MIN,
+            "cutoffMin":       CUTOFF_MINUTES,
+        },
+    }
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(graph, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"  ✅ graph.json: ルート {len(routes_list)}, エッジ {len(edges)} → {out_path}")
+
+
 # ── STEP 6: 高精度 Dijkstra ──────────────────────────────────────────────
 
 def dijkstra_v3(adj: dict, source: int, cutoff: float = CUTOFF_MINUTES):
@@ -684,6 +761,9 @@ def main():
     print("\n📐 Step 4: 隣接グラフ構築")
     adj = build_adjacency(edge_routes, edge_route_freq, edges_per_route_trips, stations)
     print(f"   ノード数: {len(adj)}")
+
+    print("\n📤 Step 4.5: クライアント Dijkstra 用 graph.json 出力")
+    export_graph_json(adj, Path("./graph.json"))
 
     print(f"\n⚙️  Step 5: 高精度 Dijkstra ({len(DESTINATIONS)} 目的地)")
     results = {}
