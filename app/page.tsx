@@ -6,6 +6,7 @@ import DestinationPicker from '@/components/DestinationPicker'
 import StationDrawer from '@/components/StationDrawer'
 import TransferFilter from '@/components/TransferFilter'
 import WelcomeOverlay from '@/components/WelcomeOverlay'
+import LoadingOverlay from '@/components/LoadingOverlay'
 import Story from '@/components/Story'
 import Legend from '@/components/Legend'
 import HeaderMenu from '@/components/HeaderMenu'
@@ -98,6 +99,12 @@ export default function Home() {
   // 瞬間に下層の地図が「闪现」するのを防ぐ。
   const [destinationAskFadeIn, setDestinationAskFadeIn] = useState(false)
   const [mapMounted, setMapMounted] = useState(false)
+  // 地図加载画面の状態。loaderVisible は fade in/out を 1 つの CSS トランジションで制御し、
+  // loaderMounted は DOM 上の mount/unmount を記録する（fade out 完了後に外す）。
+  // mapReady = MapView が初回 idle を発火した（タイル＋レイヤ描画完了）。
+  const [loaderMounted, setLoaderMounted] = useState(false)
+  const [loaderVisible, setLoaderVisible] = useState(false)
+  const [mapReady, setMapReady] = useState(false)
 
   // localStorage 読み取り（初回のみ）
   useEffect(() => {
@@ -107,6 +114,9 @@ export default function Home() {
     // 一度訪問済みのユーザーはマップを直接マウント、かつ保存済みの通勤先を復元
     if (visited) {
       setMapMounted(true)
+      // 加载画面 — タイル取得中の白画面を覆う
+      setLoaderMounted(true)
+      setLoaderVisible(true)
       try {
         const stored = localStorage.getItem(DESTINATION_KEY)
         if (stored) {
@@ -274,8 +284,29 @@ export default function Home() {
       localStorage.setItem(DESTINATION_KEY, JSON.stringify(payload))
     } catch {}
     setMapMounted(true)
+    // 加载画面を表示して地図の初期タイル読み込みを覆う。
+    setLoaderMounted(true)
+    setLoaderVisible(true)
+    // 既に地図が ready 済みの場合（再訪問・主页 → DestinationAsk → 再入場）は
+    // MapView が remount しないので map.once('idle', ...) が再発火しない。
+    // 手動で fade out を schedule して loader が卡死しないようにする。
+    // 初回訪問時は mapReady=false で handleMapReady の onReady で自動 fade される。
+    if (mapReady) {
+      window.setTimeout(() => setLoaderVisible(false), 800)
+      window.setTimeout(() => setLoaderMounted(false), 800 + 1200)
+    }
     // DestinationAsk 自身の fade out アニメ完了後に unmount
     window.setTimeout(() => setDestinationAskOpen(false), WELCOME_FADE_MS)
+  }
+
+  // MapView から ready 通知。加載画面を ~500ms グレースしてから fade out、
+  // 1.1s で opacity 0 になったら DOM を unmount。地図本体は mapReady に乗って
+  // opacity 0→1 にクロスフェードして現れる。
+  function handleMapReady() {
+    if (mapReady) return
+    setMapReady(true)
+    window.setTimeout(() => setLoaderVisible(false), 500)
+    window.setTimeout(() => setLoaderMounted(false), 500 + 1200)
   }
 
   // Welcome の Ghost CTA — Story を開く（マップはまだマウントしない）
@@ -304,14 +335,28 @@ export default function Home() {
         {/* マップは一度 mount したら以降ずっと表示。Welcome/Story 中はオーバーレイで覆う。 */}
         {mapMounted && (
           <>
-            <MapView
-              destination={destination}
-              maxMinutes={maxMinutes}
-              maxTransfers={maxTransfers}
-              onStationClick={setSelectedStation}
-              customStation={customStation}
-              graph={graph}
-            />
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                opacity: mapReady ? 1 : 0,
+                transform: mapReady ? 'scale(1)' : 'scale(1.015)',
+                transformOrigin: 'center center',
+                transition:
+                  'opacity 1.2s cubic-bezier(.2,.8,.2,1), transform 1.6s cubic-bezier(.2,.8,.2,1)',
+                willChange: 'opacity, transform',
+              }}
+            >
+              <MapView
+                destination={destination}
+                maxMinutes={maxMinutes}
+                maxTransfers={maxTransfers}
+                onStationClick={setSelectedStation}
+                customStation={customStation}
+                graph={graph}
+                onReady={handleMapReady}
+              />
+            </div>
 
             {/* 顶部控制栏 — README §4.3 glass card
                 glass-top class が safe-area-inset 込みの top/left/right を担当 */}
@@ -417,6 +462,9 @@ export default function Home() {
           onConfirm={handleConfirmDestination}
         />
       )}
+
+      {/* 加載画面 — MapView の onReady 発火後 ~1.7s で fade out + unmount */}
+      {loaderMounted && <LoadingOverlay visible={loaderVisible} />}
     </>
   )
 }

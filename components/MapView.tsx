@@ -191,9 +191,12 @@ interface Props {
   onStationClick: (station: Station) => void
   customStation: CustomStation | null
   graph: PreparedGraph | null
+  /** 初回 idle（タイル＋レイヤ描画完了）で 1 度だけ発火する任意 callback。
+   *  LoadingOverlay のフェードアウト用。 */
+  onReady?: () => void
 }
 
-export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation, graph }: Props) {
+export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation, graph, onReady }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -502,10 +505,22 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
       })
       map.on('mouseenter', 'clusters', () => { map.getCanvas().style.cursor = 'pointer' })
       map.on('mouseleave', 'clusters', () => { map.getCanvas().style.cursor = '' })
+
+      // 全タイル + レイヤ描画完了の最初の idle で onReady を発火（1 度きり）。
+      // LoadingOverlay のフェードアウトトリガー。
+      map.once('idle', () => { onReady?.() })
     })
 
+    // safety net: 8s 経っても idle が来ない場合は強制的に ready 扱い
+    // （タイル取得が遅延した時のフリーズ防止）。
+    const readyFallback = window.setTimeout(() => { onReady?.() }, 8000)
+
     mapRef.current = map
-    return () => { map.remove(); mapRef.current = null }
+    return () => {
+      window.clearTimeout(readyFallback)
+      map.remove()
+      mapRef.current = null
+    }
   }, [])
 
   // ── 両 source のデータをフィルター適用後に更新 ──

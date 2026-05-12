@@ -164,6 +164,21 @@ body {
   to   { transform: translate(20px,-30px); opacity: .45; }
 }
 
+/* LoadingOverlay — compass + arc + pulse rings (editorial 風) */
+@keyframes tcmLoaderCompass {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes tcmLoaderArc {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+@keyframes tcmLoaderPulse {
+  0%   { transform: scale(.55); opacity: 0; }
+  20%  { opacity: .45; }
+  100% { transform: scale(1.6);  opacity: 0; }
+}
+
 /* Story chapter dash-in (story-rule SVG ticks) */
 @keyframes dashIn {
   from { stroke-dashoffset: 200; opacity: 0; }
