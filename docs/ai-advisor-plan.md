@@ -25,6 +25,35 @@
   cache 命中は無制限（recall できる UX）。
 - 6 問目「外せない条件 (自由記述)」は採用せず、5 問 + destination = 6 問構成。
 
+### 2026-05-13 (PM) v1 上線後の微調・bug 修正
+
+UI/UX 整理 session で AI 動線に関する以下の改善を実施:
+
+- **AiRecallButton 双 mode 化**: aiCache=null 時は「AI に聞いてみる」初回 CTA、
+  存在時は従来の「20 駅を再表示」。地図上常駐で、DestinationAsk で AI を
+  選ばずに地図に来た user の後追い起動を担保（死路 UX 解消）。
+- **AiWizard 退出 CTA 追加**: 通勤先選択画面（30 駅起点）に
+  「← ご希望の駅が見つからない方は、地図へ戻る」+「対応駅は順次追加」を配置。
+  対応駅外の user を死路に感じさせない設計。
+- **handleWizardResolve 体感速度改善**: AiWizard 内部の 700ms closing fade と
+  page.tsx 側の 900ms WELCOME_FADE_MS が直列で 1.6s 待たされていた問題を修正。
+  900ms 側を削除し、wizard fade ほぼ完了と同時に flyTo + drawer slide 開始。
+- **MapView destInfo lookup 括弧後缀対応**: geojson の駅名に同名衝突回避の
+  括弧後缀（田町(東京) / 大手町(東京) / 神田(東京) / 大宮(埼玉) /
+  押上（スカイツリー前））が付与されている 5 駅で、これらを destination に
+  選ぶと赤ピンが描画されない bug を修正（精確 match → 括弧 prefix 前缀 fallback）。
+- **MapView 選択駅 flyTo 確実化**: 旧実装は inView 時 skip していたが、
+  抽屉 380px に隠れた station / destination flyTo 直後の bounds 中央付近で
+  見えにくいケースを取りこぼしていた。選択駅変更時は常に flyTo するように変更、
+  桌面端は offset:[-190, 0] で抽屉左側 viewport の視覚中心に配置。
+- **StationDrawer 抽屉打開時の地図交互**: absolute inset-0 z-20 の全幅 backdrop
+  が地図 pan/zoom/cluster click を阻害していた bug を修正。backdrop を削除し、
+  抽屉打開中も地図を操作可能に。閉じる手段は右上 × / モバイル swipe /
+  ブラウザ戻る 3 系統で担保。
+- **ChatGPT brand 表記追加**: OpenAI brand guideline に従いロゴ不使用、文字表記のみで
+  StationDrawer の AI 要約 disclaimer / DestinationAsk の AI hero card /
+  AiResultGrid の brand attribution「Powered by OpenAI」3 箇所に明示。
+
 ---
 
 ---

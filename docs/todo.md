@@ -76,6 +76,7 @@
 - ✅ DestinationAsk: AI hero card 入口、24h 利用済み時は「再表示」モードに変身
 - ✅ 24h cache + recall: localStorage 永続化、cache 命中は無制限
 - ✅ AiRecallButton: 地図左下フロート、attention sequence (pulse + tooltip)
+  - 2026-05-13 (PM): hasCache prop による二態化。aiCache=null 時は「AI に聞いてみる」初回 CTA、存在時は「20 駅を再表示」。地図上常駐で「やっぱり AI に聞きたい」user の救済路を担保。
 - ✅ StationDrawer: 「← AI 推薦 20 駅に戻る」リンク (該当駅のみ表示)
 - ✅ MapView: 選択駅 INK 黒ピン (赤通勤先と区別)、選択時散点 hide で視覚錯位回避
 - ✅ Rate limit: 1 device / 24h (cache miss のみカウント、cache hit は無制限)
@@ -216,3 +217,4 @@ React Native / フル native 書き換えは **永続的に非推奨**。
 |---|---|
 | 2026-05-12 | 初版作成。商業化フェーズ実装完了後の残タスクを商業化 / 機能拡張 / 技術的負債 / ドキュメントに分類して整理 |
 | 2026-05-13 | AI 駅推薦 v1 上線（Wizard + cache + recall + 1/day rate-limit）、周辺の特徴データ完了。v2 候補 + 多言語化 i18n 候補追加 |
+| 2026-05-13 (PM) | UI/UX 整理 session: 物語叙事の再構築（A2 平衡）+ Story 第 1 章毛玻璃 + traveler animation 修正 + 大見出し nowrap 守則。AI Advisor の地図上常駐エントリ化（hasCache 双 mode）+ Wizard 退出 CTA。ChatGPT brand 表記 3 箇所追加。bug 修正: 田町等 5 駅の destInfo lookup 括弧後缀対応 / 選択駅 flyTo 確実化 + 桌面 offset / 抽屉 backdrop 削除（地図卡死解消） / handleWizardResolve 余計な 900ms 遅延削除。全駅数 1,793 → 1843 統一 |
