@@ -16,10 +16,12 @@
 import crypto from 'crypto'
 import { supabase } from '@/lib/supabase'
 
-// ── 平衡型阈値（主人 2026-05-13 確定） ──────────────────────
-export const DEVICE_DAILY_LIMIT = 5    // 1 device、24h で OpenAI 真調用 5 回
-export const DEVICE_BURST_LIMIT = 3    // 1 device、60sec で 3 回
-export const IP_MINUTE_LIMIT    = 10   // 1 IP、60sec で 10 回
+// ── 厳格型阈値（主人 2026-05-13 改訂） ──────────────────────
+// 主人方針: AI 推薦は探索の補助、主役ではない。1 デバイス 1 日 1 回で API 節約 + 体験
+// を「使い切りの嗜好品」に寄せる。キャッシュ命中は無制限なので、リコールは何度でも可。
+export const DEVICE_DAILY_LIMIT = 1    // 1 device、24h で OpenAI 真調用 1 回
+export const DEVICE_BURST_LIMIT = 3    // 1 device、60sec で 3 回（保険、実際は daily で先に block）
+export const IP_MINUTE_LIMIT    = 10   // 1 IP、60sec で 10 回（共有 IP の保険）
 export const GLOBAL_DAILY_LIMIT = 300  // 全体、24h で OpenAI 真調用 300 回
 
 export type RateLimitReason =
