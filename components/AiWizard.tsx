@@ -37,6 +37,7 @@ import type {
   WizardAnswers,
 } from '@/lib/ai-recommend/types'
 import { computeCommutes, type PreparedGraph } from '@/lib/dijkstra'
+import { getDeviceId } from '@/lib/device-id'
 import type { CustomStation } from '@/app/page'
 import AiResultGrid from './AiResultGrid'
 
@@ -74,22 +75,7 @@ function buildSearchKeys(name: string): string[] {
   return keys
 }
 
-// ── デバイス ID（StationDrawer と共通 key） ───────────────────────
-function getDeviceId(): string {
-  const key = 'tcm_device_id'
-  let id = ''
-  try {
-    id = localStorage.getItem(key) ?? ''
-    if (!id) {
-      id = crypto.randomUUID()
-      localStorage.setItem(key, id)
-    }
-  } catch {
-    // Private browsing 等で localStorage 不可 → 一時 UUID（rate limit は IP で代用）
-    id = crypto.randomUUID()
-  }
-  return id
-}
+// デバイス ID は lib/device-id.ts に集約（非 Secure Context でも安全な fallback 付き）
 
 // ── 質問定義 ─────────────────────────────────────────────────────
 type AnswerValue = CommuteMaxMinutes | RentMax | Household | Atmosphere | SafetyPriority
@@ -344,30 +330,39 @@ export default function AiWizard({
 
   async function runRecommend() {
     setState({ phase: 'loading' })
-    const p = partialRef.current
-    const answers = {
-      destination: p.destination,
-      maxMinutes:  p.maxMinutes,
-      rentMax:     p.rentMax,
-      household:   p.household,
-      atmosphere:  p.atmosphere,
-      safety:      p.safety,
-    } as WizardAnswers
-    const deviceId = getDeviceId()
-    // custom destination 時は customDestination + commuteByCode を同送
-    const customPayload =
-      p.destination === 'custom' && p.customStation && p.commuteByCode
-        ? {
-            customDestination: { code: p.customStation.code, name: p.customStation.name } as CustomDestinationInfo,
-            commuteByCode:     p.commuteByCode,
-          }
-        : {}
+    // 30 秒で abort。OpenAI 呼出は通常 5-15 秒、それを大きく超える時は
+    // ネット不安定 / 後端ハング / mobile Safari の tab 凍結が疑われる。
+    // ユーザを永遠 loading 画面に閉じ込めず error phase に逃がして retry させる。
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), 30_000)
+    // 全ての準備処理を try の中に入れて、同期 throw（過去に crypto.randomUUID
+    // 未定義などで発生したケース）も catch でエラー UI に逃がすようにする。
     try {
+      const p = partialRef.current
+      const answers = {
+        destination: p.destination,
+        maxMinutes:  p.maxMinutes,
+        rentMax:     p.rentMax,
+        household:   p.household,
+        atmosphere:  p.atmosphere,
+        safety:      p.safety,
+      } as WizardAnswers
+      const deviceId = getDeviceId()
+      // custom destination 時は customDestination + commuteByCode を同送
+      const customPayload =
+        p.destination === 'custom' && p.customStation && p.commuteByCode
+          ? {
+              customDestination: { code: p.customStation.code, name: p.customStation.name } as CustomDestinationInfo,
+              commuteByCode:     p.commuteByCode,
+            }
+          : {}
       const res = await fetch('/api/recommend', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ deviceId, ...answers, ...customPayload }),
+        signal:  controller.signal,
       })
+      window.clearTimeout(timeoutId)
       const data = (await res.json()) as RecommendApiResponse
 
       if (!data.ok) {
@@ -392,10 +387,14 @@ export default function AiWizard({
         onResultReady(dest, data.recommendations)
       }
     } catch (e) {
+      window.clearTimeout(timeoutId)
+      const isAbort = e instanceof DOMException && e.name === 'AbortError'
       console.error('[AiWizard] /api/recommend failed:', e)
       setState({
         phase: 'error',
-        message: 'ネットワークエラーが発生しました。',
+        message: isAbort
+          ? 'タイムアウトしました。ネットワーク環境をご確認の上、再度お試しください。'
+          : 'ネットワークエラーが発生しました。',
         canRetry: true,
       })
     }

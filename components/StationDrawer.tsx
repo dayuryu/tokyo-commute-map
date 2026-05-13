@@ -10,6 +10,7 @@ import { getSingleRentLabel, getCoupleRentLabel, type RentMap } from '@/lib/manu
 import { formatGovernmentRent, type GovernmentRentMap } from '@/lib/government-rent'
 import { getLineColor, type LineStyleMap } from '@/lib/line-styles'
 import type { AreaFeatureMap } from '@/lib/area-features'
+import { getDeviceId } from '@/lib/device-id'
 
 // 住居検索アフィリエイトボタン用の短縮ラベル（3 等分カード幅に収まるよう調整）
 const AFFILIATE_SHORT_LABELS: Record<AffiliateProgram, string> = {
@@ -78,12 +79,7 @@ function isStationCurrentDestination(
   return station.name === meta.displayName || station.name === meta.transitName
 }
 
-function getDeviceId(): string {
-  const key = 'tcm_device_id'
-  let id = localStorage.getItem(key)
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem(key, id) }
-  return id
-}
+// デバイス ID は lib/device-id.ts に集約（非 Secure Context でも安全な fallback 付き）
 
 export default function StationDrawer({ station, destination, customStation, customCommutes, consensus, suumoMap, rentMap, governmentRent, lineStyles, areaFeatures, aiRecallAvailable, onRecallAi, onSetAsDestination, onClose }: Props) {
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)

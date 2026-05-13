@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getDeviceId } from '@/lib/device-id'
 import type { Destination } from '@/app/page'
 
 interface Props {
@@ -12,12 +13,7 @@ interface Props {
   algorithmMin: number              // 表示中の算出値
 }
 
-function getDeviceId(): string {
-  const key = 'tcm_device_id'
-  let id = localStorage.getItem(key)
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem(key, id) }
-  return id
-}
+// デバイス ID は lib/device-id.ts に集約（非 Secure Context でも安全な fallback 付き）
 
 function getTolerance(algorithm: number): number {
   return Math.max(Math.round(algorithm * 0.4), 30)
