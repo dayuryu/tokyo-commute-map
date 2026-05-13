@@ -262,7 +262,21 @@ function CtaBlock({ onCtaClick }: { onCtaClick: () => void }) {
           letterSpacing: '.02em',
         }}
       >
-        AI による参考情報。最終的な判断はご自身でお願いします。
+        ChatGPT による参考情報。最終的な判断はご自身でお願いします。
+      </p>
+      {/* brand attribution — OpenAI brand guideline に従い、ロゴ不使用・文字のみで明示 */}
+      <p
+        style={{
+          marginTop: 4,
+          fontFamily: 'var(--mono, monospace)',
+          fontSize: 9,
+          letterSpacing: '.32em',
+          textTransform: 'uppercase',
+          color: DIM,
+          opacity: .7,
+        }}
+      >
+        Powered by OpenAI
       </p>
     </div>
   )

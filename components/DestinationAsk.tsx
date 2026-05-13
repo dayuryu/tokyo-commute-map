@@ -161,7 +161,7 @@ export default function DestinationAsk({
           letterSpacing: '.08em',
           color: ASK_DIM,
         }}>
-          ここから、1,793 駅が、<br />あなたの中心を語りはじめる。
+          ここから、1843駅が、<br />あなたの中心を語りはじめる。
         </p>
 
         {/* ── AI 推薦 hero card ────────────────────────────────────
@@ -212,7 +212,7 @@ export default function DestinationAsk({
           }}>
             {aiCacheFresh
               ? 'your twenty places, ready to revisit'
-              : 'let AI choose twenty places for you'}
+              : 'let AI suggest twenty places for you'}
           </div>
           <div style={{
             marginTop: 8,
@@ -223,7 +223,7 @@ export default function DestinationAsk({
           }}>
             {aiCacheFresh
               ? '過去の推薦 20 駅を再表示する →'
-              : '6 つの質問に答えて、AI に提案してもらう →'}
+              : '6 つの質問に答えて、ChatGPT に提案してもらう →'}
           </div>
         </button>
 
@@ -474,7 +474,7 @@ export default function DestinationAsk({
           fontSize: isMobile ? 9 : 10,
           letterSpacing: '.32em', color: '#a89c82',
         }}>
-          1,793 stations · waiting
+          1843 stations · waiting
         </div>
       </div>
     </div>
