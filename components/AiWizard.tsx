@@ -339,6 +339,7 @@ export default function AiWizard({
           total={QUESTIONS.length + 1}
           isMobile={isMobile}
           onAnswer={answerQuestion}
+          onExit={handleClose}
         />
       )}
       {state.phase === 'q' && state.index > 0 && (
@@ -392,11 +393,14 @@ function DestinationView({
   total,
   isMobile,
   onAnswer,
+  onExit,
 }: {
   index:    number
   total:    number
   isMobile: boolean
   onAnswer: (value: FixedDestination) => void
+  /** 30 駅に通勤先が無い user 向けの退出ハンドラ — Wizard を閉じて地図へ戻る */
+  onExit:   () => void
 }) {
   const [showMore, setShowMore] = useState(false)
   return (
@@ -571,19 +575,57 @@ function DestinationView({
           </div>
         )}
 
-        {/* hint — custom destination 不対応の説明 */}
-        <p
-          style={{
-            marginTop: 28,
-            fontFamily: 'var(--display-italic, Garamond, serif)',
-            fontStyle: 'italic',
-            fontSize: 11,
-            color: DIM,
-            letterSpacing: '.02em',
-          }}
-        >
-          AI 推薦は現在この 30 駅を起点に対応しています。
-        </p>
+        {/* hint + 退出口 — 30 駅に通勤先がない user の救済路 (#5)
+            右上の × も同等動作だが、明示的な戻り CTA で死路 UX を防止する。
+            「順次追加」の一文で「いつか自分の駅も対応される」期待を残す。 */}
+        <div style={{ marginTop: 28 }}>
+          <p
+            style={{
+              margin: 0,
+              fontFamily: 'var(--display-italic, Garamond, serif)',
+              fontStyle: 'italic',
+              fontSize: 11,
+              color: DIM,
+              letterSpacing: '.02em',
+            }}
+          >
+            AI 推薦は現在この 30 駅を起点に対応しています。
+          </p>
+          <button
+            onClick={onExit}
+            style={{
+              marginTop: 16,
+              background: 'transparent',
+              border: 'none',
+              padding: '6px 4px',
+              cursor: 'pointer',
+              color: INK,
+              fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+              fontSize: isMobile ? 13 : 14,
+              fontWeight: 500,
+              letterSpacing: '.06em',
+              transition: 'color .2s',
+              textDecoration: 'underline',
+              textUnderlineOffset: 4,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = RED }}
+            onMouseLeave={e => { e.currentTarget.style.color = INK }}
+          >
+            ← ご希望の駅が見つからない方は、地図へ戻る
+          </button>
+          <p
+            style={{
+              margin: '6px 0 0 0',
+              fontFamily: 'var(--display-italic, Garamond, serif)',
+              fontStyle: 'italic',
+              fontSize: 10.5,
+              color: DIM,
+              letterSpacing: '.02em',
+            }}
+          >
+            対応駅は順次追加してまいります。
+          </p>
+        </div>
       </div>
     </div>
   )

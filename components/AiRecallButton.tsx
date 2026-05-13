@@ -1,16 +1,19 @@
 'use client'
 
 /**
- * AI 推薦結果の再表示ボタン（地図左下フロート）。
+ * 地図左下の AI Advisor フロートボタン。
  *
- * aiCache が存在する間ずっと地図上に常駐し、押下で AiWizard を recall モードで再起動。
+ * hasCache (= isAiCacheFresh) に応じて 2 つの mode を持つ：
+ *   - hasCache=false (初回発見):「AI に聞いてみる」CTA、押下で新規 wizard 起動
+ *   - hasCache=true  (再表示):  「20 駅を再表示」CTA、押下で wizard を result phase 直起動
+ *
+ * これにより、DestinationAsk で AI を選ばずに地図に来た user も
+ * 後から「やっぱり AI に聞こう」と思った時に地図上から起動できる (#6)。
+ *
  * Legend (右下) と HeaderMenu (右上) を避け、左下に配置。
  * 「左下 AI · 右下 Legend」で視覚的に対称、両者の上に積み重ならない設計。
  *
- * 24h 経過しても disable しない — recall は OpenAI を呼ばないので無制限利用可。
- * 「24h ルール」は新規 wizard の制限であって、見直しは制限対象外（主人方針）。
- *
- * ── attention sequence (招 2)
+ * ── attention sequence
  * mount 時、sessionStorage に hinted フラグが無ければ：
  *   - 500ms 後に tooltip フェードイン + ボタン pulse 開始
  *   - 3.5s 表示後フェードアウト + pulse 停止
@@ -29,11 +32,13 @@ const HINT_DELAY_MS    = 500
 const HINT_DURATION_MS = 3500
 
 interface Props {
-  /** 押下時に呼ばれる。親側で wizardOpen='recall' に切替 */
-  onRecall: () => void
+  /** aiCache が 24h 以内に存在するか — true なら「再表示」mode、false なら「初回」mode */
+  hasCache: boolean
+  /** 押下時に呼ばれる。親側で hasCache に応じて handleRecallWizard / handleStartWizard を切替 */
+  onClick:  () => void
 }
 
-export default function AiRecallButton({ onRecall }: Props) {
+export default function AiRecallButton({ hasCache, onClick }: Props) {
   const isMobile = useIsMobile()
   const [showHint, setShowHint] = useState(false)
 
@@ -124,7 +129,9 @@ export default function AiRecallButton({ onRecall }: Props) {
               letterSpacing: '.04em',
             }}
           >
-            ここから 20 駅推薦を<br />いつでも再表示できます
+            {hasCache
+              ? <>ここから 20 駅推薦を<br />いつでも再表示できます</>
+              : <>6 つの質問で、<br />あなたに合う 20 駅を提案</>}
           </div>
           {/* 三角形矢印 — button 方向を指す */}
           <div
@@ -143,8 +150,8 @@ export default function AiRecallButton({ onRecall }: Props) {
 
         {/* button 本体 */}
         <button
-          onClick={onRecall}
-          aria-label="AI 推薦を再表示"
+          onClick={onClick}
+          aria-label={hasCache ? 'AI 推薦を再表示' : 'AI に駅を提案してもらう'}
           style={{
             padding: isMobile ? '8px 14px' : '10px 18px',
             background: 'rgba(244, 241, 234, 0.92)',
@@ -192,7 +199,7 @@ export default function AiRecallButton({ onRecall }: Props) {
               letterSpacing: '.06em',
             }}
           >
-            20 駅を再表示 →
+            {hasCache ? '20 駅を再表示 →' : 'AI に聞いてみる →'}
           </div>
         </button>
       </div>

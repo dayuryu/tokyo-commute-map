@@ -459,11 +459,11 @@ export default function Home() {
       setLoaderMounted(true)
       setLoaderVisible(true)
     }
-    // drawer open は Wizard fade out 完了後に行う（地図が見える状態で表示する）
-    window.setTimeout(() => {
-      setSelectedStation(found)
-      setWizardOpen(false)
-    }, WELCOME_FADE_MS)
+    // AiWizard.handleResolve 側で既に 700ms closing fade を消費しているため、
+    // ここでは即時に drawer 開 + wizard unmount。以前は更に 900ms (WELCOME_FADE_MS)
+    // 待っていて、合計 1.6s「点击 → 飛び始め」の遅延体感を生んでいた (主人報告)。
+    setSelectedStation(found)
+    setWizardOpen(false)
   }
 
   // MapView から ready 通知。加載画面を ~500ms グレースしてから fade out、
@@ -559,8 +559,12 @@ export default function Home() {
 
             <Legend maxMinutes={maxMinutes} />
 
-            {/* AI 推薦リコール — aiCache がある間ずっと表示、押下で wizard を result phase で再起動 */}
-            {aiCache && <AiRecallButton onRecall={handleRecallWizard} />}
+            {/* AI 推薦エントリ — 常時表示。hasCache=true で「20 駅再表示」、false で「初回 AI に聞く」(#6)
+                aiCache が無い user も地図上から後追いで AI Advisor を起動できるようにする死路 UX 対策。 */}
+            <AiRecallButton
+              hasCache={isAiCacheFresh(aiCache)}
+              onClick={isAiCacheFresh(aiCache) ? handleRecallWizard : handleStartWizard}
+            />
 
             <StationDrawer
               station={selectedStation}
