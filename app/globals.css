@@ -208,6 +208,9 @@ body {
     left: 50%;
     right: auto;
     transform: translateX(-50%);
+    /* tablet 横向き (~800-900px) 等で control bar が画面端から overflow するのを防止。
+       両端 24px の余白を保証して max-width を動的に算出。 */
+    max-width: calc(100vw - 48px);
   }
 }
 

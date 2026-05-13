@@ -284,7 +284,8 @@ export default function DestinationAsk({
               border: `.5px solid ${ASK_INK}`,
               borderRadius: 0,
               fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
-              fontSize: isMobile ? 14 : 15,
+              // mobile 16px 未満は iOS Safari が focus 時に自動 zoom する。両端 16+ 維持。
+              fontSize: isMobile ? 16 : 15,
               color: ASK_INK,
               letterSpacing: '.04em',
               textAlign: 'center',

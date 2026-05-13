@@ -183,7 +183,8 @@ export default function CorrectionReporter({
             border: '.5px solid rgba(28,24,18,.18)',
             borderRadius: 0,
             fontFamily: 'var(--mono, monospace)',
-            fontSize: 14,
+            // mobile 16px 未満は iOS Safari が focus 時に自動 zoom する。
+            fontSize: 16,
             color: 'var(--ink)',
             letterSpacing: '.02em',
             outline: 'none',

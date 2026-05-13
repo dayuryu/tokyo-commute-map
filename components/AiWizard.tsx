@@ -640,7 +640,8 @@ function DestinationView({
               border: `.5px solid rgba(28,24,18,.28)`,
               borderRadius: 0,
               fontFamily: 'var(--ui-font, system-ui, sans-serif)',
-              fontSize: isMobile ? 13 : 14,
+              // mobile 16px 未満は iOS Safari が focus 時に自動 zoom する。
+              fontSize: isMobile ? 16 : 14,
               color: INK,
               outline: 'none',
               transition: 'border-color .2s, background .2s',

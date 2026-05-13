@@ -168,7 +168,8 @@ export default function DestinationPicker({ value, onChange, stationList, custom
                 if (e.key === 'Enter' && filtered.length > 0) selectCustomStation(filtered[0])
               }}
               placeholder="駅を検索..."
-              className="w-36 px-3 py-1 rounded text-sm bg-white/80 focus:outline-none transition-colors"
+              /* text-[16px] で iOS Safari focus 時の自動 zoom 防止（< 16px は強制拡大される） */
+              className="w-36 px-3 py-1 rounded text-[16px] bg-white/80 focus:outline-none transition-colors"
               style={{
                 border: '.5px solid rgba(28,24,18,.18)',
                 fontFamily: 'var(--ui-font, system-ui, sans-serif)',
@@ -179,7 +180,7 @@ export default function DestinationPicker({ value, onChange, stationList, custom
             />
             {showDropdown && filtered.length > 0 && (
               <div
-                className="absolute top-full mt-1 left-0 rounded-xl shadow-lg py-1 z-50 w-44 max-h-60 overflow-y-auto"
+                className="absolute top-full mt-1 left-0 rounded-xl shadow-lg py-1 z-50 w-44 overflow-y-auto max-h-[min(15rem,calc(100dvh-120px))]"
                 style={{
                   background: 'rgba(244, 241, 234, 0.95)',
                   backdropFilter: 'blur(20px) saturate(160%)',

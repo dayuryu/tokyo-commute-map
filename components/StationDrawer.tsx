@@ -319,12 +319,14 @@ export default function StationDrawer({ station, destination, customStation, cus
       >
         {station && (
           <div className="px-7 py-7">
-            {/* close button */}
+            {/* close button — safe-area-inset で notch / 状態バー隠れ防止
+                (iPad 横向き split-view、iOS 全屏ノッチ機種で重要) */}
             <button
               onClick={onClose}
               aria-label="close"
-              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+              className="absolute right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
               style={{
+                top: 'calc(env(safe-area-inset-top, 0px) + 16px)',
                 color: 'var(--ink-mute)',
                 fontFamily: 'var(--display-italic, "Cormorant Garamond", Garamond, serif)',
                 fontSize: 22,
@@ -753,7 +755,8 @@ export default function StationDrawer({ station, destination, customStation, cus
                     placeholder="一言コメント（任意）..."
                     value={form.comment}
                     onChange={(e) => setForm(f => ({ ...f, comment: e.target.value }))}
-                    className="w-full p-3 text-sm resize-none h-20 focus:outline-none"
+                    /* text-[16px] で iOS Safari focus 時の自動 zoom 防止 */
+                    className="w-full p-3 text-[16px] resize-none h-20 focus:outline-none"
                     style={{
                       background: 'rgba(255,255,255,0.6)',
                       border: '.5px solid rgba(28,24,18,.18)',
