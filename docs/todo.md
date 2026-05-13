@@ -3,7 +3,29 @@
 > このファイルは将来の作業候補をストックする備忘録です。
 > 商業化フェーズの詳細運用ランブックは [`affiliate-setup.md`](./affiliate-setup.md) を参照。
 
-最終整理日: 2026-05-13
+最終整理日: 2026-05-13（Night）
+
+---
+
+## ⭐ 次に着手する候補（優先度別）
+
+### 🥇 最優先（収益 / 体験ブロッカー）
+1. **A8 申請を進める（主人本人タスク）** — ドメイン + 住所 + 銀行口座が揃えば申請可能。
+   実コード統合済み、後は `a8mat` を `.env.local` に入れるだけで計測 ON。
+2. **真機モバイル多端末 verification** — 今 session で本小姐が修した mobile bug 群
+   （100dvh / touch-action / input zoom / crypto.randomUUID）を iPhone Safari /
+   Android Chrome の異なる機種で実際に踏んで確認する。LAN dev server + Vercel
+   production の両方で。
+
+### 🥈 次の大物候補（主人方針で 1 つ選ぶ）
+- **A: AI 推薦 v2** — 20 駅一括 highlight on map + funnel 計測（GA4 必要）
+- **B: 多言語化 i18n** — 英→中→韓、AI 推薦の reason も多言語化
+- **C: PWA 化（manifest + service worker）** — 1-2 日工時、ホーム画面追加体験
+
+### 🥉 余裕がある時の polish
+- mobile UX audit の curtain timing 短縮（900ms→700ms、過渡感覚改善）
+- 技術的負債（ESLint warning + Supabase 型自動生成）
+- AI 推薦 prompt 改善（production データ蓄積後）
 
 ---
 
@@ -81,6 +103,16 @@
 - ✅ MapView: 選択駅 INK 黒ピン (赤通勤先と区別)、選択時散点 hide で視覚錯位回避
 - ✅ Rate limit: 1 device / 24h (cache miss のみカウント、cache hit は無制限)
 
+### v1.1 追加（2026-05-13 Night、`446a9f6` + `5f8730a`）
+- [x] **custom destination 解禁** — 任意の 1843 駅を通勤先として AI 推薦できる。
+  client Dijkstra 結果を `commuteByCode` として POST 同送する設計。
+  AiWizard Q1 に駅名検索 input + autocomplete dropdown 追加、表記揺れ
+  正規化（小カナ・「の/が」除去・括弧別名展開）で「四谷 → 四ツ谷(四ッ谷)」
+  「霞ヶ関 ↔ 霞ケ関」「丸ノ内 ↔ 丸の内」等にも対応。
+- [x] **純商業区 13 駅ブラックリスト** — 大手町・東京・桜田門等の SUUMO 物件
+  ほぼ無い駅を `NON_RESIDENTIAL_STATION_CODES` で候補から除外。
+  併せて prompt にも「住宅エリア優先」の選定方針を追加。
+
 ### 残作業（v2 候補）
 - [ ] **Phase 5 完全版**: 20 推薦駅を地図上で**一括 highlight**
   - 現状: 選択中 1 駅のみ黒ピン
@@ -92,10 +124,10 @@
   - Loading 完了 / エラー / 結果カードクリック
   - Recall 経路の使用率
 - [ ] **エラー UX の具体化**
-  - 現状: 「推薦を取得できませんでした」一律
-  - 案: 候補駅 < 20 / OpenAI タイムアウト / Rate limit を区別、ユーザ向け解決策提示
+  - 現状: 「推薦を取得できませんでした」一律 + タイムアウト時専用 message を追加（v1.1 で）
+  - 案: 候補駅 < 20 / OpenAI 失敗 / Rate limit / Network を更に区別、ユーザ向け解決策提示
 - [ ] **キャッシュ復元の改善**
-  - 現状: localStorage `tcm.ai_cache.v1` に保存、recs だけ復元
+  - 現状: localStorage `tcm.ai_cache.v1` に保存、recs + destination + (v1.1) customStation を復元
   - 案: 回答 (WizardAnswers) も保存し、recall 時に「あなたの条件: 〇〇」と表示
 - [ ] **AI 推薦結果の共有 (SNS)**
   - URL に answers + recs を encode、家族 / 友人と相談用
@@ -103,6 +135,45 @@
 - [ ] **AI 推薦 prompt 改善** (production データ蓄積後)
   - 1〜2 ヶ月運用 → cache hit 率 / fallback 率 / クリック分布を確認
   - reason 文の論調・長さ調整
+- [ ] **server 側 OpenAI fallback の偶発調査** — 開発中の curl テストで稀に
+  `fallback=true` が出ることを確認（station_name が validNames に無いケース）。
+  実害は少ないが頻度を測って必要なら retry 一回挟む
+
+---
+
+## 📱 モバイル UX 安定化
+
+> 主人方針 (2026-05-13): App 化はせず、web 体験を磨き上げる路線。
+> 真機 (iPhone Safari) で実際に踏んだ bug + audit で洗い出した既知の坑を集約。
+
+### 完了済（2026-05-13 Night、`b5bde53` `1a266fd` `f232448` `9f4e957`）
+- [x] **`100vh` → `100dvh`** — iOS Safari の URL bar 動的高さに追従、画面下端
+  コンテンツが隠れる古典 bug を解消。`app/layout.tsx` 含む 5 ファイル統一
+- [x] **drawer に `touch-action: pan-y`** — 縦スクロールを browser native に
+  委任、map drag や cluster click との touch event 競合解消
+- [x] **input fontSize ≥ 16px** — iOS Safari が `<input>` focus 時に
+  16px 未満のページを強制 zoom する挙動を防ぐ。5 ファイル（DestinationAsk /
+  AiWizard Q1 / CorrectionReporter / DestinationPicker / StationDrawer textarea）
+- [x] **StationDrawer close button safe-area** — `env(safe-area-inset-top)`
+  対応で iPad split-view / notch 機種で button が隠れない
+- [x] **DestinationPicker dropdown max-h** — 窄屏で content が両端から
+  cutoff する問題に `min(15rem, calc(100dvh-120px))` で対応
+- [x] **`.glass-top` max-width** — tablet 横向き (~800-900px) で control bar
+  が画面端から overflow するのを `calc(100vw - 48px)` で防止
+- [x] **crypto.randomUUID Secure Context fallback** — HTTP+LAN IP 経由で
+  `crypto.randomUUID` が undefined になる罠を `lib/device-id.ts` に 3 段
+  fallback を集約して回避（getRandomValues + Math.random）
+
+### 残作業
+- [ ] **真機多端末 verification** — iPhone Safari (notch / 非 notch)、
+  Android Chrome、iPad split-view で完了済みの全 fix を実機検証
+- [ ] **curtain timing 短縮（polish）** — Welcome → DestinationAsk 過渡の
+  900ms を 700ms に縮められないか。複数 fade transition が連動するため
+  慎重に。stability bug ではなく体感速度の話、優先度は低い
+- [ ] **WelcomeOverlay 動画自動再生 fallback の見直し** — iOS Safari は
+  user gesture 前は muted video でも autoplay block するケースがある。
+  現状の `tryPlayOnGesture` でカバーされているが、稀に first impression
+  で静止画のままになる報告があれば対策
 
 ---
 
@@ -218,3 +289,4 @@ React Native / フル native 書き換えは **永続的に非推奨**。
 | 2026-05-12 | 初版作成。商業化フェーズ実装完了後の残タスクを商業化 / 機能拡張 / 技術的負債 / ドキュメントに分類して整理 |
 | 2026-05-13 | AI 駅推薦 v1 上線（Wizard + cache + recall + 1/day rate-limit）、周辺の特徴データ完了。v2 候補 + 多言語化 i18n 候補追加 |
 | 2026-05-13 (PM) | UI/UX 整理 session: 物語叙事の再構築（A2 平衡）+ Story 第 1 章毛玻璃 + traveler animation 修正 + 大見出し nowrap 守則。AI Advisor の地図上常駐エントリ化（hasCache 双 mode）+ Wizard 退出 CTA。ChatGPT brand 表記 3 箇所追加。bug 修正: 田町等 5 駅の destInfo lookup 括弧後缀対応 / 選択駅 flyTo 確実化 + 桌面 offset / 抽屉 backdrop 削除（地図卡死解消） / handleWizardResolve 余計な 900ms 遅延削除。全駅数 1,793 → 1843 統一 |
+| 2026-05-13 (Night) | AI 推薦 v1.1: 純商業区 13 駅黒名单 + custom destination 解禁 + 駅名検索 autocomplete + 表記揺れ正規化（`5f8730a` `446a9f6`）。モバイル UX audit 2 round: 100vh→100dvh / drawer touch-action / input ≥ 16px / safe-area / dropdown / .glass-top / crypto.randomUUID 7 件 fix（`b5bde53` `1a266fd` `f232448` `9f4e957`）。bug: drawer 通勤時間「— 分」表示 + Cookie banner drawer 重なり同時修正。「次に着手する候補（優先度別）」section 新設 |

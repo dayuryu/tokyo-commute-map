@@ -1,10 +1,10 @@
-# AI 助手による駅推薦機能 — 設計計画 + v1 上線記録
+# AI 助手による駅推薦機能 — 設計計画 + v1 / v1.1 上線記録
 
 > 主人が 2026-05-12 夜に提示した次フェーズの目玉機能。
 > 「AI が質問する → ユーザが選ぶ → AI が 20 駅 + 理由を返す」というフロー。
-> 本ドキュメントは設計仕様 + v1 実装結果のスナップショット。
+> 本ドキュメントは設計仕様 + 実装結果のスナップショット。
 
-最終整理日: 2026-05-13（**v1 上線**）
+最終整理日: 2026-05-13（**v1.1 上線 — custom destination 解禁**）
 
 ---
 
@@ -53,6 +53,61 @@ UI/UX 整理 session で AI 動線に関する以下の改善を実施:
 - **ChatGPT brand 表記追加**: OpenAI brand guideline に従いロゴ不使用、文字表記のみで
   StationDrawer の AI 要約 disclaimer / DestinationAsk の AI hero card /
   AiResultGrid の brand attribution「Powered by OpenAI」3 箇所に明示。
+
+### 2026-05-13 (Night) v1.1 — custom destination 解禁 + mobile UX
+
+主人主訴「AI 推薦が 30 fixed destination にしか対応せず、ユーザの実際の通勤先を
+カバーできない」を解消。`446a9f6` + 関連 commit 群:
+
+- **純商業区 13 駅ブラックリスト** (`5f8730a`): 大手町(東京) / 東京 /
+  桜田門 / 霞ケ関 / 虎ノ門 / 内幸町 / 日比谷 / 二重橋前 / 永田町 /
+  国会議事堂前 / 溜池山王 / 有楽町 / 新橋 を `NON_RESIDENTIAL_STATION_CODES`
+  で候補から除外。SUUMO 物件ほぼ無く居住候補として違和感が強かった駅群を
+  station code ベースで一掃（「霞ヶ関」(埼玉県川越市・東武東上線) と
+  「霞ケ関」(千代田区・東京メトロ) の假名違い同名駅誤判を防ぐため
+  name 一致ではなく code 一致を採用）。併せて prompt にも「住宅エリア優先」
+  の選定方針を追加し、黒名单未掲載でも AI 側で避ける軟引導。
+
+- **custom destination 解禁 + 検索 autocomplete** (`446a9f6`):
+  - 旧: `stations.geojson` の `min_to_<slug>` 預計算（30 fixed のみ）に依存
+  - 新: client 側で `lib/dijkstra.ts` の `computeCommutes` を呼び、1843 駅 →
+    任意 destination の通勤 map を算出。これを `commuteByCode` として
+    `/api/recommend` に POST 同送、server 側 `buildCandidates` は
+    `overrideCommute` 引数で受け取り、geojson 預計算の代わりに使う。
+  - AiWizard Q1 に駅名検索 input + autocomplete dropdown を追加
+    （`DestinationPicker.tsx` を参照したスタイル統一）。
+  - **表記揺れ正規化**: 「四谷 → 四ツ谷(四ッ谷)」「霞ヶ関 ↔ 霞ケ関」
+    「丸ノ内 ↔ 丸の内」のような日本語地名特有の小カナ・「の/が」挿入・
+    括弧別名併記に対応するため、検索キー側を 3 段組立
+    （主名 / 括弧内別名 / 軽量化版）にして部分一致で判定。
+  - `WizardAnswers.destination` に `'custom'` リテラルを追加、
+    `WizardDestination union` 型で fixed | custom を区別。
+  - `AiCache.destination` も同様に拡張、`customStation?` field 追加で
+    custom destination の 24h recall に対応。localStorage は v1 形式と
+    後方互換（旧 entry は customStation undefined で fixed 扱い）。
+
+- **StationDrawer 通勤時間「— 分」bug 修正**: selectedStation が
+  `stationByName` 経由（生 Station、`min_to_custom` 非注入）で渡る場合、
+  custom destination 時に通勤時間が「—」表示される bug。`customCommutes`
+  を `app/page.tsx` の `useMemo` で算出して MapView と StationDrawer 双方の
+  single source of truth として供給する設計に変更。MapView 内部の重複
+  `useMemo` を削除。
+
+- **Cookie banner drawer 重なり修正**: 桌面 ~1200px 幅で Cookie 横幅 720px
+  と drawer 380px が重なる問題に `drawerOpen` prop で対応（桌面は左寄せ、
+  モバイルは drawer 全画面のため hidden）。
+
+- **AbortController + 30s timeout** (`9f4e957` の前段): runRecommend の
+  fetch に AbortController を入れ、後端ハング時に永遠 loading にならない
+  ようエラー UI に逃がす（mobile Safari の tab 凍結対策も兼ねる）。
+
+- **crypto.randomUUID Secure Context fallback** (`9f4e957`): LAN 上の
+  dev server (http://192.168.1.7:3000) では Secure Context に該当せず
+  `crypto.randomUUID` が undefined になる罠で、手機 (iPhone Safari) からの
+  AI 推薦が getDeviceId 同期 throw で loading 卡死していた問題を修正。
+  `lib/device-id.ts` に 3 段 fallback（randomUUID → getRandomValues +
+  手動組立 → Math.random）を集約、3 ファイルの重複実装を削除。
+  併せて runRecommend を try ブロック内に準備処理も含めて防御化。
 
 ---
 
@@ -209,3 +264,4 @@ AI が 20 駅を推薦
 |---|---|
 | 2026-05-12 | 主人提示の AI 駅推薦機能の仕様を整理。明日着手前の決定事項 7 項目を列挙 |
 | 2026-05-13 | v1 上線。Phase 2,3,6,7 (前 session) + Phase 4,8 + 24h cache + recall + 1/day rate-limit (本 session)。Phase 5 完全版 (20 駅一括 highlight) は v2 候補に繰延 |
+| 2026-05-13 (Night) | v1.1 上線。純商業区 13 駅黒名单 (`5f8730a`)、custom destination 解禁 + 検索 autocomplete + 表記揺れ正規化 (`446a9f6`)、drawer 「— 分」bug 修正 + Cookie banner 重なり修正、mobile UX audit 7 件適用 (`b5bde53` `1a266fd` `f232448` `9f4e957`)。AI 推薦は全 1843 駅対応へ |
