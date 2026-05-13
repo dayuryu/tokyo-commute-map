@@ -45,3 +45,10 @@ next-env.d.ts
 /stations.geojson
 /graph.json
 /diagnose_output/
+
+# python cache
+__pycache__/
+*.pyc
+
+# temp test files
+.tmp_*
