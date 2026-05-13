@@ -110,7 +110,7 @@ AI が 20 駅を推薦
 ```
 
 → ただし AI が架空の駅名を吐き出すリスクあり。
-   **mitigation**: prompt に 1,793 駅の name list を context として渡し、
+   **mitigation**: prompt に 1843 駅の name list を context として渡し、
    その中から選ばせる + 後段で valid な駅名のみ filter。
    token 量を抑えるため station_database から駅名だけ抜く（lat/lng 不要）。
 

@@ -5,7 +5,7 @@
 **Live**: https://tokyo-commute-map.vercel.app/
 
 通勤時間ベースで「どこに住むか」を直感的に決められる地図ツールです。
-東京圏 1,793 駅を通勤所要時間で色分けし、駅をクリックすると通勤詳細・コミュニティ評価・物件検索リンクが表示されます。
+東京圏 1843 駅を通勤所要時間で色分けし、駅をクリックすると通勤詳細・コミュニティ評価・物件検索リンクが表示されます。
 
 ---
 
@@ -81,7 +81,7 @@ PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python scripts/build_stations_geojson_v3.py 
   ../station_database ./gtfs_cache
 ```
 
-出力: `public/data/stations.geojson` (1,793 駅 / ~570 KB)
+出力: `public/data/stations.geojson` (1843 駅 / ~570 KB)
 
 ### SUUMO 駅 deep link — `suumo_stations.json`
 
