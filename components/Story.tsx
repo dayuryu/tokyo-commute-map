@@ -258,7 +258,7 @@ function Page({ children, active, isMobile, n, en, jp, style }: PageProps) {
     <section data-active={active} style={{
       position: 'relative',
       width: '100%', height: '100%',
-      minHeight: '100vh', maxHeight: '100vh',
+      minHeight: '100dvh', maxHeight: '100dvh',
       scrollSnapAlign: 'start', scrollSnapStop: 'always',
       display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
       padding: isMobile ? '0 5vw' : '0 6vw', boxSizing: 'border-box',

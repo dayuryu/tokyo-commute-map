@@ -53,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="ja"
       className={`${shippori.variable} ${cormorant.variable} ${inter.variable} ${jetbrains.variable}`}
     >
-      <body className="overflow-hidden h-screen w-screen">
+      <body className="overflow-hidden h-[100dvh] w-screen">
         {children}
         <Analytics />
       </body>

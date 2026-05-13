@@ -12,7 +12,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
   const site = getSiteInfo()
 
   return (
-    // root layout の <body> が overflow-hidden h-screen w-screen を保持しているため、
+    // root layout の <body> が overflow-hidden h-[100dvh] w-screen を保持しているため、
     // 法務ページでは fixed inset-0 + overflow-y-auto で独自のスクロール領域を作る。
     <div className="fixed inset-0 overflow-y-auto bg-sp-bg text-sp-txt">
       <header className="border-b border-sp-ink-soft/15 bg-sp-bg/90 backdrop-blur sticky top-0 z-10">

@@ -561,7 +561,7 @@ function DestinationView({
     <div
       style={{
         position: 'relative', zIndex: 1,
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: isMobile ? '90px 5vw 60px' : '8vh 6vw',
         boxSizing: 'border-box',
@@ -892,7 +892,7 @@ function QuestionView({
     <div
       style={{
         position: 'relative', zIndex: 1,
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: isMobile ? '90px 5vw 60px' : '8vh 6vw',
         boxSizing: 'border-box',
@@ -1043,7 +1043,7 @@ function LoadingView({ isMobile }: { isMobile: boolean }) {
     <div
       style={{
         position: 'relative', zIndex: 1,
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: isMobile ? '60px 5vw' : '8vh 6vw',
       }}
@@ -1159,7 +1159,7 @@ function ErrorView({
     <div
       style={{
         position: 'relative', zIndex: 1,
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: isMobile ? '60px 5vw' : '8vh 6vw',
       }}
