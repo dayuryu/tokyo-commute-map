@@ -280,13 +280,26 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
 
       geojsonRef.current = geojson
 
-      // 30 個の fixed destination の info（coords / code / label）を geojson から動的検索
+      // 30 個の fixed destination の info（coords / code / label）を geojson から動的検索。
+      // geojson 内の駅名には 5 駅に括弧後缀が付与される（同名衝突回避）:
+      //   田町(東京) / 大手町(東京) / 神田(東京) / 大宮(埼玉) / 押上（スカイツリー前）
+      // 精确 match → 失败時は括弧 prefix 前缀マッチに fallback（半角 ( と全角 （ 両対応）。
       const destInfo: Record<string, DestInfo> = {}
       for (const meta of DESTINATIONS_META) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const matched = geojson.features.find((f: any) =>
+        let matched = geojson.features.find((f: any) =>
           f.properties.name === meta.displayName || f.properties.name === meta.transitName
         )
+        if (!matched) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          matched = geojson.features.find((f: any) => {
+            const n: string = f.properties.name
+            return n.startsWith(meta.displayName + '(')
+                || n.startsWith(meta.displayName + '（')
+                || n.startsWith(meta.transitName + '(')
+                || n.startsWith(meta.transitName + '（')
+          })
+        }
         if (matched) {
           const [lon, lat] = matched.geometry.coordinates
           destInfo[meta.slug] = {
@@ -681,20 +694,20 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
       .setLngLat(coords)
       .addTo(map)
 
-    // 駅が現在の表示範囲外なら穏やかに flyTo（ズームは現在値以上を維持）。
-    // 地図再描画中の race condition を避けるため、map.loaded() を確認してから動かす。
-    if (map.loaded()) {
-      const bounds = map.getBounds()
-      const inView = bounds.contains(coords)
-      if (!inView) {
-        map.flyTo({
-          center:   coords,
-          zoom:     Math.max(map.getZoom(), 12),
-          duration: 1000,
-          essential: true,
-        })
-      }
-    }
+    // 選択駅へ常に flyTo して center に寄せる（以前は inView 時 skip していたが、
+    // AI 推薦から飛んできた駅 / 抽屉に隠れた駅が「見えない」問題を生むため毎回動かす）。
+    // map.loaded() 守卫は外す — destination effect の flyTo は守卫なしで動いているし、
+    // selectedStation が set されるタイミングでは既に style load 済みのため安全。
+    // 桌面端は抽屉 380px が右側を占有するため、offset で center を左へずらして
+    // pin を抽屉左側 viewport の視覚中心に置く。モバイル抽屉は全幅なので offset 不要。
+    const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 640
+    map.flyTo({
+      center:   coords,
+      zoom:     Math.max(map.getZoom(), 12),
+      duration: 1000,
+      essential: true,
+      offset:   isDesktop ? [-190, 0] : [0, 0],
+    })
   }, [selectedStation, destination, customStation, destInfoReady])
 
   return <div ref={containerRef} className="w-full h-full" />
