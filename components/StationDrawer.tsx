@@ -282,14 +282,8 @@ export default function StationDrawer({ station, destination, customStation, con
 
   return (
     <>
-      {station && (
-        <div
-          className="absolute inset-0 z-20"
-          style={{ background: 'rgba(28,24,18,0.18)' }}
-          onClick={onClose}
-        />
-      )}
-
+      {/* backdrop 削除済み — 抽屉打开時も地図交互を維持（pan/zoom/cluster click 全て可）。
+          抽屉閉じる手段：右上 × ボタン、モバイル右滑り swipe、ブラウザ戻る (popstate)。 */}
       <div
         ref={drawerRef}
         onTouchStart={onTouchStart}
@@ -490,6 +484,21 @@ export default function StationDrawer({ station, destination, customStation, con
               </div>
             )}
 
+            {/* 通勤時間 disclaimer — 当サイトの推算精度を明示（通勤時間ブロック直下に配置） */}
+            <p
+              style={{
+                fontFamily: 'var(--display-italic, Garamond, serif)',
+                fontStyle: 'italic',
+                fontSize: 10.5,
+                color: 'var(--ink-mute)',
+                letterSpacing: '.02em',
+                lineHeight: 1.5,
+                margin: '12px 0 0 0',
+              }}
+            >
+              ※通勤時間は当サイト推算値（誤差 ±5〜10 分）です。
+            </p>
+
             {/* hairline divider */}
             <div className="h-px my-6" style={{ background: 'rgba(28,24,18,.10)' }} />
 
@@ -549,6 +558,7 @@ export default function StationDrawer({ station, destination, customStation, con
                   </a>
                 ))}
               </div>
+              {/* PR 表記の詳細 link — 景表法ガイドライン推奨 */}
               <p
                 style={{
                   fontFamily: 'var(--display-italic, Garamond, serif)',
@@ -560,8 +570,7 @@ export default function StationDrawer({ station, destination, customStation, con
                   margin: '8px 0 0 0',
                 }}
               >
-                ※通勤時間は当サイト推算値（誤差 ±5〜10 分）です。
-                <a href="/legal/ads" className="ml-1 underline" style={{ color: 'var(--ink-mute)' }}>
+                <a href="/legal/ads" className="underline" style={{ color: 'var(--ink-mute)' }}>
                   広告について
                 </a>
               </p>
@@ -589,8 +598,8 @@ export default function StationDrawer({ station, destination, customStation, con
                   ) : '—'
                 }
                 hint={
-                  rentSource === 'suumo'      ? '徒歩 10 分以内目安（SUUMO 由来）' :
-                  rentSource === 'government' ? '住宅・土地統計調査（区平均）' :
+                  rentSource === 'suumo'      ? '徒歩 10 分以内目安 · SUUMO 相場より' :
+                  rentSource === 'government' ? '住宅・土地統計調査 · 区平均' :
                                                 'データなし（人口 1.5 万未満）'
                 }
               />
@@ -910,7 +919,7 @@ function AreaFeatureRow({ features }: { features: string | undefined }) {
           lineHeight: 1.5,
         }}
       >
-        {hasText ? 'AI 要約・参考情報。最新の街の様子は現地でご確認ください。' : '（データなし）'}
+        {hasText ? 'ChatGPT による要約・参考情報。最新の街の様子は現地でご確認ください。' : '（データなし）'}
       </p>
     </div>
   )

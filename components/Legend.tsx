@@ -20,7 +20,8 @@ export default function Legend({ maxMinutes }: Props) {
                    hidden sm:block"
         style={{
           right: 'max(20px, env(safe-area-inset-right, 0px))',
-          bottom: 'calc(max(20px, env(safe-area-inset-bottom, 0px)) + 4px)',
+          // bottom 余白は MapLibre attribution 帯（約 24-28px）を避けるため +32px
+          bottom: 'calc(max(20px, env(safe-area-inset-bottom, 0px)) + 32px)',
           background: 'rgba(244, 241, 234, 0.78)',
           backdropFilter: 'blur(20px) saturate(160%)',
           WebkitBackdropFilter: 'blur(20px) saturate(160%)',
@@ -65,7 +66,8 @@ export default function Legend({ maxMinutes }: Props) {
                    shadow-[0_1px_2px_rgba(0,0,0,.04),0_4px_16px_rgba(0,0,0,.10)]"
         style={{
           right: 'max(12px, env(safe-area-inset-right))',
-          bottom: 'calc(max(12px, env(safe-area-inset-bottom)) + 12px)',
+          // bottom 余白は MapLibre attribution 帯（約 24-28px）を避けるため +32px
+          bottom: 'calc(max(12px, env(safe-area-inset-bottom)) + 32px)',
           background: 'rgba(244, 241, 234, 0.86)',
           backdropFilter: 'blur(20px) saturate(160%)',
           WebkitBackdropFilter: 'blur(20px) saturate(160%)',
