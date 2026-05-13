@@ -311,6 +311,10 @@ export default function StationDrawer({ station, destination, customStation, cus
           borderLeft: '.5px solid rgba(28,24,18,.10)',
           // iOS Safari の touch スクロール慣性を有効化（駅情報が長いため）
           WebkitOverflowScrolling: 'touch',
+          // 縦スクロールは browser native に委任、横 swipe のみ JS で横取りする。
+          // これにより drawer 内縦スクロールと map drag の touch event 競合を解消、
+          // モバイルで「drawer がスクロールを飲み込む」感覚を防ぐ。
+          touchAction: 'pan-y',
         }}
       >
         {station && (
