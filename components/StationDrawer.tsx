@@ -9,6 +9,7 @@ import { getDestinationDisplayName, getDestinationTransitName, DESTINATIONS_META
 import { getSingleRentLabel, getCoupleRentLabel, type RentMap } from '@/lib/manual-rent'
 import { formatGovernmentRent, type GovernmentRentMap } from '@/lib/government-rent'
 import { getLineColor, type LineStyleMap } from '@/lib/line-styles'
+import type { AreaFeatureMap } from '@/lib/area-features'
 
 // 住居検索アフィリエイトボタン用の短縮ラベル（3 等分カード幅に収まるよう調整）
 const AFFILIATE_SHORT_LABELS: Record<AffiliateProgram, string> = {
@@ -50,6 +51,11 @@ interface Props {
   rentMap:           RentMap
   governmentRent:    GovernmentRentMap
   lineStyles:        LineStyleMap
+  areaFeatures:      AreaFeatureMap
+  /** AI 推薦リストへの返戻リンクを表示するか — 親側で「現在の駅が aiCache.recs に含まれる」を判定して true を渡す */
+  aiRecallAvailable: boolean
+  /** 「AI 推薦に戻る」リンク押下時の handler — drawer を閉じてから親側で Wizard を recall 起動 */
+  onRecallAi:        () => void
   onSetAsDestination: (station: Station) => void
   onClose:           () => void
 }
@@ -77,7 +83,7 @@ function getDeviceId(): string {
   return id
 }
 
-export default function StationDrawer({ station, destination, customStation, consensus, suumoMap, rentMap, governmentRent, lineStyles, onSetAsDestination, onClose }: Props) {
+export default function StationDrawer({ station, destination, customStation, consensus, suumoMap, rentMap, governmentRent, lineStyles, areaFeatures, aiRecallAvailable, onRecallAi, onSetAsDestination, onClose }: Props) {
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
   const [reviews,    setReviews]    = useState<any[]>([])
   const [form,       setForm]       = useState<ReviewForm>({
@@ -320,6 +326,36 @@ export default function StationDrawer({ station, destination, customStation, con
             >
               ×
             </button>
+
+            {/* AI 推薦リスト返戻リンク — 招 1: 該当駅が aiCache.recs に含まれる時のみ表示。
+                ドロワー内で「リストに戻る」ができるので、ユーザーは Wizard を再起動する
+                ためのフロート ボタンを探す必要がない。 */}
+            {aiRecallAvailable && (
+              <button
+                onClick={onRecallAi}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  marginBottom: 14,
+                  cursor: 'pointer',
+                  fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  letterSpacing: '.06em',
+                  color: '#a8332b',
+                  transition: 'opacity .2s',
+                  opacity: 0.92,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '0.92' }}
+              >
+                ← AI 推薦 20 駅に戻る
+              </button>
+            )}
 
             {/* eyebrow */}
             <div
@@ -567,11 +603,7 @@ export default function StationDrawer({ station, destination, customStation, con
                 }
                 hint={mainLines.length === 0 ? '（データ未接続）' : undefined}
               />
-              <DetailRow
-                label="周辺の特徴"
-                value="—"
-                hint="（口コミから生成）"
-              />
+              <AreaFeatureRow features={station ? areaFeatures[station.name] : undefined} />
             </div>
 
             {/* hairline divider */}
@@ -831,6 +863,56 @@ function LineList({ lines, styles }: { lines: string[]; styles: LineStyleMap }) 
         </span>
       ))}
     </span>
+  )
+}
+
+// ── 周辺の特徴（AI 要約） ──────────────────────────────────────────
+// DetailRow と違って 50〜75 字の長文を 3〜4 行で展開するため、
+// label を上に独立配置 + 本文を block で流す。AI 生成の disclaimer は
+// 景表法配慮で「参考情報・現地確認」を明示する。
+function AreaFeatureRow({ features }: { features: string | undefined }) {
+  const hasText = features != null && features.trim().length > 0
+  return (
+    <div>
+      <div
+        style={{
+          fontFamily: 'var(--mono, monospace)',
+          fontSize: 10,
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '.18em',
+          color: 'var(--ink-mute)',
+          marginBottom: 6,
+        }}
+      >
+        周辺の特徴
+      </div>
+      <p
+        style={{
+          margin: 0,
+          fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+          fontSize: 14,
+          lineHeight: 1.8,
+          color: 'var(--ink)',
+          letterSpacing: '.02em',
+        }}
+      >
+        {hasText ? features : '—'}
+      </p>
+      <p
+        style={{
+          margin: '6px 0 0 0',
+          fontFamily: 'var(--display-italic, Garamond, serif)',
+          fontStyle: 'italic',
+          fontSize: 10.5,
+          color: 'var(--ink-mute)',
+          letterSpacing: '.02em',
+          lineHeight: 1.5,
+        }}
+      >
+        {hasText ? 'AI 要約・参考情報。最新の街の様子は現地でご確認ください。' : '（データなし）'}
+      </p>
+    </div>
   )
 }
 

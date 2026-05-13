@@ -12,11 +12,16 @@ import Legend from '@/components/Legend'
 import HeaderMenu from '@/components/HeaderMenu'
 import CookieConsent from '@/components/CookieConsent'
 import DestinationAsk from '@/components/DestinationAsk'
+import AiWizard from '@/components/AiWizard'
+import AiRecallButton from '@/components/AiRecallButton'
+import type { FixedDestination as FixedDestinationType } from '@/lib/destinations'
+import type { Recommendation } from '@/lib/ai-recommend/types'
 import { supabase } from '@/lib/supabase'
 import type { SuumoStationMap, SuumoStationEntry } from '@/lib/affiliate'
 import { loadManualRentData, type RentMap } from '@/lib/manual-rent'
 import { loadGovernmentRentData, type GovernmentRentMap } from '@/lib/government-rent'
 import { loadLineStyles, type LineStyleMap } from '@/lib/line-styles'
+import { loadAreaFeaturesData, type AreaFeatureMap } from '@/lib/area-features'
 import {
   type Destination,
   type FixedDestination,
@@ -30,6 +35,26 @@ const VISITED_KEY = 'tcm.visited.v1'
 // DestinationAsk で選ばれた通勤先を保存。リピート訪問時は復元して
 // 「もう一度通勤先を聞かれる」体験を回避する。
 const DESTINATION_KEY = 'tcm.destination.v1'
+// AI 推薦 result + destination + 真調用時刻のキャッシュ。
+// - リコール（再表示）は 24h 以後も可能（OpenAI を呼ばないため）
+// - DestinationAsk 内の「新規」CTA は 24h 以内なら disable して「再表示」に変身
+const AI_CACHE_KEY = 'tcm.ai_cache.v1'
+
+interface AiCache {
+  destination: FixedDestinationType
+  recs:        Recommendation[]
+  usedAt:      string  // ISO timestamp、真調用が完了した時刻
+}
+
+/** 24h 以内に新規推薦を行ったか判定（recall 制限の判定に使用） */
+function isAiCacheFresh(c: AiCache | null): boolean {
+  if (!c) return false
+  const ageMs = Date.now() - new Date(c.usedAt).getTime()
+  return ageMs < 24 * 60 * 60 * 1000
+}
+
+/** Wizard の起動モード — false=閉、'new'=新規 6 問、'recall'=キャッシュから result phase 直起動 */
+type WizardOpenMode = false | 'new' | 'recall'
 
 export type ConsensusEntry = { min: number; count: number }
 export type ConsensusMap = Record<
@@ -74,6 +99,9 @@ export default function Home() {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null)
   const [customStation, setCustomStation] = useState<CustomStation | null>(null)
   const [stationList, setStationList] = useState<CustomStation[]>([])
+  // 駅名 → Station の lookup map。AI Wizard 結果カードクリック時に
+  // setSelectedStation(stationByName[name]) で drawer を開くために必要。
+  const [stationByName, setStationByName] = useState<Record<string, Station>>({})
   const [consensus, setConsensus] = useState<ConsensusMap>({})
   const [suumoMap, setSuumoMap] = useState<SuumoStationMap | null>(null)
   // 手動収録家賃データ（101 駅、SUUMO 駅別相場ページから取得）
@@ -82,6 +110,9 @@ export default function Home() {
   const [governmentRent, setGovernmentRent] = useState<GovernmentRentMap>({})
   // 路線スタイル map（線路名 → {color, symbol}）。主要路線 DetailRow の色条用。
   const [lineStyles, setLineStyles] = useState<LineStyleMap>({})
+  // 駅周辺エリアの AI 要約 map（駅名 → 特徴文字列）。1843 駅、StationDrawer の
+  // 「周辺の特徴」DetailRow 用。未取得時は空 dict で「—」表示にフォールバック。
+  const [areaFeatures, setAreaFeatures] = useState<AreaFeatureMap>({})
   // クライアント側 Dijkstra 用グラフ。カスタム目的地で haversine を置き換える。
   // 未ロード中は null（MapView 側で fallback として haversine が動作）。
   const [graph, setGraph] = useState<PreparedGraph | null>(null)
@@ -94,6 +125,11 @@ export default function Home() {
   const [welcomeOpen, setWelcomeOpen] = useState<boolean | null>(null)
   const [storyOpen, setStoryOpen] = useState(false)
   const [destinationAskOpen, setDestinationAskOpen] = useState(false)
+  // AI Wizard 表示制御。'new' = 新規 wizard、'recall' = キャッシュから result 直起動。
+  const [wizardOpen, setWizardOpen] = useState<WizardOpenMode>(false)
+  // AI 推薦の最新キャッシュ（recs + destination + usedAt）。
+  // 真調用完了後に保存、 localStorage 同期。リコール経路で wizard に渡す。
+  const [aiCache, setAiCache] = useState<AiCache | null>(null)
   // DestinationAsk が fade in 中（Welcome/Story の fade out と重なる時間帯）。
   // この間は z=82 の curtain で地図を覆って、両 overlay の opacity が混じる
   // 瞬間に下層の地図が「闪现」するのを防ぐ。
@@ -111,6 +147,16 @@ export default function Home() {
     let visited = false
     try { visited = localStorage.getItem(VISITED_KEY) === '1' } catch {}
     setWelcomeOpen(!visited)
+    // AI cache 復元 — 古い・壊れたデータは silent ignore
+    try {
+      const raw = localStorage.getItem(AI_CACHE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as AiCache
+        if (parsed?.recs?.length && parsed.destination && parsed.usedAt) {
+          setAiCache(parsed)
+        }
+      }
+    } catch {}
     // 一度訪問済みのユーザーはマップを直接マウント、かつ保存済みの通勤先を復元
     if (visited) {
       setMapMounted(true)
@@ -137,14 +183,25 @@ export default function Home() {
   useEffect(() => {
     fetch('/data/stations.geojson')
       .then(r => r.json())
-      .then(g => setStationList(
-        g.features.map((f: any) => ({
-          code: f.properties.code,
-          name: f.properties.name,
-          lat: f.geometry.coordinates[1],
-          lon: f.geometry.coordinates[0],
-        }))
-      ))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then((g: any) => {
+        const list: CustomStation[] = []
+        const byName: Record<string, Station> = {}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const f of g.features as any[]) {
+          const p = f.properties
+          const lat = f.geometry.coordinates[1]
+          const lon = f.geometry.coordinates[0]
+          list.push({ code: p.code, name: p.name, lat, lon })
+          // Station 全 properties + 座標。AI Wizard 駅クリック時の drawer open 用。
+          // 同名駅が存在する場合は最初の 1 件を保持（実用上稀）。
+          if (!byName[p.name]) {
+            byName[p.name] = { ...p, lat, lon } as Station
+          }
+        }
+        setStationList(list)
+        setStationByName(byName)
+      })
   }, [])
 
   // graph.json （カスタム目的地用 adjacency graph）の遅延ロード。
@@ -194,6 +251,13 @@ export default function Home() {
   useEffect(() => {
     loadLineStyles().then(map => {
       if (map) setLineStyles(map)
+    })
+  }, [])
+
+  // 駅周辺エリアの AI 要約データ（1843 駅）。未取得時は空 dict、Drawer 側で「—」fallback。
+  useEffect(() => {
+    loadAreaFeaturesData().then(data => {
+      if (data?.stations) setAreaFeatures(data.stations)
     })
   }, [])
 
@@ -299,6 +363,109 @@ export default function Home() {
     window.setTimeout(() => setDestinationAskOpen(false), WELCOME_FADE_MS)
   }
 
+  // ── AI Wizard 関連 handler ──────────────────────────────────────
+  // DestinationAsk の AI hero CTA「新規 AI に提案してもらう」から呼ばれる。
+  // 24h 以内に既に新規推薦を行っていれば silent ignore（DestinationAsk 側で disable してあるはず）。
+  function handleStartWizard() {
+    if (isAiCacheFresh(aiCache)) {
+      // 防御 — 通常 DestinationAsk が disable しているのでここには来ない
+      return
+    }
+    persistVisited()
+    setWizardOpen('new')
+    window.setTimeout(() => setDestinationAskOpen(false), WELCOME_FADE_MS)
+  }
+
+  // DestinationAsk の「過去の推薦を再表示」/ 地図上の AiRecallButton から呼ばれる。
+  // aiCache が無ければ silent ignore。Wizard を recall モードで起動 = result phase 直起動。
+  function handleRecallWizard() {
+    if (!aiCache) return
+    persistVisited()
+    setWizardOpen('recall')
+    if (destinationAskOpen) {
+      window.setTimeout(() => setDestinationAskOpen(false), WELCOME_FADE_MS)
+    }
+  }
+
+  // StationDrawer 内「← AI 推薦 20 駅に戻る」リンク押下時 — drawer を閉じて Wizard を recall 起動。
+  // aiCache が無い場合は防御的 silent ignore（通常 drawer がリンク自体を出さないはず）。
+  function handleRecallAiFromDrawer() {
+    if (!aiCache) return
+    setSelectedStation(null)
+    handleRecallWizard()
+  }
+
+  // AiWizard から推薦結果が確定した瞬間に呼ばれる（真調用 / fallback / cache 命中いずれも）。
+  // 親側で aiCache 更新 + localStorage 永続化。リコール起動の場合は呼ばれない（既に持っているため）。
+  function handleAiResultReady(dest: FixedDestinationType, recs: Recommendation[]) {
+    const next: AiCache = {
+      destination: dest,
+      recs,
+      usedAt:      new Date().toISOString(),
+    }
+    setAiCache(next)
+    try {
+      localStorage.setItem(AI_CACHE_KEY, JSON.stringify(next))
+    } catch {}
+  }
+
+  // Wizard 内部状態を地図に反映する共通処理。
+  // dest が null（Q1 まで進まずに閉じた）の場合はデフォルト shinjuku で進む。
+  function applyWizardDestination(dest: FixedDestinationType | null) {
+    const effective = dest ?? 'shinjuku'
+    setDestination(effective)
+    setCustomStation(null)
+    try {
+      localStorage.setItem(
+        DESTINATION_KEY,
+        JSON.stringify({ type: 'default' as const, dest: effective }),
+      )
+    } catch {}
+  }
+
+  // Wizard を閉じる（取消、または結果 CTA「地図で見比べる」押下）。
+  // 地図を mount + loader fade で表示し Wizard を fade out で外す。
+  function handleWizardClose(dest: FixedDestinationType | null) {
+    applyWizardDestination(dest)
+    if (!mapMounted) {
+      setMapMounted(true)
+      setLoaderMounted(true)
+      setLoaderVisible(true)
+    } else if (mapReady) {
+      // 既に Map / loader が ready の場合、loader は出ているなら fade out、
+      // 出ていなければそのまま地図表示。
+    }
+    if (mapReady && loaderVisible) {
+      window.setTimeout(() => setLoaderVisible(false), 600)
+      window.setTimeout(() => setLoaderMounted(false), 600 + 1200)
+    }
+    window.setTimeout(() => setWizardOpen(false), WELCOME_FADE_MS)
+  }
+
+  // 結果カードクリック — destination を反映 + 該当駅の drawer を即時 open。
+  // Backend openai.ts は候補 list の name に厳密一致するもののみ通す設計だが、
+  // 万一 stationByName lookup が miss した場合は close 経路に縮退して地図のみ表示する
+  // （ユーザが card クリックしたのに何も起きない silent failure を回避）。
+  function handleWizardResolve(dest: FixedDestinationType, stationName: string) {
+    const found = stationByName[stationName] ?? null
+    if (!found) {
+      console.warn(`[Wizard] stationByName miss for "${stationName}", falling back to close`)
+      handleWizardClose(dest)
+      return
+    }
+    applyWizardDestination(dest)
+    if (!mapMounted) {
+      setMapMounted(true)
+      setLoaderMounted(true)
+      setLoaderVisible(true)
+    }
+    // drawer open は Wizard fade out 完了後に行う（地図が見える状態で表示する）
+    window.setTimeout(() => {
+      setSelectedStation(found)
+      setWizardOpen(false)
+    }, WELCOME_FADE_MS)
+  }
+
   // MapView から ready 通知。加載画面を ~500ms グレースしてから fade out、
   // 1.1s で opacity 0 になったら DOM を unmount。地図本体は mapReady に乗って
   // opacity 0→1 にクロスフェードして現れる。
@@ -354,6 +521,7 @@ export default function Home() {
                 onStationClick={setSelectedStation}
                 customStation={customStation}
                 graph={graph}
+                selectedStation={selectedStation}
                 onReady={handleMapReady}
               />
             </div>
@@ -391,6 +559,9 @@ export default function Home() {
 
             <Legend maxMinutes={maxMinutes} />
 
+            {/* AI 推薦リコール — aiCache がある間ずっと表示、押下で wizard を result phase で再起動 */}
+            {aiCache && <AiRecallButton onRecall={handleRecallWizard} />}
+
             <StationDrawer
               station={selectedStation}
               destination={destination}
@@ -400,6 +571,12 @@ export default function Home() {
               rentMap={rentMap}
               governmentRent={governmentRent}
               lineStyles={lineStyles}
+              areaFeatures={areaFeatures}
+              aiRecallAvailable={
+                !!aiCache && !!selectedStation &&
+                aiCache.recs.some(r => r.station_name === selectedStation.name)
+              }
+              onRecallAi={handleRecallAiFromDrawer}
               onSetAsDestination={handleSetAsDestination}
               onClose={() => setSelectedStation(null)}
             />
@@ -460,6 +637,22 @@ export default function Home() {
         <DestinationAsk
           stationList={stationList}
           onConfirm={handleConfirmDestination}
+          onStartWizard={handleStartWizard}
+          onRecallWizard={handleRecallWizard}
+          aiCacheFresh={isAiCacheFresh(aiCache)}
+        />
+      )}
+
+      {wizardOpen && (
+        <AiWizard
+          cachedResult={
+            wizardOpen === 'recall' && aiCache
+              ? { recs: aiCache.recs, destination: aiCache.destination }
+              : undefined
+          }
+          onClose={handleWizardClose}
+          onResolve={handleWizardResolve}
+          onResultReady={handleAiResultReady}
         />
       )}
 

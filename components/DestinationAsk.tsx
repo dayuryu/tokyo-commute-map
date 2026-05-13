@@ -14,6 +14,12 @@ const ASK_DIM = '#7d7060'
 interface Props {
   stationList: CustomStation[]
   onConfirm: (destination: Destination, customStation: CustomStation | null) => void
+  /** AI 推薦パスを起動 — Wizard を開く（destination は Wizard 内 Q1 で選択） */
+  onStartWizard: () => void
+  /** AI 推薦リコール — 24h 以内に既に推薦を行っていれば、Wizard を result phase で再起動 */
+  onRecallWizard: () => void
+  /** 24h 以内に AI 推薦キャッシュが存在するか。true なら hero CTA は「再表示」モードへ変身 */
+  aiCacheFresh: boolean
 }
 
 /**
@@ -24,7 +30,13 @@ interface Props {
  * 親 (page.tsx) は onConfirm を受けて setMapMounted(true) し、
  * フェード完了後にこのコンポーネント自体を unmount する。
  */
-export default function DestinationAsk({ stationList, onConfirm }: Props) {
+export default function DestinationAsk({
+  stationList,
+  onConfirm,
+  onStartWizard,
+  onRecallWizard,
+  aiCacheFresh,
+}: Props) {
   const isMobile = useIsMobile()
   const [mounted, setMounted] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -54,6 +66,18 @@ export default function DestinationAsk({ stationList, onConfirm }: Props) {
     if (closing) return
     setClosing(true)
     onConfirm(dest, custom)
+  }
+
+  function startWizard() {
+    if (closing) return
+    setClosing(true)
+    onStartWizard()
+  }
+
+  function recallWizard() {
+    if (closing) return
+    setClosing(true)
+    onRecallWizard()
   }
 
   return (
@@ -130,7 +154,7 @@ export default function DestinationAsk({ stationList, onConfirm }: Props) {
 
         {/* 副標題 */}
         <p style={{
-          margin: isMobile ? '0 0 30px' : '0 0 42px',
+          margin: isMobile ? '0 0 24px' : '0 0 28px',
           fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
           fontSize: isMobile ? 'clamp(12px, 3.5vw, 14px)' : 'clamp(13px, 1.15vw, 16px)',
           lineHeight: 1.85,
@@ -139,6 +163,102 @@ export default function DestinationAsk({ stationList, onConfirm }: Props) {
         }}>
           ここから、1,793 駅が、<br />あなたの中心を語りはじめる。
         </p>
+
+        {/* ── AI 推薦 hero card ────────────────────────────────────
+            DestinationAsk のもう一つの分岐入口。
+            - 新規（aiCacheFresh=false）: 「6 つの質問に答えて、AI に提案してもらう」
+            - 利用済み（aiCacheFresh=true）: 「過去の推薦を再表示する」+ 24h ルール注記
+            「AI は探索の補助、1 日 1 回まで」が主人のポリシー。 */}
+        <button
+          onClick={aiCacheFresh ? recallWizard : startWizard}
+          style={{
+            display: 'block',
+            width: '100%',
+            maxWidth: isMobile ? '100%' : 420,
+            margin: isMobile ? '0 auto 14px' : '0 auto 16px',
+            padding: isMobile ? '14px 16px' : '16px 22px',
+            background: 'rgba(168,51,43,.06)',
+            border: `.5px solid ${ASK_RED}`,
+            color: ASK_INK,
+            cursor: 'pointer',
+            transition: 'all .25s',
+            textAlign: 'center',
+            borderRadius: 0,
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = ASK_RED
+            e.currentTarget.style.color = '#f5e7d2'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'rgba(168,51,43,.06)'
+            e.currentTarget.style.color = ASK_INK
+          }}
+        >
+          <div style={{
+            fontFamily: 'var(--mono, "JetBrains Mono",monospace)',
+            fontSize: isMobile ? 9 : 10,
+            letterSpacing: '.32em',
+            textTransform: 'uppercase',
+            opacity: .8,
+          }}>
+            {aiCacheFresh ? '✦ AI Advisor · 利用済み' : '✦ AI Advisor · 新機能'}
+          </div>
+          <div style={{
+            marginTop: 6,
+            fontFamily: 'var(--display-italic, "Cormorant Garamond",serif)',
+            fontStyle: 'italic',
+            fontSize: isMobile ? 16 : 18,
+            letterSpacing: '-.01em',
+          }}>
+            {aiCacheFresh
+              ? 'your twenty places, ready to revisit'
+              : 'let AI choose twenty places for you'}
+          </div>
+          <div style={{
+            marginTop: 8,
+            fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
+            fontWeight: 600,
+            fontSize: isMobile ? 13 : 14,
+            letterSpacing: '.06em',
+          }}>
+            {aiCacheFresh
+              ? '過去の推薦 20 駅を再表示する →'
+              : '6 つの質問に答えて、AI に提案してもらう →'}
+          </div>
+        </button>
+
+        {/* 24h ルール注記 — 利用済み時のみ、押せない理由を明示する */}
+        {aiCacheFresh && (
+          <p
+            style={{
+              margin: isMobile ? '0 0 30px' : '0 0 36px',
+              fontFamily: 'var(--display-italic, "Cormorant Garamond",serif)',
+              fontStyle: 'italic',
+              fontSize: isMobile ? 11 : 12,
+              color: ASK_DIM,
+              letterSpacing: '.02em',
+              lineHeight: 1.6,
+            }}
+          >
+            新しい推薦の作成は 24 時間に 1 回までです。
+          </p>
+        )}
+        {!aiCacheFresh && (
+          <div style={{ marginBottom: isMobile ? 30 : 36 }} />
+        )}
+
+        {/* hairline divider — AI パスと手動パスを軽く区切る */}
+        <div
+          aria-hidden
+          style={{
+            height: 1,
+            background: 'rgba(28,24,18,.10)',
+            margin: isMobile ? '0 0 22px' : '0 0 26px',
+            maxWidth: 280,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+          }}
+        />
 
         {/* search input */}
         <div style={{

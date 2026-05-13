@@ -59,6 +59,34 @@ function createPinElement(label: string): HTMLElement {
   return el
 }
 
+// 選択中（=「住居検討対象」）の駅マーカー。通勤目的地（赤）と区別するため INK 黒 + cream 中心。
+// editorial palette に合わせた配色で、赤ピンと色相を変えつつ「ピン形」で関連を示す。
+// 通勤先と同じ駅が選ばれた場合は親側で表示しないので、ここでは衝突を考慮しない。
+//
+// サイズは赤ピンと完全に同一 (32×44 viewBox、32×44 描画)。以前は黒ピンだけ 28×38 に
+// 縮小していたが、viewBox 32×44 との比率がずれて preserveAspectRatio による
+// 中央寄せでピン尖点が anchor='bottom' から微妙にズレ「歪んで見える」bug があった
+// (2026-05-13 主人報告)。viewBox = display size を守れば確実に揃う。
+function createSelectedPinElement(label: string): HTMLElement {
+  const el = document.createElement('div')
+  el.style.cssText = 'position:relative; width:32px; cursor:default;'
+  el.innerHTML = `
+    <svg width="32" height="44" viewBox="0 0 32 44" style="display:block" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16 0C7.16 0 0 7.16 0 16C0 28 16 44 16 44C16 44 32 28 32 16C32 7.16 24.84 0 16 0Z"
+            fill="#1c1812" stroke="#f5e7d2" stroke-width="2"/>
+      <circle cx="16" cy="16" r="7" fill="#f5e7d2"/>
+    </svg>
+    <div style="
+      position:absolute; top:46px; left:50%; transform:translateX(-50%);
+      background:#1c1812; color:#f5e7d2; font-size:11px; font-weight:600;
+      letter-spacing:.04em;
+      padding:2px 8px; border-radius:3px; white-space:nowrap;
+      box-shadow:0 1px 4px rgba(0,0,0,0.25);
+    ">${label}</div>
+  `
+  return el
+}
+
 // 全 feature を destination/maxMinutes/maxTransfers/customStation で絞り込む。
 // cluster source も含めて両 source に同じ絞り込み済み配列を流すことで、
 // cluster 円が「実際に到達不能なエリア」に出現しないことを保証する。
@@ -191,17 +219,22 @@ interface Props {
   onStationClick: (station: Station) => void
   customStation: CustomStation | null
   graph: PreparedGraph | null
+  /** 現在 drawer を開いている駅。INK 黒のピンで地図に表示する（通勤先の赤ピンと区別）。
+   *  通勤先と同一駅・null・現在の destination 範囲外でも親側に任せて表示する。 */
+  selectedStation: Station | null
   /** 初回 idle（タイル＋レイヤ描画完了）で 1 度だけ発火する任意 callback。
    *  LoadingOverlay のフェードアウト用。 */
   onReady?: () => void
 }
 
-export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation, graph, onReady }: Props) {
+export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation, graph, selectedStation, onReady }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const geojsonRef = useRef<any>(null)
   const markerRef = useRef<maplibregl.Marker | null>(null)
+  // 選択中駅ピン（黒）— 通勤先ピン (markerRef、赤) とは独立のマーカー
+  const selectedMarkerRef = useRef<maplibregl.Marker | null>(null)
   // 30 個の fixed destination の info（onload で計算、destInfoReady を立てて re-render）
   const destInfoRef = useRef<Record<string, DestInfo>>({})
   const [destInfoReady, setDestInfoReady] = useState(false)
@@ -456,21 +489,30 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
           } else if (typeof props.line_names === 'string' && props.line_names) {
             try { lineNames = JSON.parse(props.line_names) } catch { /* noop */ }
           }
+          // 全 30 fixed destination + custom の通勤フィールドを prefix 一括コピー。
+          // 旧コードでは shinjuku / shibuya / tokyo / custom の 4 つだけハードコードしていて
+          // 残り 27 popular destination (meguro 等) の min_to_* が drawer に届かず
+          // 「— 分 to 目黒」が表示される bug があった (2026-05-13 主人報告)。
+          // 今後 destination を追加してもこの copy は壊れない。
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const commuteFields: Record<string, any> = {}
+          for (const key of Object.keys(props)) {
+            if (
+              key.startsWith('min_to_') ||
+              key.startsWith('transfers_to_') ||
+              key.startsWith('bucket_')
+            ) {
+              commuteFields[key] = props[key]
+            }
+          }
           onStationClick({
             code: props.code,
             name: props.name,
             lat: geo.coordinates[1],
             lon: geo.coordinates[0],
-            min_to_shinjuku:       props.min_to_shinjuku,
-            min_to_shibuya:        props.min_to_shibuya,
-            min_to_tokyo:          props.min_to_tokyo,
-            min_to_custom:         props.min_to_custom,
-            transfers_to_shinjuku: props.transfers_to_shinjuku,
-            transfers_to_shibuya:  props.transfers_to_shibuya,
-            transfers_to_tokyo:    props.transfers_to_tokyo,
-            transfers_to_custom:   props.transfers_to_custom,
             bucket: props.bucket,
             line_names: lineNames,
+            ...commuteFields,
           })
         })
         map.on('mouseenter', layerId, (e) => {
@@ -584,6 +626,76 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
     }
 
   }, [destination, customStation, destInfoReady])
+
+  // ── 選択中駅 → 黒ピン更新 + 該当駅の散点/label 隠す + flyTo ──────────
+  // 通勤先（赤ピン）と同一駅の場合はマーカー出さない（赤ピンが既にあるため）。
+  // 散点と label を同時に隠すことで、黒ピン (anchor=bottom) と緑散点 (anchor=center)
+  // が同じ lngLat に対して別アンカーで描画され「ピンが浮いて見える」現象を回避する
+  // (2026-05-13 主人報告)。layer-level filter で実装、cluster source は影響なし。
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    selectedMarkerRef.current?.remove()
+    selectedMarkerRef.current = null
+
+    // 散点/label の filter 復元 — selectedStation 解除時、または下記の早期 return パスでも
+    // 統一的に呼ぶため、まず復元してから条件分岐に進む。
+    const restoreFilters = () => {
+      if (!map.getLayer('stations-major')) return
+      map.setFilter('stations-major',       ['==', ['get', 'is_major'], true])
+      map.setFilter('stations-minor',       ['==', ['get', 'is_major'], false])
+      map.setFilter('stations-label-major', ['==', ['get', 'is_major'], true])
+      map.setFilter('stations-label',       ['==', ['get', 'is_major'], false])
+    }
+
+    if (!selectedStation) {
+      restoreFilters()
+      return
+    }
+
+    // 通勤先と同じコードならば赤ピンに任せて黒ピンは出さない。
+    // この場合は散点も隠さない（赤ピンが上に乗っているので問題ない）。
+    const destCode = destination === 'custom'
+      ? customStation?.code
+      : destInfoRef.current[destination]?.code
+    if (destCode != null && selectedStation.code === destCode) {
+      restoreFilters()
+      return
+    }
+
+    // 該当 station code を 4 layer 全てから排除（散点 + 名前ラベル）
+    if (map.getLayer('stations-major')) {
+      const code = selectedStation.code
+      map.setFilter('stations-major',       ['all', ['==', ['get', 'is_major'], true],  ['!=', ['get', 'code'], code]])
+      map.setFilter('stations-minor',       ['all', ['==', ['get', 'is_major'], false], ['!=', ['get', 'code'], code]])
+      map.setFilter('stations-label-major', ['all', ['==', ['get', 'is_major'], true],  ['!=', ['get', 'code'], code]])
+      map.setFilter('stations-label',       ['all', ['==', ['get', 'is_major'], false], ['!=', ['get', 'code'], code]])
+    }
+
+    const coords: [number, number] = [selectedStation.lon, selectedStation.lat]
+    selectedMarkerRef.current = new maplibregl.Marker({
+      element: createSelectedPinElement(selectedStation.name),
+      anchor:  'bottom',
+    })
+      .setLngLat(coords)
+      .addTo(map)
+
+    // 駅が現在の表示範囲外なら穏やかに flyTo（ズームは現在値以上を維持）。
+    // 地図再描画中の race condition を避けるため、map.loaded() を確認してから動かす。
+    if (map.loaded()) {
+      const bounds = map.getBounds()
+      const inView = bounds.contains(coords)
+      if (!inView) {
+        map.flyTo({
+          center:   coords,
+          zoom:     Math.max(map.getZoom(), 12),
+          duration: 1000,
+          essential: true,
+        })
+      }
+    }
+  }, [selectedStation, destination, customStation, destInfoReady])
 
   return <div ref={containerRef} className="w-full h-full" />
 }
