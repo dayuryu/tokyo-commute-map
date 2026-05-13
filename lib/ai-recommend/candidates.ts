@@ -10,6 +10,30 @@ import { loadServerStationData } from './data-loader'
 import type { WizardAnswers, CandidateStation, RentMax } from './types'
 
 /**
+ * 居住性ブラックリスト — 純商業・行政区駅の station code
+ *
+ * 通勤時間 0-5 分で top にせり上がってくるが、SUUMO 等で物件がほぼ無く
+ * 「居住候補」として推薦されると違和感が強い駅を AI 候補から除外する。
+ * 皇居・霞が関・新橋一帯のオフィス街 13 駅。
+ * 周辺の銀座・半蔵門・八丁堀等は住宅実態があるため対象外。
+ */
+const NON_RESIDENTIAL_STATION_CODES: ReadonlySet<number> = new Set([
+  100201,   // 東京
+  1130102,  // 新橋
+  1130225,  // 有楽町
+  2800113,  // 虎ノ門
+  2800114,  // 溜池山王
+  2800208,  // 大手町(東京)
+  2800211,  // 霞ケ関（千代田区、東京メトロ）※「霞ヶ関」(埼玉県川越市・東武東上線) は別駅
+  2800212,  // 国会議事堂前
+  2800315,  // 日比谷
+  2800511,  // 二重橋前
+  2800616,  // 永田町
+  2800617,  // 桜田門
+  9930307,  // 内幸町
+])
+
+/**
  * 家賃帯マッピング（円、月家賃）
  * - SUUMO 5 分原データ × 0.9 倍率の 1R/1K 最低値、または政府データ
  * - 上限は band ぴったりではなく多少 buffer を取る
@@ -62,6 +86,7 @@ export async function buildCandidates(answers: WizardAnswers): Promise<Candidate
 
   for (const code in data.stations) {
     const s = data.stations[code]
+    if (NON_RESIDENTIAL_STATION_CODES.has(s.code)) continue
     const commute = s.commute[destination]
     if (!commute) continue
     if (commute.min > maxMinutes + 5) continue   // 通勤時間 buffer 5 分
