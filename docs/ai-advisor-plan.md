@@ -1,10 +1,31 @@
-# AI 助手による駅推薦機能 — 設計計画
+# AI 助手による駅推薦機能 — 設計計画 + v1 上線記録
 
 > 主人が 2026-05-12 夜に提示した次フェーズの目玉機能。
 > 「AI が質問する → ユーザが選ぶ → AI が 20 駅 + 理由を返す」というフロー。
-> 本ドキュメントは仕様メモであり、明日以降の実装着手時の単一情報源。
+> 本ドキュメントは設計仕様 + v1 実装結果のスナップショット。
 
-最終整理日: 2026-05-12
+最終整理日: 2026-05-13（**v1 上線**）
+
+---
+
+## 📍 v1 ステータス（2026-05-13）
+
+**全 Phase 上線完了**。production URL: https://tokyo-commute-map.vercel.app/
+
+実装ファイル:
+- Backend: `app/api/recommend/route.ts` + `lib/ai-recommend/*`
+- UI: `components/AiWizard.tsx`, `AiResultGrid.tsx`, `AiRecallButton.tsx`
+- 統合: `app/page.tsx`, `components/StationDrawer.tsx`, `components/DestinationAsk.tsx`, `components/MapView.tsx`
+- データ: `public/data/area_features.json`
+
+設計と実装の差分:
+- Phase 5「地図 highlight」は**選択中 1 駅のみ**実装（黒ピン + 散点 hide）。
+  20 駅一括 highlight は v2 候補に繰延（`todo.md` 参照）。
+- Phase 7「rate limit」は当初 5/day だったが主人方針で 1/day に厳格化。
+  cache 命中は無制限（recall できる UX）。
+- 6 問目「外せない条件 (自由記述)」は採用せず、5 問 + destination = 6 問構成。
+
+---
 
 ---
 
@@ -123,22 +144,21 @@ AI が 20 駅を推薦
 
 ---
 
-## 想定工程（粗見積もり）
+## 想定工程（粗見積もり） + 実績
 
-| Phase | 内容 | 工時 |
-|---|---|---|
-| 0 | 主人による API key 取得 + provider 確定 | 主人 30min |
-| 1 | `.env.local` に AI API key 追加 | 5min |
-| 2 | `app/api/recommend/route.ts` 実装 | 2h |
-| 3 | JSON Schema + prompt template 確定 | 1.5h |
-| 4 | AI Wizard UI コンポーネント実装（質問 → 回答 → loading → 結果） | 3-4h |
-| 5 | 推薦結果の地図 highlight + drawer 統合 | 2h |
-| 6 | Supabase `ai_recommendations` 表 + キャッシュ実装 | 1.5h |
-| 7 | rate limit + 失敗処理 | 1h |
-| 8 | editorial UI 整形 + 法的注記 | 1.5h |
+| Phase | 内容 | 想定工時 | 実績 (2026-05-13) |
+|---|---|---|---|
+| 0 | 主人による API key 取得 + provider 確定 | 主人 30min | ✅ OpenAI gpt-5.4-nano |
+| 1 | `.env.local` に AI API key 追加 | 5min | ✅ |
+| 2 | `app/api/recommend/route.ts` 実装 | 2h | ✅ 前 session |
+| 3 | JSON Schema + prompt template 確定 | 1.5h | ✅ 前 session |
+| 4 | AI Wizard UI コンポーネント実装 | 3-4h | ✅ 本 session |
+| 5 | 推薦結果の地図 highlight + drawer 統合 | 2h | △ 部分（選択 1 駅のみ）。20 駅一括 highlight は v2 |
+| 6 | Supabase `ai_recommendations` 表 + キャッシュ実装 | 1.5h | ✅ 前 session + 本 session で localStorage 24h cache 追加 |
+| 7 | rate limit + 失敗処理 | 1h | ✅ 1/day 厳格化 |
+| 8 | editorial UI 整形 + 法的注記 | 1.5h | ✅ |
 
-合計 **約 13-15h**（主人本人タスクを除く）。
-1〜2 セッションで完了可能。
+実績合計 **約 8h**（本 session）+ 前 session 約 5h = 約 13h。設計工時とほぼ一致。
 
 ---
 
@@ -159,3 +179,4 @@ AI が 20 駅を推薦
 | 日付 | 内容 |
 |---|---|
 | 2026-05-12 | 主人提示の AI 駅推薦機能の仕様を整理。明日着手前の決定事項 7 項目を列挙 |
+| 2026-05-13 | v1 上線。Phase 2,3,6,7 (前 session) + Phase 4,8 + 24h cache + recall + 1/day rate-limit (本 session)。Phase 5 完全版 (20 駅一括 highlight) は v2 候補に繰延 |
