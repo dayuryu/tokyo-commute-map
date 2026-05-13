@@ -194,7 +194,10 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
         overflowY: 'hidden', overflowX: 'hidden',
         scrollSnapType: 'y mandatory',
       }}>
-        <PageNames    active={index === 0} isMobile={isMobile} />
+        {/* mounted を active に合算 — 初回 mount 時に false→true 遷移を作って
+            traveler / dots の CSS transition を確実に発火させる (#bug)。
+            他ページは index 切替で false→true が自然に起こるため不要。 */}
+        <PageNames    active={mounted && index === 0} isMobile={isMobile} />
         <PageOtherMap active={index === 1} isMobile={isMobile} />
         <PageYourTurn active={index === 2} onEnter={enter} isMobile={isMobile} />
       </div>
@@ -216,6 +219,13 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
         @keyframes sweep   {
           from { transform: translate(-50%, 0) rotate(0deg); }
           to   { transform: translate(-50%, 0) rotate(360deg); }
+        }
+        /* 飘る一人の旅人 — 上から落下、中央で短く滞在、最後に消失 */
+        @keyframes tcmFallingTraveler {
+          0%   { top: 12%; opacity: 0; }
+          10%  { opacity: 1; }
+          65%  { top: 52%; opacity: 1; }
+          100% { top: 52%; opacity: 0; }
         }
       `}</style>
     </div>
@@ -355,14 +365,20 @@ function PageNames({ active, isMobile }: { active: boolean; isMobile: boolean })
             transition: `opacity 1.4s ${.4 + d.d}s, transform 1.4s ${.4 + d.d}s`,
           }} />
         ))}
-        {/* one falling traveler */}
-        <span style={{
-          position: 'absolute', left: '52%', top: active ? '52%' : '12%',
-          width: 6, height: 6, borderRadius: 999, background: STORY_RED,
-          boxShadow: '0 0 18px rgba(168,51,43,.55)',
-          opacity: active ? 1 : 0,
-          transition: 'top 2.4s cubic-bezier(.4,.0,.2,1) .3s, opacity 1s .3s',
-        }} />
+        {/* one falling traveler — 飄り → 停顿 → 消失 の 1 ショット
+            key で active 切替時に animation を再起動（page 2 から戻った時にもう一度発火） */}
+        <span
+          key={active ? 'traveler-on' : 'traveler-off'}
+          style={{
+            position: 'absolute', left: '52%', top: '12%',
+            width: 6, height: 6, borderRadius: 999, background: STORY_RED,
+            boxShadow: '0 0 18px rgba(168,51,43,.55)',
+            opacity: 0,
+            animation: active
+              ? 'tcmFallingTraveler 4s cubic-bezier(.4,.0,.2,1) .3s forwards'
+              : 'none',
+          }}
+        />
       </div>
       <div style={{
         position: 'relative',
@@ -371,22 +387,25 @@ function PageNames({ active, isMobile }: { active: boolean; isMobile: boolean })
         fontSize: isMobile ? 'clamp(14px, 4.2vw, 17px)' : 'clamp(18px, 1.55vw, 22px)',
         lineHeight: isMobile ? 2 : 2.25,
         letterSpacing: '.08em', color: STORY_INK,
-        background: 'rgba(243,236,221,.78)',
-        backdropFilter: 'blur(2px)',
+        // frosted glass — Welcome の参数を米色基底に翻訳（0.32 / blur 28px）。
+        // 背景の散点 + 飘る traveler は強くぼかされつつ色味は透けて見える editorial 感。
+        background: 'rgba(243,236,221,.32)',
+        backdropFilter: 'blur(28px) saturate(120%)',
+        WebkitBackdropFilter: 'blur(28px) saturate(120%)',
         padding: isMobile ? '22px 22px' : '34px 40px',
         opacity: active ? 1 : 0,
         transform: active ? 'translateY(0)' : 'translateY(20px)',
         transition: 'opacity 1.2s .9s, transform 1.2s .9s',
       }}>
-        <p style={{ margin: '0 0 .35em' }}>東京には、千の駅がある。</p>
-        <p style={{ margin: '0 0 .35em' }}>夜の灯は、名前の海のように、ひろがっている。</p>
+        <p style={{ margin: '0 0 .35em' }}>東京と、その周りに、1843の駅がある。</p>
+        <p style={{ margin: '0 0 .35em' }}>夜の灯は、名前の海のように広がっている。</p>
         <p style={{ margin: '.7em 0 .35em', color: STORY_DIM, fontStyle: 'italic' }}>
-          AI に、問うてみる——
+          引っ越し先を、ネットで調べてみる——
         </p>
-        <p style={{ margin: '0 0 .35em' }}>「渋谷まで 30 分、家賃 7 万」</p>
-        <p style={{ margin: '0 0 .35em' }}>ずらりと、見知らぬ名前が、ならぶ。</p>
+        <p style={{ margin: '0 0 .35em' }}>「渋谷まで30分、家賃7万円」</p>
+        <p style={{ margin: '0 0 .35em' }}>画面には、見知らぬ駅の名前が、ずらりと並ぶ。</p>
         <p style={{ margin: '.7em 0 0', color: STORY_RED }}>
-          けれど、その駅で暮らすことが<br />どんな朝なのかは、<br />名前のままでは、わからない。
+          けれど、その駅で暮らす朝が、<br />どんな光で始まるのかは、<br />名前だけでは、わからない。
         </p>
       </div>
     </Page>
@@ -477,13 +496,9 @@ function PageOtherMap({ active, isMobile }: { active: boolean; isMobile: boolean
         opacity: active ? 1 : 0, transform: active ? 'translateY(0)' : 'translateY(20px)',
         transition: 'opacity 1.2s .8s, transform 1.2s .8s',
       }}>
-        <p style={{ margin: '0 0 .8em' }}>通勤時間で、地図が、色を変える。</p>
-        <p style={{ margin: '0 0 .35em' }}>1,793 の駅が、あなたから何分かを語る。</p>
-        <p style={{ margin: '0 0 .35em', color: STORY_DIM }}>近い駅は緑、遠い駅は朱。</p>
-        <p style={{ margin: '.8em 0 .35em' }}>スクロールひとつで、世界がほどけてゆく。</p>
-        <p style={{ margin: '0', color: STORY_RED }}>
-          名前の向こうに、<br />あなたのまちが、ひろがっている。
-        </p>
+        <p style={{ margin: '0 0 .8em' }}>通勤時間で、地図が色を変えていく。</p>
+        <p style={{ margin: '0 0 .35em' }}>1843の駅が、あなたから何分の場所にあるのかを語りはじめる。</p>
+        <p style={{ margin: '0', color: STORY_DIM }}>近い駅は緑、遠い駅は朱。</p>
       </div>
     </Page>
   )
@@ -559,6 +574,10 @@ function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter:
           <span style={{ color: STORY_RED }}>あなたの番。</span>
         </p>
 
+        {/* 大見出しの折り返し守則 ── 句読点ごとに <span whiteSpace:nowrap> で分割し、
+            「行こ／う。」のような孤字断行を防止する。textWrap: balance は CJK では信頼
+            できないため使わず、span 単位の nowrap で制御。
+            将来この文案を差し替える際も、各句を nowrap span で包む構造を維持すること。 */}
         <h2 style={{
           margin: isMobile ? '0 0 22px' : '0 0 28px',
           fontFamily: 'var(--display-italic, "Cormorant Garamond","Shippori Mincho",serif)',
@@ -566,9 +585,11 @@ function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter:
           fontSize: isMobile ? 'clamp(24px, 7.2vw, 38px)' : 'clamp(32px, 4vw, 56px)',
           lineHeight: isMobile ? 1.2 : 1.15,
           letterSpacing: '-.012em', color: STORY_INK,
-          textWrap: 'balance' as CSSProperties['textWrap'],
         }}>
-          自分の足で、<br />自分のまちを、探そう。
+          <span style={{ whiteSpace: 'nowrap' }}>自分の足で、</span>
+          <br />
+          <span style={{ whiteSpace: 'nowrap' }}>自分のまちを</span>
+          <span style={{ whiteSpace: 'nowrap' }}>見つけに行こう。</span>
         </h2>
 
         <p style={{
@@ -578,10 +599,11 @@ function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter:
           lineHeight: isMobile ? 1.85 : 1.95,
           letterSpacing: '.06em', color: STORY_DIM,
         }}>
-          東京には、まだあなたの知らない、<br />
-          あなただけの 1 駅がある。<br />
-          見つけるのは、AI でも、口コミでもない——<br />
-          スクロールしてゆく、あなたの好奇心。
+          東京には、きっとまだ、<br />
+          あなたの知らない、あなただけの1駅がある。<br />
+          AIも、口コミも、道しるべに過ぎない。<br />
+          画面をスクロールするたび、<br />
+          動き出すのは、あなたの好奇心。
         </p>
 
         <button onClick={onEnter} style={{
@@ -606,7 +628,7 @@ function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter:
           fontSize: isMobile ? 9 : 10,
           letterSpacing: '.32em', color: '#a89c82',
         }}>
-          1,793 stations · waiting
+          1843 stations · waiting
         </div>
       </div>
     </Page>
