@@ -18,7 +18,13 @@ type Consent = 'all' | 'necessary'
  * - 親コンポーネント側で mapMounted 等で出すタイミングを制御する
  *   （WelcomeOverlay 表示中は本コンポーネント自体が mount されない設計）
  */
-export default function CookieConsent() {
+interface Props {
+  /** StationDrawer が開いているか。true の時、桌面では左寄せ、モバイルでは非表示にして
+   *  drawer に隠れたまま選択を強要されないようにする。drawer を閉じれば再表示。 */
+  drawerOpen?: boolean
+}
+
+export default function CookieConsent({ drawerOpen = false }: Props) {
   // undefined = まだ localStorage を読んでいない（hydration 待ち）
   // null = 読み終わったが未選択 → 横幅を表示
   // 'all' / 'necessary' = 既に選択済み → 表示しない
@@ -44,18 +50,23 @@ export default function CookieConsent() {
   // hydration 中 / 既に同意済み の場合は何も描画しない
   if (consent !== null) return null
 
+  // drawer がモバイルで全画面 (w-full < sm:380px) を占めるので、その間 banner は非表示。
+  // 桌面 (sm 以上) では drawer 右側 380px を避けて左寄せに切替えて重なりを回避する。
+  // drawer を閉じれば次回マウントで自然に再表示される。
   return (
     <div
       role="dialog"
       aria-label="Cookie 同意のお願い"
-      className="fixed z-20
-                 left-3 right-3 bottom-3
-                 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[min(720px,calc(100vw-32px))]
+      className={`fixed z-20
+                 left-3 bottom-3
+                 ${drawerOpen
+                   ? 'right-[392px] hidden sm:block md:left-3 md:translate-x-0 md:w-auto md:max-w-[min(720px,calc(100vw-404px))]'
+                   : 'right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[min(720px,calc(100vw-32px))]'}
                  rounded-2xl
                  px-5 py-4 md:px-6 md:py-5
                  border border-black/[.10]
                  shadow-[0_2px_8px_rgba(0,0,0,.06),0_16px_40px_rgba(0,0,0,.16)]
-                 fade-up"
+                 fade-up`}
       style={{
         background: 'rgba(244, 241, 234, 0.94)',
         backdropFilter: 'blur(20px) saturate(160%)',

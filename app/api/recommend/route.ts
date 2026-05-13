@@ -20,7 +20,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import type { RecommendRequest, WizardAnswers, RecommendApiResponse } from '@/lib/ai-recommend/types'
+import type { RecommendRequest, WizardAnswers, CommuteByCode, RecommendApiResponse } from '@/lib/ai-recommend/types'
 import { buildCandidates } from '@/lib/ai-recommend/candidates'
 import { callRecommend, buildFallback, MODEL } from '@/lib/ai-recommend/openai'
 import { buildCacheKey, isCacheable, lookupCache, insertCache } from '@/lib/ai-recommend/cache'
@@ -32,9 +32,29 @@ const VALID_HOUSEHOLD  = ['単身', 'カップル', '子持ち']
 const VALID_ATMOSPHERE = ['賑やか', '落ち着いた', '緑が多い', '商業集中']
 const VALID_SAFETY     = ['最重要', '普通', '気にしない']
 
+// 1843 駅程度を想定、上限は防御的に余裕を取る
+const MAX_COMMUTE_ENTRIES = 3000
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function isValidCommuteByCode(v: any): v is CommuteByCode {
+  if (v == null || typeof v !== 'object') return false
+  const keys = Object.keys(v)
+  if (keys.length === 0 || keys.length > MAX_COMMUTE_ENTRIES) return false
+  // 任意 3 件のみサンプル検査（全件は重い）
+  for (let i = 0; i < Math.min(3, keys.length); i++) {
+    const key = keys[i]
+    if (!/^\d+$/.test(key)) return false
+    const entry = v[key]
+    if (entry == null || typeof entry !== 'object') return false
+    if (typeof entry.min !== 'number' || entry.min < 0 || entry.min > 600) return false
+    if (typeof entry.transfers !== 'number' || entry.transfers < 0) return false
+  }
+  return true
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function validate(input: any): input is RecommendRequest {
-  return (
+  const baseOk =
     input != null &&
     typeof input.deviceId === 'string' && input.deviceId.length > 0 &&
     typeof input.destination === 'string' && input.destination.length > 0 &&
@@ -43,7 +63,17 @@ function validate(input: any): input is RecommendRequest {
     VALID_HOUSEHOLD.includes(input.household) &&
     VALID_ATMOSPHERE.includes(input.atmosphere) &&
     VALID_SAFETY.includes(input.safety)
-  )
+  if (!baseOk) return false
+
+  // destination === 'custom' の時は customDestination + commuteByCode 必須
+  if (input.destination === 'custom') {
+    const cd = input.customDestination
+    if (cd == null || typeof cd !== 'object') return false
+    if (typeof cd.code !== 'number' || !Number.isFinite(cd.code)) return false
+    if (typeof cd.name !== 'string' || cd.name.length === 0) return false
+    if (!isValidCommuteByCode(input.commuteByCode)) return false
+  }
+  return true
 }
 
 function jsonRes(body: RecommendApiResponse, status = 200, extraHeaders?: Record<string, string>) {
@@ -64,7 +94,9 @@ export async function POST(req: Request) {
   if (!validate(body)) {
     return jsonRes({ ok: false, error: 'invalid input fields' }, 400)
   }
-  const { deviceId, ...answersFields } = body as RecommendRequest
+  // commuteByCode と customDestination は WizardAnswers ではなく request body 専用 field、
+  // candidates / cache / 統計 は WizardAnswers 部分のみに依存。
+  const { deviceId, commuteByCode, customDestination: _customDestination, ...answersFields } = body as RecommendRequest
   const answers = answersFields as WizardAnswers
 
   // ── Step 3: extract IP & hash（生 IP は保存しない） ──────────
@@ -89,9 +121,10 @@ export async function POST(req: Request) {
   }
 
   // ── Step 5: build candidates ────────────────────────────────
+  // custom destination の時は commuteByCode (client Dijkstra 結果) を override で渡す
   let candidates
   try {
-    candidates = await buildCandidates(answers)
+    candidates = await buildCandidates(answers, commuteByCode)
   } catch (e) {
     console.error('[/api/recommend] buildCandidates failed:', e)
     return jsonRes({ ok: false, error: 'internal data load error' }, 500)

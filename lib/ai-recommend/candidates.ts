@@ -7,7 +7,7 @@
  */
 
 import { loadServerStationData } from './data-loader'
-import type { WizardAnswers, CandidateStation, RentMax } from './types'
+import type { WizardAnswers, CandidateStation, RentMax, CommuteByCode } from './types'
 
 /**
  * 居住性ブラックリスト — 純商業・行政区駅の station code
@@ -76,8 +76,16 @@ function getStationRent(
  * - 通勤時間 ≤ maxMinutes + 5（buffer）
  * - 家賃データある場合は band.max まで、無い場合は通す（除外しない）
  * - 通勤時間 → 家賃 の順でソート、top 150 のみ返す
+ *
+ * @param answers Wizard 答え
+ * @param overrideCommute  destination === 'custom' の時に client が事前算出した
+ *   通勤 map。存在する場合は geojson の `min_to_<slug>` 預計算ではなくこの map から
+ *   通勤情報を引く。fixed destination の場合は undefined を渡す。
  */
-export async function buildCandidates(answers: WizardAnswers): Promise<CandidateStation[]> {
+export async function buildCandidates(
+  answers: WizardAnswers,
+  overrideCommute?: CommuteByCode,
+): Promise<CandidateStation[]> {
   const data = await loadServerStationData()
   const { destination, maxMinutes, rentMax } = answers
   const band = RENT_BANDS[rentMax]
@@ -87,7 +95,7 @@ export async function buildCandidates(answers: WizardAnswers): Promise<Candidate
   for (const code in data.stations) {
     const s = data.stations[code]
     if (NON_RESIDENTIAL_STATION_CODES.has(s.code)) continue
-    const commute = s.commute[destination]
+    const commute = overrideCommute ? overrideCommute[s.code] : s.commute[destination]
     if (!commute) continue
     if (commute.min > maxMinutes + 5) continue   // 通勤時間 buffer 5 分
 

@@ -15,7 +15,7 @@
  * destination は fixed slug 限定（custom destination は呼出側で blocking）。
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useIsMobile } from '@/lib/useIsMobile'
 import {
@@ -27,6 +27,8 @@ import {
 import type {
   Atmosphere,
   CommuteMaxMinutes,
+  CustomDestinationInfo,
+  CommuteByCode,
   Household,
   Recommendation,
   RecommendApiResponse,
@@ -34,12 +36,43 @@ import type {
   SafetyPriority,
   WizardAnswers,
 } from '@/lib/ai-recommend/types'
+import { computeCommutes, type PreparedGraph } from '@/lib/dijkstra'
+import type { CustomStation } from '@/app/page'
 import AiResultGrid from './AiResultGrid'
 
 const BG  = '#f3ecdd'
 const INK = '#1c1812'
 const RED = '#a8332b'
 const DIM = '#7d7060'
+
+// ── 駅名検索の正規化（Q1 autocomplete 用） ──────────────────────
+// 日本の地名は「四ツ谷 ⇔ 四谷」「霞ヶ関 ⇔ 霞ケ関」「丸ノ内 ⇔ 丸の内」のような
+// 表記揺れが多い。station_database はさらに「四ツ谷(四ッ谷)」のように主名 +
+// 括弧別名の併記形式も含む。ユーザが「四谷」と入れて「四ツ谷」にヒットさせるため、
+// 双方を軽量化（小カナ・の・が・括弧除去）して部分一致判定する。
+
+/** 表記揺れの小カナと挿入助詞を除去した正規化文字列。 */
+function normalizeForSearch(s: string): string {
+  return s
+    .replace(/[（(].*?[）)]/g, '')   // 括弧内別名を除去
+    .replace(/[ツッヶケヵヮノ]/g, '') // 小カナ + 地名插入「ノ」（丸ノ内 ↔ 丸の内）
+    .replace(/[がの]/g, '')          // 「の/が」挿入の地名表記揺れ
+    .toLowerCase()
+}
+
+/** 駅名から検索キー候補（主名・括弧内別名・各々の正規化版）を抽出。 */
+function buildSearchKeys(name: string): string[] {
+  const keys: string[] = []
+  const main = name.replace(/[（(].*?[）)]/g, '')
+  const aliases = Array.from(name.matchAll(/[（(]([^）)]+)[）)]/g)).map(m => m[1])
+  for (const candidate of [main, ...aliases]) {
+    if (!candidate) continue
+    keys.push(candidate)
+    const norm = normalizeForSearch(candidate)
+    if (norm && norm !== candidate) keys.push(norm)
+  }
+  return keys
+}
 
 // ── デバイス ID（StationDrawer と共通 key） ───────────────────────
 function getDeviceId(): string {
@@ -133,39 +166,61 @@ type WizardState =
   | { phase: 'result'; recs: Recommendation[]; isFallback?: boolean; isCached?: boolean }
   | { phase: 'error'; message: string; canRetry: boolean }
 
+/** 30 fixed slug、または custom destination の station code/name を保持する union。 */
+export type WizardDestination =
+  | { kind: 'fixed';  slug: FixedDestination }
+  | { kind: 'custom'; station: CustomStation }
+
 interface Props {
   /** 任意 — DestinationAsk 等で既に通勤先が決まっていれば Q1 に予選択しておく */
   initialDestination?: FixedDestination
   /**
    * キャッシュされた過去の推薦結果。提供されれば Q1-Q6 / loading をスキップして
    * 直接 result phase で起動する（24h 以内の「もう一度見る」フロー用）。
+   * destination は fixed slug の場合は string、custom の場合は WizardDestination object。
    */
   cachedResult?: {
     recs:        Recommendation[]
-    destination: FixedDestination
+    destination: WizardDestination
   }
+  /** 1843 駅リスト — Q1 検索 autocomplete 用 */
+  stationList:         CustomStation[]
+  /** 客户端 Dijkstra 用グラフ — custom destination 選択時に通勤算出 */
+  graph:               PreparedGraph | null
   /**
    * Wizard を閉じる。
    * destination は Wizard 内で選択された通勤先（Q1 まで進んでいない場合は null）。
    * 親側はこれを受けて地図を mount し、Map 表示に切替える。
    */
-  onClose:             (destination: FixedDestination | null) => void
+  onClose:             (destination: WizardDestination | null) => void
   /**
    * 結果カードクリック時。destination + 該当駅名を親に通知。
    * 親側は地図を mount + 該当駅の drawer を開く。
    */
-  onResolve:           (destination: FixedDestination, stationName: string) => void
+  onResolve:           (destination: WizardDestination, stationName: string) => void
   /**
    * OpenAI 真調用 / fallback / cache 命中いずれかで result が確定した瞬間に呼ばれる。
    * 親側は recs + destination を保存して、後で AiRecallButton から再表示できるようにする。
    * cachedResult から起動した場合は呼ばれない（既に親側に存在しているため）。
    */
-  onResultReady?:      (destination: FixedDestination, recs: Recommendation[]) => void
+  onResultReady?:      (destination: WizardDestination, recs: Recommendation[]) => void
 }
+
+/**
+ * Wizard 内累積 state — partial answers + custom destination 専用 field。
+ * 'custom' destination 時は customStation + commuteByCode（client Dijkstra 結果）を保持。
+ */
+type WizardPartial =
+  Partial<WizardAnswers> & {
+    customStation?: CustomStation
+    commuteByCode?: CommuteByCode
+  }
 
 export default function AiWizard({
   initialDestination,
   cachedResult,
+  stationList,
+  graph,
   onClose,
   onResolve,
   onResultReady,
@@ -181,9 +236,11 @@ export default function AiWizard({
       : { phase: 'q', index: initialDestination ? 1 : 0 }
   )
   // 部分答案累積（partial - 最後の質問まではすべて埋まっていない）
-  const partialRef = useRef<Partial<WizardAnswers>>(
+  const partialRef = useRef<WizardPartial>(
     cachedResult
-      ? { destination: cachedResult.destination }
+      ? cachedResult.destination.kind === 'fixed'
+        ? { destination: cachedResult.destination.slug }
+        : { destination: 'custom', customStation: cachedResult.destination.station }
       : initialDestination ? { destination: initialDestination } : {}
   )
 
@@ -192,10 +249,31 @@ export default function AiWizard({
     return () => cancelAnimationFrame(id)
   }, [])
 
+  /** QuestionView / ResultView の destinationLabel 用 — fixed slug は displayName、custom は station 名。 */
+  function destLabel(): string {
+    const d = partialRef.current.destination
+    if (!d) return ''
+    if (d === 'custom') {
+      return partialRef.current.customStation?.name ?? ''
+    }
+    return getDestinationDisplayName(d as FixedDestination)
+  }
+
+  /** partialRef から WizardDestination object を再構築（partial が完備な前提）。 */
+  function currentWizardDest(): WizardDestination | null {
+    const d = partialRef.current.destination
+    if (!d) return null
+    if (d === 'custom') {
+      const cs = partialRef.current.customStation
+      return cs ? { kind: 'custom', station: cs } : null
+    }
+    return { kind: 'fixed', slug: d as FixedDestination }
+  }
+
   function handleClose() {
     if (closing) return
     setClosing(true)
-    const dest = (partialRef.current.destination as FixedDestination | undefined) ?? null
+    const dest = currentWizardDest()
     window.setTimeout(() => onClose(dest), 700)
   }
 
@@ -203,7 +281,7 @@ export default function AiWizard({
   function handleResolve(stationName: string) {
     if (closing) return
     setClosing(true)
-    const dest = partialRef.current.destination as FixedDestination | undefined
+    const dest = currentWizardDest()
     if (!dest) {
       // 防御的: destination 必須のはずだが万一無い場合は通常 close で fallback
       window.setTimeout(() => onClose(null), 700)
@@ -215,8 +293,11 @@ export default function AiWizard({
   function answerQuestion(value: AnswerValue | FixedDestination) {
     if (state.phase !== 'q') return
     if (state.index === 0) {
-      // Q1: destination 選択
+      // Q1: fixed destination 選択（custom は handleCustomDestination 経由）
       partialRef.current.destination = value as FixedDestination
+      // 念のため custom 残骸をクリア
+      delete partialRef.current.customStation
+      delete partialRef.current.commuteByCode
     } else {
       const q = QUESTIONS[state.index - 1]  // index 1..5 → QUESTIONS[0..4]
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -233,6 +314,26 @@ export default function AiWizard({
     }
   }
 
+  /**
+   * Q1 で custom destination が選択された時の handler。
+   * graph が ready でない場合は静かに無視（DestinationView 側で button disable される）。
+   */
+  function handleCustomDestination(station: CustomStation) {
+    if (state.phase !== 'q' || state.index !== 0) return
+    if (!graph) return
+    // client Dijkstra で 1843 駅 → custom 駅 の通勤を算出
+    // computeCommutes は Map<code, {mins, transfers}> を返す
+    const map = computeCommutes(graph, station.code)
+    const commuteByCode: CommuteByCode = {}
+    map.forEach((v, code) => {
+      commuteByCode[code] = { min: v.mins, transfers: v.transfers }
+    })
+    partialRef.current.destination = 'custom'
+    partialRef.current.customStation = station
+    partialRef.current.commuteByCode = commuteByCode
+    setState({ phase: 'q', index: 1 })
+  }
+
   function back() {
     if (state.phase !== 'q' || state.index === 0) return
     setState({ phase: 'q', index: state.index - 1 })
@@ -243,13 +344,29 @@ export default function AiWizard({
 
   async function runRecommend() {
     setState({ phase: 'loading' })
-    const answers = partialRef.current as WizardAnswers
+    const p = partialRef.current
+    const answers = {
+      destination: p.destination,
+      maxMinutes:  p.maxMinutes,
+      rentMax:     p.rentMax,
+      household:   p.household,
+      atmosphere:  p.atmosphere,
+      safety:      p.safety,
+    } as WizardAnswers
     const deviceId = getDeviceId()
+    // custom destination 時は customDestination + commuteByCode を同送
+    const customPayload =
+      p.destination === 'custom' && p.customStation && p.commuteByCode
+        ? {
+            customDestination: { code: p.customStation.code, name: p.customStation.name } as CustomDestinationInfo,
+            commuteByCode:     p.commuteByCode,
+          }
+        : {}
     try {
       const res = await fetch('/api/recommend', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ deviceId, ...answers }),
+        body:    JSON.stringify({ deviceId, ...answers, ...customPayload }),
       })
       const data = (await res.json()) as RecommendApiResponse
 
@@ -270,7 +387,7 @@ export default function AiWizard({
       })
       // 親側に recs + destination を通知（リコール用キャッシュ保存のため）。
       // cachedResult 起動の場合はここに来ない（loading をスキップしているため）。
-      const dest = partialRef.current.destination as FixedDestination | undefined
+      const dest = currentWizardDest()
       if (dest && onResultReady) {
         onResultReady(dest, data.recommendations)
       }
@@ -338,7 +455,10 @@ export default function AiWizard({
           index={state.index}
           total={QUESTIONS.length + 1}
           isMobile={isMobile}
+          stationList={stationList}
+          graphReady={!!graph}
           onAnswer={answerQuestion}
+          onAnswerCustom={handleCustomDestination}
           onExit={handleClose}
         />
       )}
@@ -347,11 +467,7 @@ export default function AiWizard({
           q={QUESTIONS[state.index - 1]}
           index={state.index}
           total={QUESTIONS.length + 1}
-          destinationLabel={
-            partialRef.current.destination
-              ? getDestinationDisplayName(partialRef.current.destination as FixedDestination)
-              : ''
-          }
+          destinationLabel={destLabel()}
           isMobile={isMobile}
           onAnswer={answerQuestion}
           onBack={state.index < minBackIndex ? null : back}
@@ -361,11 +477,7 @@ export default function AiWizard({
       {state.phase === 'result'   && (
         <ResultView
           recs={state.recs}
-          destinationLabel={
-            partialRef.current.destination
-              ? getDestinationDisplayName(partialRef.current.destination as FixedDestination)
-              : ''
-          }
+          destinationLabel={destLabel()}
           isFallback={state.isFallback}
           isCached={state.isCached}
           onStationClick={handleResolve}
@@ -386,23 +498,65 @@ export default function AiWizard({
 }
 
 // ── Q1: 通勤先選択ビュー ──────────────────────────────────────────
-// QUICK 3 駅 大ボタン + 「他から選ぶ」展開で POPULAR 27 駅 chip。
+// 検索 input + autocomplete dropdown（任意の 1843 駅）+ QUICK 3 駅 大ボタン
+// + 「他から選ぶ」展開で POPULAR 27 駅 chip。
 // DestinationAsk と視覚的に統一。
 function DestinationView({
   index,
   total,
   isMobile,
+  stationList,
+  graphReady,
   onAnswer,
+  onAnswerCustom,
   onExit,
 }: {
-  index:    number
-  total:    number
-  isMobile: boolean
-  onAnswer: (value: FixedDestination) => void
+  index:          number
+  total:          number
+  isMobile:       boolean
+  /** 1843 駅 list — 検索 autocomplete 用 */
+  stationList:    CustomStation[]
+  /** graph.json がロード済みか — false の時は検索結果クリックを silently disable */
+  graphReady:     boolean
+  onAnswer:       (value: FixedDestination) => void
+  /** Custom destination 選択時のハンドラ — Wizard が client Dijkstra で commute 算出 */
+  onAnswerCustom: (station: CustomStation) => void
   /** 30 駅に通勤先が無い user 向けの退出ハンドラ — Wizard を閉じて地図へ戻る */
-  onExit:   () => void
+  onExit:         () => void
 }) {
   const [showMore, setShowMore] = useState(false)
+  const [query, setQuery] = useState('')
+  const [showDropdown, setShowDropdown] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // 駅名検索の事前計算 — 1843 駅に対して「主名・別名・軽量化版」の組合せキーを作る。
+  // station_database は「四ツ谷(四ッ谷)」「霞ケ関」のような表記揺れを含むため、
+  // 「四谷」入力で「四ツ谷」にヒットさせるには小カナ削除等の正規化が必須。
+  const searchIndex = useMemo(() => {
+    return stationList.map(s => ({ station: s, keys: buildSearchKeys(s.name) }))
+  }, [stationList])
+
+  const filtered = useMemo(() => {
+    if (query.length < 1) return []
+    const q = query
+    const qNorm = normalizeForSearch(query)
+    const out: CustomStation[] = []
+    for (const { station, keys } of searchIndex) {
+      // 主名 / 別名 / 正規化版 のどれかに query または normalized query が部分一致すればヒット
+      if (keys.some(k => k.includes(q) || (qNorm && k.includes(qNorm)))) {
+        out.push(station)
+        if (out.length >= 8) break
+      }
+    }
+    return out
+  }, [query, searchIndex])
+
+  function selectStation(s: CustomStation) {
+    if (!graphReady) return
+    setQuery('')
+    setShowDropdown(false)
+    onAnswerCustom(s)
+  }
   return (
     <div
       style={{
@@ -462,6 +616,103 @@ function DestinationView({
         >
           通勤先を一つ選んでください
         </h1>
+
+        {/* 検索 input + autocomplete — 任意の 1843 駅
+            graph 未ロード時は input 自体は使えるが、結果クリック時は selectStation 内で silent ignore */}
+        <div style={{ position: 'relative', maxWidth: 360, margin: '0 auto 24px' }}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={e => { setQuery(e.target.value); setShowDropdown(true) }}
+            onFocus={() => setShowDropdown(true)}
+            onBlur={() => window.setTimeout(() => setShowDropdown(false), 150)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { setQuery(''); setShowDropdown(false); inputRef.current?.blur() }
+              if (e.key === 'Enter' && filtered.length > 0) selectStation(filtered[0])
+            }}
+            placeholder={graphReady ? '駅名で検索...' : '読込中...'}
+            disabled={!graphReady}
+            style={{
+              width: '100%',
+              padding: isMobile ? '10px 14px' : '11px 16px',
+              background: 'rgba(255,255,255,.55)',
+              border: `.5px solid rgba(28,24,18,.28)`,
+              borderRadius: 0,
+              fontFamily: 'var(--ui-font, system-ui, sans-serif)',
+              fontSize: isMobile ? 13 : 14,
+              color: INK,
+              outline: 'none',
+              transition: 'border-color .2s, background .2s',
+              boxSizing: 'border-box',
+            }}
+            onFocusCapture={e => {
+              e.currentTarget.style.borderColor = INK
+              e.currentTarget.style.background = 'rgba(255,255,255,.85)'
+            }}
+            onBlurCapture={e => {
+              e.currentTarget.style.borderColor = 'rgba(28,24,18,.28)'
+              e.currentTarget.style.background = 'rgba(255,255,255,.55)'
+            }}
+          />
+          {showDropdown && filtered.length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 'calc(100% + 4px)',
+                left: 0, right: 0,
+                background: 'rgba(244, 241, 234, 0.97)',
+                backdropFilter: 'blur(20px) saturate(160%)',
+                WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+                border: '.5px solid rgba(28,24,18,.18)',
+                zIndex: 5,
+                maxHeight: 260, overflowY: 'auto',
+                textAlign: 'left',
+              }}
+            >
+              {filtered.map(s => (
+                <button
+                  key={s.code}
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => selectStation(s)}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: isMobile ? '10px 14px' : '11px 16px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderBottom: '.5px solid rgba(28,24,18,.08)',
+                    fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                    fontSize: isMobile ? 13 : 14,
+                    color: INK,
+                    letterSpacing: '.04em',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'background .15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(168,51,43,.08)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 副標題 — 検索 input と QUICK 駅の橋渡し */}
+        <p
+          style={{
+            margin: '0 0 12px 0',
+            fontFamily: 'var(--display-italic, "Cormorant Garamond", serif)',
+            fontStyle: 'italic',
+            fontSize: isMobile ? 12 : 13,
+            color: DIM,
+            letterSpacing: '.02em',
+          }}
+        >
+          または人気駅から：
+        </p>
 
         {/* QUICK 3 駅 — 大ボタン */}
         <div
@@ -589,7 +840,7 @@ function DestinationView({
               letterSpacing: '.02em',
             }}
           >
-            AI 推薦は現在この 30 駅を起点に対応しています。
+            AI 推薦は通勤先として全 1843 駅に対応しています。検索または下記の人気駅からお選びください。
           </p>
           <button
             onClick={onExit}
@@ -611,20 +862,8 @@ function DestinationView({
             onMouseEnter={e => { e.currentTarget.style.color = RED }}
             onMouseLeave={e => { e.currentTarget.style.color = INK }}
           >
-            ← ご希望の駅が見つからない方は、地図へ戻る
+            ← 自分で探したい方は、地図へ戻る
           </button>
-          <p
-            style={{
-              margin: '6px 0 0 0',
-              fontFamily: 'var(--display-italic, Garamond, serif)',
-              fontStyle: 'italic',
-              fontSize: 10.5,
-              color: DIM,
-              letterSpacing: '.02em',
-            }}
-          >
-            対応駅は順次追加してまいります。
-          </p>
         </div>
       </div>
     </div>

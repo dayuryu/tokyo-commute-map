@@ -1,11 +1,11 @@
 // components/MapView.tsx
 'use client'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { Destination, Station, CustomStation } from '@/app/page'
 import { BUCKET_COLORS, getBucketThresholds, bucketize } from '@/lib/buckets'
 import { DESTINATIONS_META } from '@/lib/destinations'
-import { computeCommutes, type PreparedGraph } from '@/lib/dijkstra'
+import { type CustomCommutesMap } from '@/app/page'
 
 // 30 個の fixed destination の coord / code / label は stations.geojson 読み込み時に
 // 動的検索する（旧 v3.4 の hardcode 3 件を完全廃止）。
@@ -36,8 +36,7 @@ function haversineMin(lat1: number, lon1: number, lat2: number, lon2: number): n
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.3 / 35 * 60
 }
 
-// custom destination 通勤時間 Map: { stationCode: { mins, transfers } }
-type CustomCommutesMap = Map<number, { mins: number; transfers: number }> | null
+// CustomCommutesMap は page.tsx で定義 + useMemo 算出、props 経由で受取る。
 
 // 目的地ピンをインラインスタイルで生成（CSS クラス依存なし）
 function createPinElement(label: string): HTMLElement {
@@ -218,7 +217,9 @@ interface Props {
   maxTransfers: number
   onStationClick: (station: Station) => void
   customStation: CustomStation | null
-  graph: PreparedGraph | null
+  /** custom destination 用の通勤 map（page.tsx で useMemo 算出）。
+   *  null 時は haversine fallback。Map と StationDrawer の single source of truth。 */
+  customCommutes: CustomCommutesMap
   /** 現在 drawer を開いている駅。INK 黒のピンで地図に表示する（通勤先の赤ピンと区別）。
    *  通勤先と同一駅・null・現在の destination 範囲外でも親側に任せて表示する。 */
   selectedStation: Station | null
@@ -227,7 +228,7 @@ interface Props {
   onReady?: () => void
 }
 
-export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation, graph, selectedStation, onReady }: Props) {
+export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation, customCommutes, selectedStation, onReady }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -239,14 +240,6 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
   const destInfoRef = useRef<Record<string, DestInfo>>({})
   const [destInfoReady, setDestInfoReady] = useState(false)
   const isFirstRender = useRef(true)
-
-  // ── カスタム目的地：Dijkstra 結果 cache ─────────────────────────────────
-  // customStation / graph が変化したときのみ再計算（重い処理を maxMinutes
-  // スライダー操作で毎回走らせない）。Map<code, {mins, transfers}>。
-  const customCommutes = useMemo<CustomCommutesMap>(() => {
-    if (!customStation || !graph) return null
-    return computeCommutes(graph, customStation.code)
-  }, [customStation, graph])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return

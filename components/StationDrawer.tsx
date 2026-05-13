@@ -2,7 +2,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { ConsensusMap, CustomStation, Destination, Station } from '@/app/page'
+import type { ConsensusMap, CustomCommutesMap, CustomStation, Destination, Station } from '@/app/page'
 import CorrectionReporter from './CorrectionReporter'
 import { buildAffiliateLink, ALL_PROGRAMS, type AffiliateProgram, type SuumoStationMap } from '@/lib/affiliate'
 import { getDestinationDisplayName, getDestinationTransitName, DESTINATIONS_META } from '@/lib/destinations'
@@ -46,6 +46,8 @@ interface Props {
   station:           Station | null
   destination:       Destination
   customStation:     CustomStation | null
+  /** custom destination 時の駅 code → 通勤情報 Map（page.tsx で算出）。fixed 時は null。 */
+  customCommutes:    CustomCommutesMap
   consensus:         ConsensusMap
   suumoMap:          SuumoStationMap | null
   rentMap:           RentMap
@@ -83,7 +85,7 @@ function getDeviceId(): string {
   return id
 }
 
-export default function StationDrawer({ station, destination, customStation, consensus, suumoMap, rentMap, governmentRent, lineStyles, areaFeatures, aiRecallAvailable, onRecallAi, onSetAsDestination, onClose }: Props) {
+export default function StationDrawer({ station, destination, customStation, customCommutes, consensus, suumoMap, rentMap, governmentRent, lineStyles, areaFeatures, aiRecallAvailable, onRecallAi, onSetAsDestination, onClose }: Props) {
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
   const [reviews,    setReviews]    = useState<any[]>([])
   const [form,       setForm]       = useState<ReviewForm>({
@@ -235,9 +237,16 @@ export default function StationDrawer({ station, destination, customStation, con
     fetchData(station.code)
   }
 
-  const algorithmMin = station
-    ? station[`min_to_${destination}` as keyof Station] as number | undefined
-    : null
+  // custom destination 時は customCommutes (page.tsx で client Dijkstra 算出) から、
+  // fixed 時は station の預計算済み min_to_<slug> プロパティから引く。
+  // 旧コードは destination==='custom' でも station['min_to_custom'] を見ていたが、
+  // selectedStation が stationByName 経由（生 Station オブジェクト、min_to_custom 未注入）
+  // で渡る場合、地図 source 経由でない分この値が undefined になり「— 分」表示の bug があった。
+  const algorithmMin = !station
+    ? null
+    : destination === 'custom'
+      ? customCommutes?.get(station.code)?.mins ?? undefined
+      : station[`min_to_${destination}` as keyof Station] as number | undefined
 
   // 众包共识值（≥3 票才会出现在 view 中）。custom 目的地不支持校正。
   const consensusEntry = (

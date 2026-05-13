@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import MapView from '@/components/MapView'
 import TimeSlider from '@/components/TimeSlider'
 import DestinationPicker from '@/components/DestinationPicker'
@@ -12,7 +12,7 @@ import Legend from '@/components/Legend'
 import HeaderMenu from '@/components/HeaderMenu'
 import CookieConsent from '@/components/CookieConsent'
 import DestinationAsk from '@/components/DestinationAsk'
-import AiWizard from '@/components/AiWizard'
+import AiWizard, { type WizardDestination } from '@/components/AiWizard'
 import AiRecallButton from '@/components/AiRecallButton'
 import type { FixedDestination as FixedDestinationType } from '@/lib/destinations'
 import type { Recommendation } from '@/lib/ai-recommend/types'
@@ -27,7 +27,10 @@ import {
   type FixedDestination,
   isFixedDestination,
 } from '@/lib/destinations'
-import { prepareGraph, type GraphData, type PreparedGraph } from '@/lib/dijkstra'
+import { prepareGraph, computeCommutes, type GraphData, type PreparedGraph, type CommuteResult } from '@/lib/dijkstra'
+
+/** custom destination 用、駅 code → 通勤情報の Map（MapView と StationDrawer の共通入力） */
+export type CustomCommutesMap = Map<number, CommuteResult> | null
 
 export type { Destination, FixedDestination } from '@/lib/destinations'
 
@@ -41,9 +44,12 @@ const DESTINATION_KEY = 'tcm.destination.v1'
 const AI_CACHE_KEY = 'tcm.ai_cache.v1'
 
 interface AiCache {
-  destination: FixedDestinationType
-  recs:        Recommendation[]
-  usedAt:      string  // ISO timestamp、真調用が完了した時刻
+  /** 30 fixed slug、または 'custom' (custom destination 指定時) */
+  destination:   FixedDestinationType | 'custom'
+  /** destination === 'custom' の時に保持する station 情報。fixed 時は undefined。 */
+  customStation?: CustomStation
+  recs:          Recommendation[]
+  usedAt:        string  // ISO timestamp、真調用が完了した時刻
 }
 
 /** 24h 以内に新規推薦を行ったか判定（recall 制限の判定に使用） */
@@ -117,6 +123,14 @@ export default function Home() {
   // 未ロード中は null（MapView 側で fallback として haversine が動作）。
   const [graph, setGraph] = useState<PreparedGraph | null>(null)
 
+  // custom destination 時の 1843 駅 → custom 駅 通勤 map。
+  // MapView の paint property と StationDrawer の通勤時間表示の両方で使う single source of truth。
+  // customStation / graph が変化したときのみ再計算（maxMinutes スライダー操作では走らない）。
+  const customCommutes = useMemo<CustomCommutesMap>(() => {
+    if (!customStation || !graph) return null
+    return computeCommutes(graph, customStation.code)
+  }, [customStation, graph])
+
   // Welcome → Story → Map handshake (README §5)
   // - welcomeOpen : true 表示 Welcome 浮层
   // - storyOpen   : true 表示 Story 浮层
@@ -148,11 +162,16 @@ export default function Home() {
     try { visited = localStorage.getItem(VISITED_KEY) === '1' } catch {}
     setWelcomeOpen(!visited)
     // AI cache 復元 — 古い・壊れたデータは silent ignore
+    // v1 形式 (custom 非対応) も互換: destination が fixed slug の旧 entry はそのまま読める。
     try {
       const raw = localStorage.getItem(AI_CACHE_KEY)
       if (raw) {
         const parsed = JSON.parse(raw) as AiCache
-        if (parsed?.recs?.length && parsed.destination && parsed.usedAt) {
+        const baseOk = parsed?.recs?.length && parsed.destination && parsed.usedAt
+        // custom destination は customStation 必須、無ければ壊れた entry として無視
+        const customOk = parsed?.destination !== 'custom' ||
+          (parsed.customStation && typeof parsed.customStation.code === 'number')
+        if (baseOk && customOk) {
           setAiCache(parsed)
         }
       }
@@ -397,12 +416,10 @@ export default function Home() {
 
   // AiWizard から推薦結果が確定した瞬間に呼ばれる（真調用 / fallback / cache 命中いずれも）。
   // 親側で aiCache 更新 + localStorage 永続化。リコール起動の場合は呼ばれない（既に持っているため）。
-  function handleAiResultReady(dest: FixedDestinationType, recs: Recommendation[]) {
-    const next: AiCache = {
-      destination: dest,
-      recs,
-      usedAt:      new Date().toISOString(),
-    }
+  function handleAiResultReady(dest: WizardDestination, recs: Recommendation[]) {
+    const next: AiCache = dest.kind === 'fixed'
+      ? { destination: dest.slug, recs, usedAt: new Date().toISOString() }
+      : { destination: 'custom', customStation: dest.station, recs, usedAt: new Date().toISOString() }
     setAiCache(next)
     try {
       localStorage.setItem(AI_CACHE_KEY, JSON.stringify(next))
@@ -411,21 +428,43 @@ export default function Home() {
 
   // Wizard 内部状態を地図に反映する共通処理。
   // dest が null（Q1 まで進まずに閉じた）の場合はデフォルト shinjuku で進む。
-  function applyWizardDestination(dest: FixedDestinationType | null) {
-    const effective = dest ?? 'shinjuku'
-    setDestination(effective)
-    setCustomStation(null)
-    try {
-      localStorage.setItem(
-        DESTINATION_KEY,
-        JSON.stringify({ type: 'default' as const, dest: effective }),
-      )
-    } catch {}
+  function applyWizardDestination(dest: WizardDestination | null) {
+    if (!dest) {
+      setDestination('shinjuku')
+      setCustomStation(null)
+      try {
+        localStorage.setItem(
+          DESTINATION_KEY,
+          JSON.stringify({ type: 'default' as const, dest: 'shinjuku' }),
+        )
+      } catch {}
+      return
+    }
+    if (dest.kind === 'fixed') {
+      setDestination(dest.slug)
+      setCustomStation(null)
+      try {
+        localStorage.setItem(
+          DESTINATION_KEY,
+          JSON.stringify({ type: 'default' as const, dest: dest.slug }),
+        )
+      } catch {}
+    } else {
+      // custom destination — 地図側も custom mode に切替える
+      setCustomStation(dest.station)
+      setDestination('custom')
+      try {
+        localStorage.setItem(
+          DESTINATION_KEY,
+          JSON.stringify({ type: 'custom' as const, station: dest.station }),
+        )
+      } catch {}
+    }
   }
 
   // Wizard を閉じる（取消、または結果 CTA「地図で見比べる」押下）。
   // 地図を mount + loader fade で表示し Wizard を fade out で外す。
-  function handleWizardClose(dest: FixedDestinationType | null) {
+  function handleWizardClose(dest: WizardDestination | null) {
     applyWizardDestination(dest)
     if (!mapMounted) {
       setMapMounted(true)
@@ -446,7 +485,7 @@ export default function Home() {
   // Backend openai.ts は候補 list の name に厳密一致するもののみ通す設計だが、
   // 万一 stationByName lookup が miss した場合は close 経路に縮退して地図のみ表示する
   // （ユーザが card クリックしたのに何も起きない silent failure を回避）。
-  function handleWizardResolve(dest: FixedDestinationType, stationName: string) {
+  function handleWizardResolve(dest: WizardDestination, stationName: string) {
     const found = stationByName[stationName] ?? null
     if (!found) {
       console.warn(`[Wizard] stationByName miss for "${stationName}", falling back to close`)
@@ -520,7 +559,7 @@ export default function Home() {
                 maxTransfers={maxTransfers}
                 onStationClick={setSelectedStation}
                 customStation={customStation}
-                graph={graph}
+                customCommutes={customCommutes}
                 selectedStation={selectedStation}
                 onReady={handleMapReady}
               />
@@ -570,6 +609,7 @@ export default function Home() {
               station={selectedStation}
               destination={destination}
               customStation={customStation}
+              customCommutes={customCommutes}
               consensus={consensus}
               suumoMap={suumoMap}
               rentMap={rentMap}
@@ -586,7 +626,7 @@ export default function Home() {
             />
 
             <HeaderMenu onHelp={handleHelpClick} />
-            <CookieConsent />
+            <CookieConsent drawerOpen={!!selectedStation} />
           </>
         )}
       </main>
@@ -649,9 +689,16 @@ export default function Home() {
 
       {wizardOpen && (
         <AiWizard
+          stationList={stationList}
+          graph={graph}
           cachedResult={
             wizardOpen === 'recall' && aiCache
-              ? { recs: aiCache.recs, destination: aiCache.destination }
+              ? {
+                  recs: aiCache.recs,
+                  destination: aiCache.destination === 'custom' && aiCache.customStation
+                    ? { kind: 'custom', station: aiCache.customStation }
+                    : { kind: 'fixed', slug: aiCache.destination as FixedDestinationType },
+                }
               : undefined
           }
           onClose={handleWizardClose}

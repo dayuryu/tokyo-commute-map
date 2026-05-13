@@ -27,6 +27,7 @@ export type SafetyPriority = '最重要' | '普通' | '気にしない'
 
 /** Wizard 答え一式 */
 export interface WizardAnswers {
+  /** 30 fixed slug のいずれか、または 'custom' (custom destination 指定時) */
   destination: CommuteDestination
   maxMinutes:  CommuteMaxMinutes
   rentMax:     RentMax
@@ -35,10 +36,29 @@ export interface WizardAnswers {
   safety:      SafetyPriority
 }
 
+/** Custom destination の駅情報。destination === 'custom' の時に同送する。 */
+export interface CustomDestinationInfo {
+  code: number
+  name: string
+}
+
+/**
+ * クライアント側 Dijkstra で算出した 1843 駅 → custom destination の通勤情報。
+ * destination === 'custom' の時に POST body に同梱、server は geojson の
+ * 預計算 min_to_<slug> の代わりにこの map を引いて候補選別する。
+ *
+ * key = station code (数値)、値 = { min: 通勤時間分, transfers: 乗換回数 }。
+ */
+export type CommuteByCode = Record<number, { min: number; transfers: number }>
+
 /** /api/recommend POST のリクエスト body */
 export interface RecommendRequest extends WizardAnswers {
   /** クライアント localStorage の UUID、rate limit / 利用統計に使用 */
   deviceId: string
+  /** destination === 'custom' の時のみ必須。custom 駅の code + 表示名 */
+  customDestination?: CustomDestinationInfo
+  /** destination === 'custom' の時のみ必須。client が事前算出した通勤 map */
+  commuteByCode?: CommuteByCode
 }
 
 // ── OpenAI 出力 ──────────────────────────────────────────────
