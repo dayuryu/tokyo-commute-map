@@ -7,8 +7,8 @@ interface Props {
   onEnterStory: () => void
 }
 
-const TITLE_TEXT = 'Tokyo is made of time'
-const SUBTITLE_TEXT = '通勤時間から、まちをさがす'
+const TITLE_TEXT = '次の駅で、暮らしをめくる。'
+const SUBTITLE_TEXT = 'Kayoha — 通葉'
 
 // smoke card chrome — 暗烟玻璃 + 米色字（design 原型 cardStyle='smoke'）
 const INK     = '#f5e7d2'   // 主字
