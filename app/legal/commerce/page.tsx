@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { getSiteInfo } from '@/lib/site-info'
 
 export const metadata: Metadata = {
-  title: '特定商取引法に基づく表記 | 東京圏通勤マップ',
-  description: '東京圏通勤マップの特定商取引法に基づく表記。',
+  title: '特定商取引法に基づく表記 | Kayoha',
+  description: 'Kayoha（通葉）の特定商取引法に基づく表記。',
 }
 
 export default function CommercePage() {

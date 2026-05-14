@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { getSiteInfo } from '@/lib/site-info'
 
 export const metadata: Metadata = {
-  title: 'お問い合わせ | 東京圏通勤マップ',
-  description: '東京圏通勤マップへのご連絡先。',
+  title: 'お問い合わせ | Kayoha',
+  description: 'Kayoha（通葉）へのご連絡先。',
 }
 
 export default function ContactPage() {
@@ -15,7 +15,7 @@ export default function ContactPage() {
         お問い合わせ
       </h1>
       <p className="text-sm leading-relaxed text-sp-ink-soft mb-10">
-        {site.siteNameJa}に関するご意見・ご質問・不具合のご報告は、以下のメールアドレスまでお願いいたします。
+        {site.siteName}（{site.siteNameJa}）に関するご意見・ご質問・不具合のご報告は、以下のメールアドレスまでお願いいたします。
       </p>
 
       <div className="border border-sp-ink-soft/20 rounded-xl px-6 py-8 bg-white/30 mb-8">

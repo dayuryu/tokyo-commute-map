@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { getSiteInfo, LAST_UPDATED } from '@/lib/site-info'
 
 export const metadata: Metadata = {
-  title: '広告表示について | 東京圏通勤マップ',
-  description: '景品表示法（ステルスマーケティング規制）に基づくアフィリエイト広告の表示方針。',
+  title: '広告表示について | Kayoha',
+  description: 'Kayoha（通葉）における景品表示法（ステルスマーケティング規制）に基づくアフィリエイト広告の表示方針。',
 }
 
 export default function AdsPage() {

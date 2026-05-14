@@ -337,22 +337,35 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
         <a style={{ color: INK_M, textDecoration: 'none' }}>EN</a>
       </div>
 
-      {/* ── small mark (top-left) ─────────────────────── */}
+      {/* ── brand mark (top-left): Kayoha + 通葉 ────────── */}
       <div
         style={{
           position: 'absolute',
           top: isMobile ? 14 : 28,
           left: isMobile ? 16 : 36,
           zIndex: 5,
-          fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
-          fontSize: isMobile ? 12 : 14,
-          fontWeight: 600,
           color: INK_S,
-          letterSpacing: '.04em',
           textShadow: '0 1px 8px rgba(0,0,0,.5)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          lineHeight: 1.1,
         }}
       >
-        東京通勤<span style={{ color: '#a8332b' }}>圖</span>
+        <span style={{
+          fontFamily: 'var(--font-cormorant), "Cormorant Garamond", serif',
+          fontSize: isMobile ? 20 : 26,
+          fontWeight: 400,
+          letterSpacing: '.06em',
+        }}>Kayoha</span>
+        <span style={{
+          fontFamily: 'var(--font-shippori), "Shippori Mincho", serif',
+          fontSize: isMobile ? 9 : 11,
+          fontWeight: 600,
+          color: '#a8332b',
+          letterSpacing: '.3em',
+          marginTop: 2,
+        }}>通葉</span>
       </div>
 
       {/* ── center card (smoke style) ─────────────────── */}

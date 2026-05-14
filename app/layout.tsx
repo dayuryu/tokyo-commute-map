@@ -33,8 +33,17 @@ const jetbrains = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: '東京圏通勤マップ',
-  description: '等時圏で探す、理想の住まい',
+  metadataBase: new URL('https://kayoha.com'),
+  title: 'Kayoha — 次の駅で、暮らしをめくる。',
+  description: '東京圏 1843 駅を通勤時間でカラーリング。AI 推薦・家賃目安・周辺の特徴・コミュニティ評価で、次に住む街を探す地図。',
+  openGraph: {
+    title: 'Kayoha — 次の駅で、暮らしをめくる。',
+    description: '東京圏 1843 駅を通勤時間でカラーリング。AI 推薦・家賃目安・周辺の特徴・コミュニティ評価で、次に住む街を探す地図。',
+    url: 'https://kayoha.com',
+    siteName: 'Kayoha',
+    locale: 'ja_JP',
+    type: 'website',
+  },
 }
 
 // viewport meta — モバイルで実機幅にレンダリングするために必須。

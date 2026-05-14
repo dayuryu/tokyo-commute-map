@@ -16,9 +16,9 @@ export interface SiteInfo {
 
 export function getSiteInfo(): SiteInfo {
   return {
-    siteName: 'Tokyo Commute Map',
-    siteNameJa: '東京圏通勤マップ',
-    siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tokyo-commute-map.vercel.app',
+    siteName: 'Kayoha',
+    siteNameJa: '通葉',
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kayoha.com',
     operatorName: process.env.OWNER_NAME ?? '【記載準備中】',
     operatorAddress: process.env.OWNER_ADDRESS ?? '請求があった場合は遅滞なく開示します',
     operatorPhone: process.env.OWNER_PHONE ?? '請求があった場合は遅滞なく開示します',
@@ -31,4 +31,4 @@ export function getSiteInfo(): SiteInfo {
   }
 }
 
-export const LAST_UPDATED = '2026-05-12'
+export const LAST_UPDATED = '2026-05-14'

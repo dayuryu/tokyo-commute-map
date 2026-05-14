@@ -3,8 +3,8 @@ import Link from 'next/link'
 import { getSiteInfo } from '@/lib/site-info'
 
 export const metadata: Metadata = {
-  title: '法的情報 | 東京圏通勤マップ',
-  description: '東京圏通勤マップの特定商取引法表記・プライバシーポリシー・広告表示ポリシー・お問い合わせ情報。',
+  title: '法的情報 | Kayoha',
+  description: 'Kayoha（通葉）の特定商取引法表記・プライバシーポリシー・広告表示ポリシー・お問い合わせ情報。',
 }
 
 const ENTRIES = [
@@ -39,7 +39,7 @@ export default function LegalIndexPage() {
         法的情報
       </h1>
       <p className="text-sp-ink-soft leading-relaxed mb-10">
-        {site.siteNameJa}（{site.siteName}）の運営に関する各種ポリシーをご案内します。
+        {site.siteName}（{site.siteNameJa}）の運営に関する各種ポリシーをご案内します。
       </p>
 
       <ul className="space-y-3">

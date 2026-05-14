@@ -3,8 +3,8 @@ import Link from 'next/link'
 import { getSiteInfo, LAST_UPDATED } from '@/lib/site-info'
 
 export const metadata: Metadata = {
-  title: 'プライバシーポリシー | 東京圏通勤マップ',
-  description: '東京圏通勤マップにおける個人情報・Cookie の取り扱いについて。',
+  title: 'プライバシーポリシー | Kayoha',
+  description: 'Kayoha（通葉）における個人情報・Cookie の取り扱いについて。',
 }
 
 export default function PrivacyPage() {

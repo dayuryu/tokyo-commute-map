@@ -85,20 +85,30 @@ export default function LoadingOverlay({ visible }: Props) {
         backgroundSize: '3px 3px',
       }} />
 
-      {/* 小さい上部マーク */}
+      {/* brand mark (top-center): Kayoha + 通葉 */}
       <div style={{
         position: 'absolute', top: isMobile ? 22 : 32,
         left: 0, right: 0,
         textAlign: 'center', zIndex: 1,
-        fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
-        fontSize: isMobile ? 12 : 14,
-        fontWeight: 600,
         color: LOAD_DIM,
-        letterSpacing: '.04em',
         opacity: mounted ? 1 : 0,
         transition: 'opacity 1s .15s',
+        lineHeight: 1.1,
       }}>
-        東京通勤<span style={{ color: LOAD_RED }}>圖</span>
+        <div style={{
+          fontFamily: 'var(--font-cormorant), "Cormorant Garamond", serif',
+          fontSize: isMobile ? 20 : 24,
+          fontWeight: 400,
+          letterSpacing: '.06em',
+        }}>Kayoha</div>
+        <div style={{
+          fontFamily: 'var(--font-shippori), "Shippori Mincho", serif',
+          fontSize: isMobile ? 9 : 11,
+          fontWeight: 600,
+          color: LOAD_RED,
+          letterSpacing: '.3em',
+          marginTop: 3,
+        }}>通葉</div>
       </div>
 
       {/* ── 中央の compass loader ────────────────────── */}
