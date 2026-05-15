@@ -11,6 +11,7 @@ import { formatGovernmentRent, type GovernmentRentMap } from '@/lib/government-r
 import { getLineColor, type LineStyleMap } from '@/lib/line-styles'
 import type { AreaFeatureMap } from '@/lib/area-features'
 import { getDeviceId } from '@/lib/device-id'
+import { buildYahooTransitUrl } from '@/lib/yahoo-url'
 
 // 住居検索アフィリエイトボタン用の短縮ラベル（3 等分カード幅に収まるよう調整）
 const AFFILIATE_SHORT_LABELS: Record<AffiliateProgram, string> = {
@@ -259,8 +260,10 @@ export default function StationDrawer({ station, destination, customStation, cus
   const destStationName = destination === 'custom'
     ? customStation?.name ?? ''
     : getDestinationTransitName(destination)
+  // 「次の平日 08:30 JST 出発」を固定 — 網站の通勤時間基準 (GTFS 平日 rush-hour) と
+  // 一致させ、深夜/休日クリック時の Yahoo 結果との大きな乖離 (終電後 → 数時間 等) を防ぐ
   const yahooTransitUrl = (station && commuteMin != null && destStationName)
-    ? `https://transit.yahoo.co.jp/search/result?from=${encodeURIComponent(station.name)}&to=${encodeURIComponent(destStationName)}`
+    ? buildYahooTransitUrl(station.name, destStationName)
     : null
 
   // 表示用ラベル — custom destination の場合は実際の駅名を出す（「カスタム」固定文字を回避）
@@ -478,7 +481,7 @@ export default function StationDrawer({ station, destination, customStation, cus
                 className="inline-block mt-2 text-xs underline transition-colors hover:opacity-80"
                 style={{ color: 'var(--ink-mute)' }}
               >
-                Yahoo!乗換案内で正確な時間を調べる →
+                Yahoo!乗換案内で確認（平日 8:30 出発）→
               </a>
             )}
 
