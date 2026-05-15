@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="通 seal">
+  <defs>
+    <pattern id="grain" x="0" y="0" width="3" height="3" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r=".35" fill="#7a1c14" opacity=".25"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="256" height="256" rx="3" ry="3" fill="#a8332b"/>
+  <rect x="0" y="0" width="256" height="256" rx="3" ry="3" fill="url(#grain)"/>
+  <rect x="14" y="14" width="228" height="228" fill="none" stroke="#f5e7d2" stroke-opacity=".55" stroke-width="1"/>
+  <text x="128" y="128"
+        font-size="184"
+        text-anchor="middle"
+        dominant-baseline="central"
+        fill="#f5e7d2"
+        font-weight="700"
+        font-family="'Shippori Mincho','Hiragino Mincho ProN','Yu Mincho','MS Mincho','Noto Serif JP',serif">通</text>
+</svg>
