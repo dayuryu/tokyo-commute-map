@@ -30,9 +30,33 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
   const lockRef = useRef(false)
   const touchY  = useRef(0)
 
+  // 翻頁状態の ref ──全部 component-level に置き、event listener effect の再 mount を防ぐ。
+  // 旧設計は useEffect deps [index, goTo, back] により翻頁毎に cleanup → re-run していたため、
+  // cleanup 時に unlock の setTimeout が clear され、scrollend 非対応 browser
+  // (iOS Safari ≤17 / 旧 Android Chrome 等) では 1 度翻頁すると永久ロック →
+  // 第3頁から戻ろうとすると卡死する deadlock があった。
+  const unlockTimerRef = useRef<number | null>(null)
+  const indexRef = useRef(0)
+  const onBackRef = useRef(onBack)
+  const onEnterMapRef = useRef(onEnterMap)
+
+  // ref を最新 prop / state に同期 (handler closure stale 防止)
+  useEffect(() => { indexRef.current = index }, [index])
+  useEffect(() => { onBackRef.current = onBack }, [onBack])
+  useEffect(() => { onEnterMapRef.current = onEnterMap }, [onEnterMap])
+
   useEffect(() => {
     const id = requestAnimationFrame(() => setMounted(true))
     return () => cancelAnimationFrame(id)
+  }, [])
+
+  const lock = useCallback((fallbackMs = 1100) => {
+    lockRef.current = true
+    if (unlockTimerRef.current != null) window.clearTimeout(unlockTimerRef.current)
+    unlockTimerRef.current = window.setTimeout(() => {
+      lockRef.current = false
+      unlockTimerRef.current = null
+    }, fallbackMs)
   }, [])
 
   const goTo = useCallback((next: number) => {
@@ -40,50 +64,43 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
     if (!c) return
     const clamped = Math.max(0, Math.min(TOTAL - 1, next))
     // 既に目的の位置にいる場合は何もしない（連続イベントで lock がかかるのを防ぐ）
-    if (clamped === index) return
+    if (clamped === indexRef.current) return
+    indexRef.current = clamped
     setIndex(clamped)
     c.scrollTo({ top: clamped * c.clientHeight, behavior: 'smooth' })
-  }, [index])
+  }, [])
 
   const enter = useCallback(() => {
     if (closing) return
     setClosing(true)
-    onEnterMap()
-  }, [closing, onEnterMap])
+    onEnterMapRef.current()
+  }, [closing])
 
   const back = useCallback(() => {
     if (closing) return
     setClosing(true)
-    onBack()
-  }, [closing, onBack])
+    onBackRef.current()
+  }, [closing])
 
   // wheel / keyboard / touch — 1 ジェスチャ = 1 ページ
   //
-  // 速い連続スワイプで「ページ間の空白が見える」問題への対処：
-  //  1. lock 中の event を捨てるだけでなく、scrollend で正確に解錠する
-  //     （fallback で固定 timeout も用意。先に発火した方が勝つ）
-  //  2. 連続 wheel（trackpad のフリック等）は lock 中に全部捨てる。これにより
-  //     1 ジェスチャ＝最初の 1 event だけが消費される。
-  //  3. 同じ index への重複 goTo は no-op（goTo 側でガード済み）
+  // 設計メモ:
+  //  - lock / goTo は useCallback([]) で stable、indexRef 経由で最新 index を読む
+  //  - この effect は mount-only (deps [lock, goTo] = stable refs)、翻頁毎に
+  //    cleanup → re-run しない → unlockTimer が予定通り fire できる
+  //  - lock 解錠経路は 2 つ:
+  //    (a) scrollend 即時解錠 (Chrome 114+ / Firefox 109+ / Safari 18+)
+  //    (b) 1100ms fallback setTimeout (全 browser、scrollend 非対応時の保険)
+  //  - 速い連続スワイプ対策: lock 中の event は全部捨てる (1 ジェスチャ = 1 頁)
   useEffect(() => {
     const c = containerRef.current
     if (!c) return
 
-    let unlockTimer: number | null = null
-    const lock = (fallbackMs = 1100) => {
-      lockRef.current = true
-      if (unlockTimer != null) window.clearTimeout(unlockTimer)
-      unlockTimer = window.setTimeout(() => {
-        lockRef.current = false
-        unlockTimer = null
-      }, fallbackMs)
-    }
-
     // smooth scroll 完了で即解錠（対応ブラウザでは fallback より早く発火）
     const onScrollEnd = () => {
-      if (unlockTimer != null) {
-        window.clearTimeout(unlockTimer)
-        unlockTimer = null
+      if (unlockTimerRef.current != null) {
+        window.clearTimeout(unlockTimerRef.current)
+        unlockTimerRef.current = null
       }
       lockRef.current = false
     }
@@ -93,19 +110,19 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
       if (lockRef.current) return
       if (Math.abs(e.deltaY) < 6) return
       lock()
-      goTo(index + (e.deltaY > 0 ? 1 : -1))
+      goTo(indexRef.current + (e.deltaY > 0 ? 1 : -1))
     }
     const onKey = (e: KeyboardEvent) => {
       if (['ArrowDown', 'PageDown', ' '].includes(e.key)) {
-        e.preventDefault(); if (lockRef.current) return; lock(900); goTo(index + 1)
+        e.preventDefault(); if (lockRef.current) return; lock(900); goTo(indexRef.current + 1)
       } else if (['ArrowUp', 'PageUp'].includes(e.key)) {
-        e.preventDefault(); if (lockRef.current) return; lock(900); goTo(index - 1)
+        e.preventDefault(); if (lockRef.current) return; lock(900); goTo(indexRef.current - 1)
       } else if (e.key === 'Home') {
         e.preventDefault(); if (lockRef.current) return; lock(900); goTo(0)
       } else if (e.key === 'End') {
         e.preventDefault(); if (lockRef.current) return; lock(900); goTo(TOTAL - 1)
       } else if (e.key === 'Escape') {
-        back()
+        onBackRef.current()
       }
     }
     const onTouchStart = (e: TouchEvent) => { touchY.current = e.touches[0].clientY }
@@ -114,7 +131,7 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
       const dy = touchY.current - e.changedTouches[0].clientY
       if (Math.abs(dy) < 40) return
       lock()
-      goTo(index + (dy > 0 ? 1 : -1))
+      goTo(indexRef.current + (dy > 0 ? 1 : -1))
     }
 
     c.addEventListener('wheel', onWheel, { passive: false })
@@ -129,9 +146,13 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
       c.removeEventListener('touchstart', onTouchStart)
       c.removeEventListener('touchend',   onTouchEnd)
       c.removeEventListener('scrollend', onScrollEnd)
-      if (unlockTimer != null) window.clearTimeout(unlockTimer)
+      // unmount 時のみ clear (mount-only effect なので翻頁時には呼ばれない)
+      if (unlockTimerRef.current != null) {
+        window.clearTimeout(unlockTimerRef.current)
+        unlockTimerRef.current = null
+      }
     }
-  }, [index, goTo, back])
+  }, [lock, goTo])
 
   return (
     <div style={{
