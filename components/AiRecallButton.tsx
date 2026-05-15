@@ -84,9 +84,12 @@ export default function AiRecallButton({ hasCache, onClick }: Props) {
           left: isMobile
             ? 'max(12px, env(safe-area-inset-left))'
             : 'max(20px, env(safe-area-inset-left, 0px))',
+          // bottom は Legend (右下) と揃える: MapLibre attribution 帯 (~24-28px)
+          // を避けるため +32px。両者 bottom 値同一 → 下端 viewport 距離が一致 →
+          // 下辺水平 alignment 成立。
           bottom: isMobile
-            ? 'calc(max(12px, env(safe-area-inset-bottom)) + 12px)'
-            : 'calc(max(20px, env(safe-area-inset-bottom, 0px)) + 4px)',
+            ? 'calc(max(12px, env(safe-area-inset-bottom)) + 32px)'
+            : 'calc(max(20px, env(safe-area-inset-bottom, 0px)) + 32px)',
         }}
       >
         {/* tooltip — button 上方にフロート、pointer-events: none で操作の邪魔をしない */}
