@@ -156,6 +156,34 @@ export default function Home() {
   const [loaderVisible, setLoaderVisible] = useState(false)
   const [mapReady, setMapReady] = useState(false)
 
+  // AI 推薦 20 駅の地図 highlight 用 features。aiCache が 24h 内 fresh な時のみ非空。
+  // MapView の `stations-ai-highlight` source に setData される。
+  const aiHighlightFeatures = useMemo<GeoJSON.Feature[]>(() => {
+    if (!isAiCacheFresh(aiCache)) return []
+    // stationByName は geojson fetch 完了後に setState される。未 ready 時に
+    // lookup を走らせると 20 駅全 miss で console.warn が 20 件出るのを防ぐため、
+    // 空 dict の段階では空 features で待つ（後の re-render で正しく算出される）。
+    if (Object.keys(stationByName).length === 0) return []
+    const features: GeoJSON.Feature[] = []
+    aiCache!.recs.forEach((r, idx) => {
+      const s = stationByName[r.station_name]
+      // backend `lib/ai-recommend/openai.ts:39-70` で validNames 厳格 filter 済み、
+      // geojson 内同名 5 駅は括弧後缀で消歧済み（田町(東京) 等）。理論 100% 命中。
+      // TODO v2.1: backend に station_code を返させて stationByCode lookup に切替、
+      //           未消歧同名駅の歧義を根絶。
+      if (!s) {
+        console.warn(`[ai-highlight] stationByName miss for "${r.station_name}"`)
+        return
+      }
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
+        properties: { code: s.code, name: s.name, rank: idx + 1 },
+      })
+    })
+    return features
+  }, [aiCache, stationByName])
+
   // localStorage 読み取り（初回のみ）
   useEffect(() => {
     let visited = false
@@ -561,6 +589,7 @@ export default function Home() {
                 customStation={customStation}
                 customCommutes={customCommutes}
                 selectedStation={selectedStation}
+                aiHighlightFeatures={aiHighlightFeatures}
                 onReady={handleMapReady}
               />
             </div>

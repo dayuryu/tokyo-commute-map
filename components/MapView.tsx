@@ -223,12 +223,16 @@ interface Props {
   /** 現在 drawer を開いている駅。INK 黒のピンで地図に表示する（通勤先の赤ピンと区別）。
    *  通勤先と同一駅・null・現在の destination 範囲外でも親側に任せて表示する。 */
   selectedStation: Station | null
+  /** AI 推薦 20 駅の地図 highlight features。aiCache が 24h 内 fresh の時のみ非空。
+   *  page.tsx の useMemo で `stationByName` lookup 済み、各 feature.properties に
+   *  code / name / rank を持つ。空配列時は highlight layer を非表示にする扱い。 */
+  aiHighlightFeatures: GeoJSON.Feature[]
   /** 初回 idle（タイル＋レイヤ描画完了）で 1 度だけ発火する任意 callback。
    *  LoadingOverlay のフェードアウト用。 */
   onReady?: () => void
 }
 
-export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation, customCommutes, selectedStation, onReady }: Props) {
+export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation, customCommutes, selectedStation, aiHighlightFeatures, onReady }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -480,6 +484,36 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
         },
       })
 
+      // ── AI 推薦 20 駅 highlight（v2、2026-05-17 追加） ──
+      // 主题红外環で 20 駅を地図に常駐表示。aiCache が 24h 内 fresh の時のみ親が
+      // features を非空で渡してくる。slider 連動なし（解耦設計）— maxMinutes を
+      // 縮めて散点が消えても外環は残り、主人が「AI 推薦 ∩ 現 slider 範囲」を
+      // 視覚比較できる。
+      //
+      // layer order: addLayer 不指定 beforeId = 全 layer 最上層。
+      // 'stations-label-major' 之前に挿入すると clusters 群がその上に乗り、
+      // zoom < 11 で cluster 圆が外環を覆ってしまう（計画核査 1）。
+      // 最上層に置くと label が下にくるが、label は symbol + text-halo 1.5-1.8px で
+      // 可読性確保、fill 10% は label をほぼ遮らない。
+      map.addSource('stations-ai-highlight', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: aiHighlightFeatures },
+      })
+      map.addLayer({
+        id: 'stations-ai-highlight',
+        type: 'circle',
+        source: 'stations-ai-highlight',
+        paint: {
+          // zoom 8-10 cluster 阶段は cluster 圆 16-36px を包圈用に大半径、
+          // zoom 11+ 散点阶段は散点 r=8-9 を包圈用に小半径。
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 26, 11, 14, 16, 20],
+          'circle-color': 'rgba(168, 51, 43, 0.10)',
+          'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 8, 2.4, 14, 2.8],
+          'circle-stroke-color': '#a8332b',
+          'circle-stroke-opacity': 0.85,
+        },
+      })
+
       // ── 駅クリック・ホバー（major/minor/unclustered 共通） ──
       const stationLayers = ['stations-major', 'stations-minor', 'clusters-unclustered']
       stationLayers.forEach(layerId => {
@@ -702,6 +736,29 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
       offset:   isDesktop ? [-190, 0] : [0, 0],
     })
   }, [selectedStation, destination, customStation, destInfoReady])
+
+  // ── AI highlight features 更新 ──
+  // aiCache が新しく確定 / 失効 / リコール時に親が aiHighlightFeatures を変える。
+  // race 対策: aiHighlightFeatures が map.on('load') 完了前に変わるケースもある
+  // （localStorage の aiCache 即時 read + stationByName 一拍遅れで fetch 完了）。
+  // source 未生成時は 'idle' イベントで 1 回 retry することで取りこぼしを防ぐ。
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    const apply = (): boolean => {
+      const src = map.getSource('stations-ai-highlight') as maplibregl.GeoJSONSource | undefined
+      if (!src) return false
+      src.setData({ type: 'FeatureCollection', features: aiHighlightFeatures })
+      return true
+    }
+
+    if (apply()) return
+    // source 未生成 → 初回 load の idle 後に retry
+    const onIdle = () => { apply() }
+    map.once('idle', onIdle)
+    return () => { map.off('idle', onIdle) }
+  }, [aiHighlightFeatures])
 
   return <div ref={containerRef} className="w-full h-full" />
 }
