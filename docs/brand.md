@@ -199,9 +199,9 @@
 - `app/legal/*` 5 ページ: metadata + body
 - `README.md` / `NOTICE` / `package.json`
 
-ドメイン + DNS + Vercel 接続完了 (詳細は `~/.claude/projects/F--supermap/memory/project_brand_kayoha.md` 参照)。
+ドメイン + DNS + Vercel 接続完了。
 
-**Phase 6 ビジュアルアセット**: 主人が Claude Design で設計 → handoff bundle → Claude Code で codebase に実装する流れ。
+**Phase 6 ビジュアルアセット**: ブランディング設計を別ファイルで受け取り、コードベースに実装する流れ。
 
 ---
 

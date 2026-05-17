@@ -3,14 +3,14 @@
  *
  * - データソース: public/data/area_features.json
  *   関東 1843 駅の「周辺エリアの特徴」を 50〜75 字程度の日本語短文で要約
- * - 生成: scripts/generate_area_features.py（Claude.ai 経由でバッチ生成）
+ * - 生成: scripts/generate_area_features.py（外部 LLM 経由でバッチ生成）
  * - 用途: StationDrawer の「周辺の特徴」DetailRow
  * - 注意: AI 生成の参考情報。景表法・薬機法的に強い断定はせず、最新の実況確認を促す。
  */
 
 export interface AreaFeaturesMeta {
   generated_at:           string
-  model:                  string
+  generator:              string
   station_count_target:   number
   completed_batches:      number[]
   disclaimer:             string

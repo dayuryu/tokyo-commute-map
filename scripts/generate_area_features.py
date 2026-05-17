@@ -1,7 +1,9 @@
 """
 1843 駅「周辺の特徴」批量生成スクリプト
 
-Claude Code CLI（`claude -p`）を subprocess で呼び出し、主人の Max 配額で稼働。
+外部 LLM CLI を subprocess で呼び出して各駅の特徴文を生成する。
+（現在は Claude CLI に配線済み — `call_llm()` 内の CLI binary 名 / 引数を
+書き換えれば他プロバイダにも差し替え可能。）
 - 入力: ../_handoff/stations_for_features.md（1843 駅）
 - 風格基準: ../_handoff/batch1_完成サンプル.json（先頭 101 駅、Few-shot に使用）
 - 出力: ./public/data/area_features.json（増分保存）
@@ -39,7 +41,7 @@ MODEL = "sonnet"
 BATCH_SIZE = 40
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 5
-CLAUDE_TIMEOUT = 1200
+LLM_TIMEOUT = 1200
 DEFAULT_CONCURRENCY = 3
 
 SYSTEM_PROMPT = """\
@@ -134,11 +136,10 @@ def load_existing_output() -> dict:
     return {
         "_meta": {
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "model": f"claude-{MODEL} (via Claude Code CLI)",
+            "generator": "external LLM (batch processing)",
             "station_count_target": 0,
             "completed_batches": [1],
             "disclaimer": "AI 生成的参考情报、最新实况建议现地确认",
-            "batch1_source": "小雪 (Claude.ai web) 手工生成",
         },
         "stations": dict(batch1["stations"]),
     }
@@ -172,7 +173,9 @@ def build_user_prompt(batch: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def call_claude(user_prompt: str, *, timeout: int = CLAUDE_TIMEOUT) -> dict:
+def call_llm(user_prompt: str, *, timeout: int = LLM_TIMEOUT) -> dict:
+    # CLI binary 名と引数は使用する LLM provider に応じて差し替える。
+    # 現在は Claude CLI (`claude -p ... --output-format json`) を想定。
     cmd = [
         "claude", "-p",
         "--model", MODEL,
@@ -190,10 +193,10 @@ def call_claude(user_prompt: str, *, timeout: int = CLAUDE_TIMEOUT) -> dict:
         timeout=timeout,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"claude CLI exited {result.returncode}: {result.stderr[:500]}")
+        raise RuntimeError(f"LLM CLI exited {result.returncode}: {result.stderr[:500]}")
     envelope = json.loads(result.stdout)
     if envelope.get("is_error"):
-        raise RuntimeError(f"claude api_error: {envelope.get('result', '')[:500]}")
+        raise RuntimeError(f"LLM api_error: {envelope.get('result', '')[:500]}")
     raw = (envelope.get("result") or "").strip()
     if raw.startswith("```"):
         raw = re.sub(r"^```(?:json)?\s*\n", "", raw)
@@ -273,7 +276,7 @@ def main():
 
         t0 = time.time()
         try:
-            result = call_claude(build_user_prompt(sample))
+            result = call_llm(build_user_prompt(sample))
         except Exception as e:
             print(f"[dry-run] FAILED: {e}", file=sys.stderr)
             sys.exit(2)
@@ -338,7 +341,7 @@ def main():
         last_err = None
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                result = call_claude(build_user_prompt(batch))
+                result = call_llm(build_user_prompt(batch))
                 return idx, result, None
             except Exception as e:
                 last_err = e

@@ -3,7 +3,7 @@
 /**
  * AI 推薦結果のグリッド表示。
  *
- * 主人が preview/recommendations/layouts/Grid.tsx で選定した案 A を本格化。
+ * preview/recommendations/layouts/Grid.tsx で選定した案 A を本格化。
  * Wizard の最終 step（result）から呼ばれる想定で、各カードクリック
  * → 該当駅を地図上で開く / CTA → 結果画面を閉じて地図に戻る。
  *

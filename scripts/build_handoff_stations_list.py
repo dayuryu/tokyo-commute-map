@@ -4,12 +4,12 @@
 build_handoff_stations_list.py
 
 stations.geojson と line_styles.json から 1843 駅の clean な markdown table を生成、
-小雪（Claude.ai 网页版）に「周辺の特徴」生成タスクを依頼する handoff 用。
+外部 LLM に「周辺の特徴」生成タスクを依頼する handoff 用。
 
 出力: _handoff/stations_for_features.md
   - 関東 8 都県別にセクション分け
   - 各駅: 駅名 / 主要路線（最大 3 つ）/ 新宿までの通勤時間
-  - 沿線で繋がる順番に並べ、小雪が文脈で推論しやすく
+  - 沿線で繋がる順番に並べ、LLM が文脈で推論しやすく
 
 使い方:
   PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python scripts/build_handoff_stations_list.py

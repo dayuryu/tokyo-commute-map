@@ -168,7 +168,7 @@ export default function DestinationAsk({
             DestinationAsk のもう一つの分岐入口。
             - 新規（aiCacheFresh=false）: 「6 つの質問に答えて、AI に提案してもらう」
             - 利用済み（aiCacheFresh=true）: 「過去の推薦を再表示する」+ 24h ルール注記
-            「AI は探索の補助、1 日 1 回まで」が主人のポリシー。 */}
+            「AI は探索の補助、1 日 1 回まで」がプロダクトポリシー。 */}
         <button
           onClick={aiCacheFresh ? recallWizard : startWizard}
           style={{

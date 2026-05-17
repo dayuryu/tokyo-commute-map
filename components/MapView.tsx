@@ -52,7 +52,7 @@ function createPinElement(label: string): HTMLElement {
   // position は設定しない (.maplibregl-marker class が position:absolute を提供する)。
   // inline 'position:relative' は specificity が class より高く、class の absolute を
   // 上書きして wrapper が normal flow に戻り、前の marker (red pin) に押し下げられて
-  // transform に余計な 44px が乗る (2026-05-17 主人報告、red dot 対照で確定)。
+  // transform に余計な 44px が乗る (2026-05-17 報告、red dot 対照で確定)。
   // absolute child label は absolute な wrapper を containing block とするので
   // wrapper が absolute のままで top:46/left:50% も問題なく機能する。
   el.style.cssText = 'width:32px; height:44px; cursor:default;'
@@ -488,7 +488,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
       // ── AI 推薦 20 駅 highlight（v2、2026-05-17 追加） ──
       // 主题红外環で 20 駅を地図に常駐表示。aiCache が 24h 内 fresh の時のみ親が
       // features を非空で渡してくる。slider 連動なし（解耦設計）— maxMinutes を
-      // 縮めて散点が消えても外環は残り、主人が「AI 推薦 ∩ 現 slider 範囲」を
+      // 縮めて散点が消えても外環は残り、ユーザーが「AI 推薦 ∩ 現 slider 範囲」を
       // 視覚比較できる。
       //
       // layer order: addLayer 不指定 beforeId = 全 layer 最上層。
@@ -533,7 +533,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
           // 全 30 fixed destination + custom の通勤フィールドを prefix 一括コピー。
           // 旧コードでは shinjuku / shibuya / tokyo / custom の 4 つだけハードコードしていて
           // 残り 27 popular destination (meguro 等) の min_to_* が drawer に届かず
-          // 「— 分 to 目黒」が表示される bug があった (2026-05-13 主人報告)。
+          // 「— 分 to 目黒」が表示される bug があった (2026-05-13 報告)。
           // 今後 destination を追加してもこの copy は壊れない。
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const commuteFields: Record<string, any> = {}
@@ -673,7 +673,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
   // 通勤先（赤ピン）と同一駅の場合はマーカー出さない（赤ピンが既にあるため）。
   // 散点と label を同時に隠すことで、黒ピン (anchor='top-left') と緑散点 (anchor=center)
   // が同じ lngLat に対して別アンカーで描画され「ピンが浮いて見える」現象を回避する
-  // (2026-05-13 主人報告)。layer-level filter で実装、cluster source は影響なし。
+  // (2026-05-13 報告)。layer-level filter で実装、cluster source は影響なし。
   useEffect(() => {
     const map = mapRef.current
     if (!map) return

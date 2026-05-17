@@ -528,7 +528,7 @@ export default function Home() {
     }
     // AiWizard.handleResolve 側で既に 700ms closing fade を消費しているため、
     // ここでは即時に drawer 開 + wizard unmount。以前は更に 900ms (WELCOME_FADE_MS)
-    // 待っていて、合計 1.6s「点击 → 飛び始め」の遅延体感を生んでいた (主人報告)。
+    // 待っていて、合計 1.6s「点击 → 飛び始め」の遅延体感を生んでいた (報告)。
     setSelectedStation(found)
     setWizardOpen(false)
   }

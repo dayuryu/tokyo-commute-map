@@ -10,14 +10,14 @@
 ## ⭐ 次に着手する候補（優先度別）
 
 ### 🥇 最優先（収益 / 体験ブロッカー）
-1. **A8 申請を進める（主人本人タスク）** — ドメイン + 住所 + 銀行口座が揃えば申請可能。
+1. **A8 申請を進める（運営側タスク）** — ドメイン + 住所 + 銀行口座が揃えば申請可能。
    実コード統合済み、後は `a8mat` を `.env.local` に入れるだけで計測 ON。
-2. **真機モバイル多端末 verification** — 今 session で本小姐が修した mobile bug 群
+2. **真機モバイル多端末 verification** — 直近のラウンドで修した mobile bug 群
    （100dvh / touch-action / input zoom / crypto.randomUUID）を iPhone Safari /
    Android Chrome の異なる機種で実際に踏んで確認する。LAN dev server + Vercel
    production の両方で。
 
-### 🥈 次の大物候補（主人方針で 1 つ選ぶ）
+### 🥈 次の大物候補（プロダクト方針で 1 つ選ぶ）
 - **A: AI 推薦 v2** — 20 駅一括 highlight on map + funnel 計測（GA4 必要）
 - **B: 多言語化 i18n** — 英→中→韓、AI 推薦の reason も多言語化
 - **C: PWA 化（manifest + service worker）** — 1-2 日工時、ホーム画面追加体験
@@ -29,9 +29,9 @@
 
 ---
 
-## 🔥 商業化 — ASP 申請（主人本人タスク）
+## 🔥 商業化 — ASP 申請（運営側タスク）
 
-実コード統合は完了済み。あとは主人本人がアカウントを取って `.env.local` を埋める段階。
+実コード統合は完了済み。あとは運営側でアカウントを取って `.env.local` を埋める段階。
 
 - [ ] **独自ドメイン取得**
   - 推奨: Cloudflare Registrar (.com @ $9.15/年) または ムームードメイン (.com @ ¥1,728/年)
@@ -81,7 +81,7 @@
   - StationDrawer で SUUMO（101 駅）→ 政府（1940 駅）→ 未収録 の二層 fallback
   - 次回更新は 2028 年（5 年に 1 回の調査）
 - [x] **周辺の特徴データ**（2026-05-13 完了）
-  - 1843 駅 × 50〜75 字の AI 要約を Claude.ai 経由（妹妹 = 小雪）で batch 生成
+  - 1843 駅 × 50〜75 字の AI 要約を外部 LLM 経由で batch 生成
   - `public/data/area_features.json` (326KB) + `lib/area-features.ts` loader
   - StationDrawer に AreaFeatureRow として統合、AI 免責文 + 景表法配慮
 
@@ -89,7 +89,7 @@
 
 ## ✨ AI 駅推薦機能（v1 上線済 — 2026-05-13）
 
-本 phase は完了。設計詳細は [`ai-advisor-plan.md`](./ai-advisor-plan.md) 参照。
+本 phase は完了。
 
 ### 実装済（v1）
 - ✅ Backend: `app/api/recommend/route.ts` — gpt-5.4-nano + structured outputs
@@ -143,7 +143,7 @@
 
 ## 📱 モバイル UX 安定化
 
-> 主人方針 (2026-05-13): App 化はせず、web 体験を磨き上げる路線。
+> プロダクト方針 (2026-05-13): App 化はせず、web 体験を磨き上げる路線。
 > 真機 (iPhone Safari) で実際に踏んだ bug + audit で洗い出した既知の坑を集約。
 
 ### 完了済（2026-05-13 Night、`b5bde53` `1a266fd` `f232448` `9f4e957`）
@@ -179,7 +179,7 @@
 
 ## 🌍 多言語化 (i18n) — 次の大物候補
 
-> 主人方針 (2026-05-13): プロダクトは「面向所有人」(日本人 / 在日外国人 / 海外移住検討者)
+> プロダクト方針 (2026-05-13): プロダクトは「面向所有人」(日本人 / 在日外国人 / 海外移住検討者)
 > 多言語化は中期 roadmap、優先度は AI 推薦 funnel 計測の後。
 
 候補方針:
@@ -227,7 +227,7 @@
 | **C. React Native 書き換え** | **4-8 週** | 同上 + 二重保守 | 接近原生（真の RN） | UI 全書き換え。MapLibre は native 版に。維持コスト 2 倍 |
 | **D. Swift + Kotlin フル native** | **3-6 ヶ月** | 同上 + 二重精力 | 最良 | indie 開発者には実質不可能。**非推奨** |
 
-### 推奨ステップ（主人の動機別）
+### 推奨ステップ（動機別）
 
 | 動機 | 推奨 |
 |---|---|

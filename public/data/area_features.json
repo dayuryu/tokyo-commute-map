@@ -1,13 +1,12 @@
 {
   "_meta": {
     "generated_at": "2026-05-12T19:30:36+00:00",
-    "model": "claude-sonnet (via Claude Code CLI)",
+    "generator": "external LLM (batch processing)",
     "station_count_target": 1843,
     "completed_batches": [
       1
     ],
     "disclaimer": "AI 生成的参考情报、最新实况建议现地确认",
-    "batch1_source": "小雪 (Claude.ai web) 手工生成",
     "last_updated": "2026-05-12T21:50:29+00:00"
   },
   "stations": {

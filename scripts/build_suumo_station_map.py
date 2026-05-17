@@ -8,9 +8,7 @@ SUUMO の賃貸検索 URL は以下のフォーマット：
 含まれる駅名 + ek_id + rn を抽出して JSON マッピングを出力する。
 
 実行：
-    PYTHONUTF8=1 PYTHONIOENCODING=utf-8 \
-      /c/Users/81704/AppData/Local/Programs/Python/Python312/python.exe \
-      scripts/build_suumo_station_map.py
+    PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python scripts/build_suumo_station_map.py
 
 出力先：public/data/suumo_stations.json
 """

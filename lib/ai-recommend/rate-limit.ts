@@ -16,8 +16,8 @@
 import crypto from 'crypto'
 import { supabase } from '@/lib/supabase'
 
-// ── 厳格型阈値（主人 2026-05-13 改訂） ──────────────────────
-// 主人方針: AI 推薦は探索の補助、主役ではない。1 デバイス 1 日 1 回で API 節約 + 体験
+// ── 厳格型阈値（2026-05-13 改訂） ──────────────────────
+// プロダクト方針: AI 推薦は探索の補助、主役ではない。1 デバイス 1 日 1 回で API 節約 + 体験
 // を「使い切りの嗜好品」に寄せる。キャッシュ命中は無制限なので、リコールは何度でも可。
 export const DEVICE_DAILY_LIMIT = 1    // 1 device、24h で OpenAI 真調用 1 回
 export const DEVICE_BURST_LIMIT = 3    // 1 device、60sec で 3 回（保険、実際は daily で先に block）
