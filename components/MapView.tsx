@@ -39,11 +39,25 @@ function haversineMin(lat1: number, lon1: number, lat2: number, lon2: number): n
 // CustomCommutesMap は page.tsx で定義 + useMemo 算出、props 経由で受取る。
 
 // 目的地ピンをインラインスタイルで生成（CSS クラス依存なし）
+// anchor='top-left' + offset=[-16,-44] で SVG bottom を station 座標に揃える設計
+// (2026-05-17 改修)。anchor='bottom' および anchor='top' は CSS percent transform
+// (translate(-50%, ...)) で element 自身 width/height を参照するため、absolute
+// child や whitespace 等の影響で結果がブラウザ依存になり pin 尖点がずれる現象を確認。
+// 'top-left' = translate(0, 0) は percent なし、純粋に pos pixel offset で配置
+// される。element top-left = pos = (station_x - 16, station_y - 44) と確定し、
+// SVG block (44px) は element 顶部に張り付くので
+// SVG bottom = element top + 44 = station Y で必ず揃う（ブラウザ非依存）。
 function createPinElement(label: string): HTMLElement {
   const el = document.createElement('div')
-  el.style.cssText = 'position:relative; width:32px; cursor:default;'
+  // position は設定しない (.maplibregl-marker class が position:absolute を提供する)。
+  // inline 'position:relative' は specificity が class より高く、class の absolute を
+  // 上書きして wrapper が normal flow に戻り、前の marker (red pin) に押し下げられて
+  // transform に余計な 44px が乗る (2026-05-17 主人報告、red dot 対照で確定)。
+  // absolute child label は absolute な wrapper を containing block とするので
+  // wrapper が absolute のままで top:46/left:50% も問題なく機能する。
+  el.style.cssText = 'width:32px; height:44px; cursor:default;'
   el.innerHTML = `
-    <svg width="32" height="44" viewBox="0 0 32 44" xmlns="http://www.w3.org/2000/svg">
+    <svg width="32" height="44" viewBox="0 0 32 44" style="display:block" xmlns="http://www.w3.org/2000/svg">
       <path d="M16 0C7.16 0 0 7.16 0 16C0 28 16 44 16 44C16 44 32 28 32 16C32 7.16 24.84 0 16 0Z"
             fill="#dc2626" stroke="white" stroke-width="2"/>
       <circle cx="16" cy="16" r="7" fill="white"/>
@@ -62,27 +76,14 @@ function createPinElement(label: string): HTMLElement {
 // editorial palette に合わせた配色で、赤ピンと色相を変えつつ「ピン形」で関連を示す。
 // 通勤先と同じ駅が選ばれた場合は親側で表示しないので、ここでは衝突を考慮しない。
 //
-// サイズは赤ピンと完全に同一 (32×44 viewBox、32×44 描画)。以前は黒ピンだけ 28×38 に
-// 縮小していたが、viewBox 32×44 との比率がずれて preserveAspectRatio による
-// 中央寄せでピン尖点が anchor='bottom' から微妙にズレ「歪んで見える」bug があった
-// (2026-05-13 主人報告)。viewBox = display size を守れば確実に揃う。
+// サイズは赤ピンと完全に同一 (32×44 viewBox、32×44 描画)。
+// anchor='top-left' + offset=[-16,-44] で SVG bottom を station 座標に揃える設計
+// (createPinElement と同方針)。詳細は createPinElement のコメント参照。
 function createSelectedPinElement(label: string): HTMLElement {
   const el = document.createElement('div')
-  el.style.cssText = 'position:relative; width:32px; cursor:default;'
-  el.innerHTML = `
-    <svg width="32" height="44" viewBox="0 0 32 44" style="display:block" xmlns="http://www.w3.org/2000/svg">
-      <path d="M16 0C7.16 0 0 7.16 0 16C0 28 16 44 16 44C16 44 32 28 32 16C32 7.16 24.84 0 16 0Z"
-            fill="#1c1812" stroke="#f5e7d2" stroke-width="2"/>
-      <circle cx="16" cy="16" r="7" fill="#f5e7d2"/>
-    </svg>
-    <div style="
-      position:absolute; top:46px; left:50%; transform:translateX(-50%);
-      background:#1c1812; color:#f5e7d2; font-size:11px; font-weight:600;
-      letter-spacing:.04em;
-      padding:2px 8px; border-radius:3px; white-space:nowrap;
-      box-shadow:0 1px 4px rgba(0,0,0,0.25);
-    ">${label}</div>
-  `
+  // position は設定しない (createPinElement と同方針、詳細はそちら参照)
+  el.style.cssText = 'width:32px; height:44px; cursor:default;'
+  el.innerHTML = `<svg width="32" height="44" viewBox="0 0 32 44" style="display:block" xmlns="http://www.w3.org/2000/svg"><path d="M16 0C7.16 0 0 7.16 0 16C0 28 16 44 16 44C16 44 32 28 32 16C32 7.16 24.84 0 16 0Z" fill="#1c1812" stroke="#f5e7d2" stroke-width="2"/><circle cx="16" cy="16" r="7" fill="#f5e7d2"/></svg><div style="position:absolute; top:46px; left:50%; transform:translateX(-50%); background:#1c1812; color:#f5e7d2; font-size:11px; font-weight:600; letter-spacing:.04em; padding:2px 8px; border-radius:3px; white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,0.25);">${label}</div>`
   return el
 }
 
@@ -654,7 +655,8 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
     if (coords) {
       markerRef.current = new maplibregl.Marker({
         element: createPinElement(label),
-        anchor: 'bottom',
+        anchor: 'top-left',
+        offset: [-16, -44],
       })
         .setLngLat(coords)
         .addTo(map)
@@ -669,7 +671,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
 
   // ── 選択中駅 → 黒ピン更新 + 該当駅の散点/label 隠す + flyTo ──────────
   // 通勤先（赤ピン）と同一駅の場合はマーカー出さない（赤ピンが既にあるため）。
-  // 散点と label を同時に隠すことで、黒ピン (anchor=bottom) と緑散点 (anchor=center)
+  // 散点と label を同時に隠すことで、黒ピン (anchor='top-left') と緑散点 (anchor=center)
   // が同じ lngLat に対して別アンカーで描画され「ピンが浮いて見える」現象を回避する
   // (2026-05-13 主人報告)。layer-level filter で実装、cluster source は影響なし。
   useEffect(() => {
@@ -716,7 +718,8 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
     const coords: [number, number] = [selectedStation.lon, selectedStation.lat]
     selectedMarkerRef.current = new maplibregl.Marker({
       element: createSelectedPinElement(selectedStation.name),
-      anchor:  'bottom',
+      anchor:  'top-left',
+      offset:  [-16, -44],
     })
       .setLngLat(coords)
       .addTo(map)
