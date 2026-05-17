@@ -27,6 +27,11 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
   const [closing, setClosing] = useState(false)
   const [index, setIndex]   = useState(0)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  // inner-track ref。transform: translateY で頁を切替える設計に変更 (2026-05-17)。
+  // 旧 scrollTo + scrollSnap + scrollend 設計は iOS Safari の overflow:hidden 容器
+  // に対する programmatic scrollTo の挙動が不安定で、page 2→3 で mobile deadlock
+  // が再発する根因だった。transform + transitionend なら全 browser 一致動作。
+  const trackRef = useRef<HTMLDivElement | null>(null)
   const lockRef = useRef(false)
   const touchY  = useRef(0)
 
@@ -60,14 +65,13 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
   }, [])
 
   const goTo = useCallback((next: number) => {
-    const c = containerRef.current
-    if (!c) return
     const clamped = Math.max(0, Math.min(TOTAL - 1, next))
     // 既に目的の位置にいる場合は何もしない（連続イベントで lock がかかるのを防ぐ）
     if (clamped === indexRef.current) return
     indexRef.current = clamped
     setIndex(clamped)
-    c.scrollTo({ top: clamped * c.clientHeight, behavior: 'smooth' })
+    // 翻頁は inner-track の CSS transform translateY 経由 — React の re-render で
+    // transform 値が変わり、transitionend で unlock される (event listener effect 参照)。
   }, [])
 
   const enter = useCallback(() => {
@@ -89,15 +93,20 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
   //  - この effect は mount-only (deps [lock, goTo] = stable refs)、翻頁毎に
   //    cleanup → re-run しない → unlockTimer が予定通り fire できる
   //  - lock 解錠経路は 2 つ:
-  //    (a) scrollend 即時解錠 (Chrome 114+ / Firefox 109+ / Safari 18+)
-  //    (b) 1100ms fallback setTimeout (全 browser、scrollend 非対応時の保険)
+  //    (a) inner-track の transitionend 即時解錠 (全 browser 共通サポート)
+  //    (b) 1100ms fallback setTimeout (transition interrupt の保険)
   //  - 速い連続スワイプ対策: lock 中の event は全部捨てる (1 ジェスチャ = 1 頁)
   useEffect(() => {
     const c = containerRef.current
-    if (!c) return
+    const track = trackRef.current
+    if (!c || !track) return
 
-    // smooth scroll 完了で即解錠（対応ブラウザでは fallback より早く発火）
-    const onScrollEnd = () => {
+    // transform transition 完了で即解錠。transitionend は scrollend と違い
+    // 全 browser 安定 fire (iOS Safari ≤17 / Android Chrome 旧版も含む)。
+    // propertyName で transform 以外の transition (opacity 等) は無視。
+    const onTransitionEnd = (e: TransitionEvent) => {
+      if (e.target !== track) return
+      if (e.propertyName !== 'transform') return
       if (unlockTimerRef.current != null) {
         window.clearTimeout(unlockTimerRef.current)
         unlockTimerRef.current = null
@@ -138,14 +147,13 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
     window.addEventListener('keydown', onKey)
     c.addEventListener('touchstart', onTouchStart, { passive: true })
     c.addEventListener('touchend',   onTouchEnd,   { passive: true })
-    // scrollend は Chrome 114+ / Firefox 109+ / Safari 18+ で利用可
-    c.addEventListener('scrollend', onScrollEnd)
+    track.addEventListener('transitionend', onTransitionEnd)
     return () => {
       c.removeEventListener('wheel', onWheel)
       window.removeEventListener('keydown', onKey)
       c.removeEventListener('touchstart', onTouchStart)
       c.removeEventListener('touchend',   onTouchEnd)
-      c.removeEventListener('scrollend', onScrollEnd)
+      track.removeEventListener('transitionend', onTransitionEnd)
       // unmount 時のみ clear (mount-only effect なので翻頁時には呼ばれない)
       if (unlockTimerRef.current != null) {
         window.clearTimeout(unlockTimerRef.current)
@@ -209,18 +217,26 @@ export default function Story({ onEnterMap, onBack }: StoryProps) {
       {/* page index — vertical dots（mobile 上隐藏，节约空间）*/}
       {!isMobile && <PageRail total={TOTAL} index={index} onJump={goTo} />}
 
-      {/* the scroll container — locked to page steps */}
+      {/* page viewport (overflow:hidden) + inner track (transform translateY)
+          翻頁は track の transform translateY で行う。scrollTo/scrollSnap は使わない。
+          各 Page section は height:100dvh、track 自身は 3 sections を block 縦積みで
+          自動的に 300dvh となる。transform translateY(-{index*100}dvh) で頁切替。 */}
       <div ref={containerRef} style={{
         position: 'absolute', inset: 0, zIndex: 1,
         overflowY: 'hidden', overflowX: 'hidden',
-        scrollSnapType: 'y mandatory',
       }}>
-        {/* mounted を active に合算 — 初回 mount 時に false→true 遷移を作って
-            traveler / dots の CSS transition を確実に発火させる (#bug)。
-            他ページは index 切替で false→true が自然に起こるため不要。 */}
-        <PageNames    active={mounted && index === 0} isMobile={isMobile} />
-        <PageOtherMap active={index === 1} isMobile={isMobile} />
-        <PageYourTurn active={index === 2} onEnter={enter} isMobile={isMobile} />
+        <div ref={trackRef} style={{
+          willChange: 'transform',
+          transform: `translateY(-${index * 100}dvh)`,
+          transition: 'transform .9s cubic-bezier(.2,.8,.2,1)',
+        }}>
+          {/* mounted を active に合算 — 初回 mount 時に false→true 遷移を作って
+              traveler / dots の CSS transition を確実に発火させる (#bug)。
+              他ページは index 切替で false→true が自然に起こるため不要。 */}
+          <PageNames    active={mounted && index === 0} isMobile={isMobile} />
+          <PageOtherMap active={index === 1} isMobile={isMobile} />
+          <PageYourTurn active={index === 2} onEnter={enter} isMobile={isMobile} />
+        </div>
       </div>
 
       {/* hint */}
@@ -278,9 +294,12 @@ function Page({ children, active, isMobile, n, en, jp, style }: PageProps) {
   return (
     <section data-active={active} style={{
       position: 'relative',
-      width: '100%', height: '100%',
-      minHeight: '100dvh', maxHeight: '100dvh',
-      scrollSnapAlign: 'start', scrollSnapStop: 'always',
+      width: '100%',
+      // height は 100dvh で固定 (track 内で縦積み、track 全高 = TOTAL × 100dvh)。
+      // 旧 scrollSnap 設計の `height: 100%` は parent (scroll container) 高に依存
+      // していたが、transform 設計では track は固定 height を持たず children を
+      // 積み上げるだけなので、明示的に 100dvh が必要。
+      height: '100dvh',
       display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
       padding: isMobile ? '0 5vw' : '0 6vw', boxSizing: 'border-box',
       overflow: 'hidden',
