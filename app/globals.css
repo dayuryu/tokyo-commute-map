@@ -232,3 +232,165 @@ body {
   color: #1e293b;
   white-space: nowrap;
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Print stylesheet — AI 推薦結果を 1 頁の横条テーブル形式で印刷／PDF 保存
+
+   実装ノート (2026-05-17):
+   - 2 列カード grid だと A4 1 頁に 20 駅収まらず最後 2 駅が孤頁になる UX 問題
+     があったため、横条 (table 風) 1 列 layout に変更し、20 駅を 1 頁に納める設計
+   - AiWizard は `position:fixed + overflow:auto` で viewport-scrollable のため
+     print engine が現在 scroll 位置からしか capture しない → 解除が必要
+   - selector は AiResultGrid.tsx が付与する specific class を使い、PostCSS
+     最適化や nth-child の不安定性に依存しない
+
+   付与される class (AiResultGrid.tsx / AiWizard.tsx 側):
+   - .ai-wizard-root        : Wizard の最外殻 (fixed+scroll を解く対象)
+   - .ai-result-print-root  : 印刷したい subtree のルート
+   - .ai-result-print-hide  : 印刷時に非表示にする要素 (CTA / 保存 / × 等)
+   - .ai-result-print-grid  : 20 駅 card grid のコンテナ
+   - .ai-print-header / chip / tagline / title / dest / note : Header 内パーツ
+   - .ai-print-card / rank / name / reason : Card 内パーツ
+   ──────────────────────────────────────────────────────────── */
+@media print {
+  /* html / body の制約を解除：full document を一本の縦長 layout として扱う */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  /* AiWizard root：fixed + scroll を解除して content を flow に戻す。
+     これで内部 AiResultGrid が自然に 1 頁分の縦長 layout として扱われる。 */
+  .ai-wizard-root {
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    background: #ffffff !important;
+  }
+
+  /* visibility hack: 印刷対象以外を不可視に (layout は保持) */
+  body * {
+    visibility: hidden !important;
+  }
+  .ai-result-print-root,
+  .ai-result-print-root * {
+    visibility: visible !important;
+  }
+  .ai-result-print-root .ai-result-print-hide,
+  .ai-result-print-root .ai-result-print-hide * {
+    visibility: hidden !important;
+  }
+
+  /* print-root を normal flow / 全幅 / 余白なしで配置 */
+  .ai-result-print-root {
+    position: static !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* ── Header ブロック (tighten して縦方向を最小化) ── */
+  .ai-print-header {
+    margin: 0 !important;
+    padding: 0 0 6px 0 !important;
+  }
+  .ai-print-chip {
+    font-size: 7px !important;
+    letter-spacing: .3em !important;
+    line-height: 1 !important;
+  }
+  .ai-print-tagline {
+    font-size: 13px !important;
+    margin: 2px 0 0 0 !important;
+    line-height: 1.1 !important;
+  }
+  .ai-print-title {
+    font-size: 18px !important;
+    margin: 4px 0 0 0 !important;
+    letter-spacing: .04em !important;
+    line-height: 1.1 !important;
+  }
+  .ai-print-dest {
+    font-size: 11px !important;
+    margin: 4px 0 0 0 !important;
+    line-height: 1 !important;
+  }
+  .ai-print-note {
+    font-size: 9px !important;
+    margin: 2px 0 0 0 !important;
+    line-height: 1 !important;
+  }
+
+  /* ── 20 駅 grid → 横条 table 風の縦積み 1 列に切替 ── */
+  .ai-result-print-root .ai-result-print-grid {
+    display: block !important;
+    grid-template-columns: none !important;
+    gap: 0 !important;
+    margin-top: 6px !important;
+  }
+
+  /* ── Card を横長 row (rank / name / reason の flex row) に再配置 ── */
+  .ai-result-print-root .ai-print-card {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: baseline !important;
+    gap: 10px !important;
+    padding: 4px 6px !important;
+    border: none !important;
+    border-bottom: .4px solid #cfcfcf !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    transform: none !important;
+    min-height: 0 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    width: 100% !important;
+  }
+
+  /* rank chip (Garamond italic) — 左端、固定幅、右寄せ */
+  .ai-result-print-root .ai-print-rank {
+    font-size: 10px !important;
+    line-height: 1.4 !important;
+    flex: 0 0 24px !important;
+    text-align: right !important;
+    color: #a8332b !important;
+    opacity: 1 !important;
+  }
+
+  /* station name (Mincho) — 駅名カラム */
+  .ai-result-print-root .ai-print-name {
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    flex: 0 0 90px !important;
+    font-weight: 600 !important;
+    letter-spacing: .02em !important;
+    color: #000000 !important;
+  }
+
+  /* reason — 残り全幅、複数行 wrap 可 */
+  .ai-result-print-root .ai-print-reason {
+    font-size: 9.5px !important;
+    line-height: 1.4 !important;
+    flex: 1 1 auto !important;
+    margin: 0 !important;
+    letter-spacing: .01em !important;
+    color: #1c1812 !important;
+  }
+
+  /* 装飾系を全消し */
+  * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+
+  /* ページ余白を狭めて 1 頁に 20 駅収まりやすく */
+  @page {
+    margin: 10mm 12mm;
+  }
+}

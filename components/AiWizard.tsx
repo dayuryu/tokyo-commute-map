@@ -406,6 +406,7 @@ export default function AiWizard({
 
   return (
     <div
+      className="ai-wizard-root"
       style={{
         position: 'fixed', inset: 0, zIndex: 90,
         background: BG, color: INK,
@@ -431,6 +432,7 @@ export default function AiWizard({
 
       {/* close X */}
       <button
+        className="ai-result-print-hide"
         onClick={handleClose}
         aria-label="close"
         style={{

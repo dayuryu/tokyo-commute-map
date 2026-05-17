@@ -39,10 +39,11 @@ export default function AiResultGrid({
   isCached,
 }: Props) {
   return (
-    <div>
+    <div className="ai-result-print-root">
       <Header destinationLabel={destinationLabel} isFallback={isFallback} isCached={isCached} />
 
       <div
+        className="ai-result-print-grid"
         style={{
           marginTop: 32,
           display: 'grid',
@@ -60,7 +61,7 @@ export default function AiResultGrid({
         ))}
       </div>
 
-      <CtaBlock onCtaClick={onCtaClick} />
+      <CtaBlock onCtaClick={onCtaClick} destinationLabel={destinationLabel} />
     </div>
   )
 }
@@ -75,8 +76,9 @@ function Header({
   isCached?:         boolean
 }) {
   return (
-    <div style={{ textAlign: 'center' }}>
+    <div className="ai-print-header" style={{ textAlign: 'center' }}>
       <div
+        className="ai-print-chip"
         style={{
           fontFamily: 'var(--mono, monospace)',
           fontSize: 10,
@@ -88,6 +90,7 @@ function Header({
         Recommendations · 20 stations
       </div>
       <p
+        className="ai-print-tagline"
         style={{
           marginTop: 10,
           fontFamily: 'var(--display-italic, "Cormorant Garamond",serif)',
@@ -101,6 +104,7 @@ function Header({
         twenty places for you.
       </p>
       <h1
+        className="ai-print-title"
         style={{
           marginTop: 12,
           fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
@@ -115,6 +119,7 @@ function Header({
       </h1>
       {destinationLabel && (
         <p
+          className="ai-print-dest"
           style={{
             marginTop: 8,
             fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
@@ -128,6 +133,7 @@ function Header({
       )}
       {(isFallback || isCached) && (
         <p
+          className="ai-print-note"
           style={{
             marginTop: 6,
             fontFamily: 'var(--display-italic, Garamond, serif)',
@@ -157,6 +163,7 @@ function Card({
 }) {
   return (
     <button
+      className="ai-print-card"
       onClick={onClick}
       style={{
         textAlign: 'left',
@@ -186,6 +193,7 @@ function Card({
     >
       {/* rank chip — Garamond italic */}
       <div
+        className="ai-print-rank"
         style={{
           fontFamily: 'var(--display-italic, "Cormorant Garamond",serif)',
           fontStyle: 'italic',
@@ -200,6 +208,7 @@ function Card({
 
       {/* station name */}
       <div
+        className="ai-print-name"
         style={{
           fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
           fontWeight: 600,
@@ -214,6 +223,7 @@ function Card({
 
       {/* reason */}
       <div
+        className="ai-print-reason"
         style={{
           marginTop: 2,
           fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
@@ -229,10 +239,34 @@ function Card({
   )
 }
 
-function CtaBlock({ onCtaClick }: { onCtaClick: () => void }) {
+function CtaBlock({
+  onCtaClick,
+  destinationLabel,
+}: {
+  onCtaClick: () => void
+  destinationLabel?: string
+}) {
+  // 結果保存ボタン: window.print() で OS 印刷ダイアログを開く。
+  // ユーザーは「PDF として保存」または物理プリンタへ送信を選べる。
+  // PDF 既定ファイル名は document.title から取られるため、print 前に
+  // 一時的にタイトルを差し替えて afterprint で復元する。
+  function handleSavePrint() {
+    const originalTitle = document.title
+    const stamp = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+    const destPart = destinationLabel ? `_${destinationLabel}` : ''
+    document.title = `Kayoha_AI推薦20駅${destPart}_${stamp}`
+    const restore = () => {
+      document.title = originalTitle
+      window.removeEventListener('afterprint', restore)
+    }
+    window.addEventListener('afterprint', restore)
+    window.print()
+  }
+
   return (
     <div style={{ marginTop: 40, textAlign: 'center' }}>
       <button
+        className="ai-result-print-hide"
         onClick={onCtaClick}
         style={{
           padding: '14px 32px',
@@ -252,6 +286,30 @@ function CtaBlock({ onCtaClick }: { onCtaClick: () => void }) {
       >
         地図で見比べる →
       </button>
+      {/* 結果保存・印刷ボタン — secondary、CTA より控えめな editorial スタイル */}
+      <div className="ai-result-print-hide" style={{ marginTop: 16 }}>
+        <button
+          onClick={handleSavePrint}
+          style={{
+            appearance: 'none',
+            background: 'transparent',
+            border: `.5px solid ${INK}`,
+            color: INK,
+            padding: '10px 22px',
+            cursor: 'pointer',
+            fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
+            fontWeight: 500,
+            fontSize: 12,
+            letterSpacing: '.1em',
+            borderRadius: 0,
+            transition: 'background .25s, color .25s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = INK; e.currentTarget.style.color = '#f5e7d2' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = INK }}
+        >
+          結果を保存・印刷
+        </button>
+      </div>
       <p
         style={{
           marginTop: 14,
