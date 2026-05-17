@@ -164,6 +164,15 @@ export default function Home() {
     // lookup を走らせると 20 駅全 miss で console.warn が 20 件出るのを防ぐため、
     // 空 dict の段階では空 features で待つ（後の re-render で正しく算出される）。
     if (Object.keys(stationByName).length === 0) return []
+    // destination が aiCache 生成時と一致しない場合は highlight を表示しない。
+    // ユーザーが地図上で通勤先を切り替えた後、過去の AI 推薦に基づく赤外環が
+    // 残ったままだと「今の通勤先に対する推薦」と誤読される UX 問題があるため
+    // (2026-05-17 報告)。AiRecallButton は引き続き表示され、ユーザーが押すと
+    // Wizard recall 経由で destination が aiCache 対応値に戻り、highlight も復活する。
+    const cacheDestMatches = aiCache!.destination === 'custom'
+      ? (destination === 'custom' && customStation?.code === aiCache!.customStation?.code)
+      : destination === aiCache!.destination
+    if (!cacheDestMatches) return []
     const features: GeoJSON.Feature[] = []
     aiCache!.recs.forEach((r, idx) => {
       const s = stationByName[r.station_name]
@@ -182,7 +191,7 @@ export default function Home() {
       })
     })
     return features
-  }, [aiCache, stationByName])
+  }, [aiCache, stationByName, destination, customStation])
 
   // localStorage 読み取り（初回のみ）
   useEffect(() => {
