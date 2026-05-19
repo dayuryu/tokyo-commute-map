@@ -248,7 +248,6 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
           playsInline
           autoPlay
           preload="metadata"
-          fetchPriority="low"
           style={{
             position: 'absolute',
             inset: 0,
