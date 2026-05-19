@@ -5,6 +5,7 @@ const NAV = [
   { href: '/legal/commerce', label: '特定商取引法に基づく表記' },
   { href: '/legal/privacy',  label: 'プライバシーポリシー' },
   { href: '/legal/ads',      label: '広告表示について' },
+  { href: '/legal/credits',  label: 'クレジット・出典' },
   { href: '/legal/contact',  label: 'お問い合わせ' },
 ]
 

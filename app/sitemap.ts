@@ -37,6 +37,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.3,
     },
     {
+      url: `${base}/legal/credits`,
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    },
+    {
       url: `${base}/legal/contact`,
       lastModified: now,
       changeFrequency: 'yearly',

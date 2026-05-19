@@ -24,6 +24,11 @@ const ENTRIES = [
     summary: '利用しているアフィリエイトプログラム・PR 表示の方針',
   },
   {
+    href: '/legal/credits',
+    title: 'クレジット・出典',
+    summary: 'データ提供元・オープンソース・ライセンス情報',
+  },
+  {
     href: '/legal/contact',
     title: 'お問い合わせ',
     summary: 'ご連絡先メールアドレス',
