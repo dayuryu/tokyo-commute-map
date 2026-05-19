@@ -247,7 +247,8 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
           muted
           playsInline
           autoPlay
-          preload="auto"
+          preload="metadata"
+          fetchPriority="low"
           style={{
             position: 'absolute',
             inset: 0,
