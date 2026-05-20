@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import type { CSSProperties } from 'react'
+import { useTranslations } from 'next-intl'
 import { useIsMobile } from '@/lib/useIsMobile'
 import type { Destination, CustomStation } from '@/lib/types'
 import { QUICK_DESTINATIONS, POPULAR_DESTINATIONS } from '@/lib/destinations'
@@ -37,6 +38,7 @@ export default function DestinationAsk({
   onRecallWizard,
   aiCacheFresh,
 }: Props) {
+  const t = useTranslations('destinationAsk')
   const isMobile = useIsMobile()
   const [mounted, setMounted] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -122,7 +124,7 @@ export default function DestinationAsk({
           color: ASK_DIM,
           marginBottom: isMobile ? 18 : 22,
         }}>
-          Where · 通勤先
+          {t('marker')}
         </div>
 
         {/* italic prelude */}
@@ -149,7 +151,7 @@ export default function DestinationAsk({
           letterSpacing: '.06em',
           color: ASK_INK,
         }}>
-          あなたの通勤先を、<br />教えてください。
+          {t('h1Line1')}<br />{t('h1Line2')}
         </h1>
 
         {/* 副標題 */}
@@ -161,7 +163,7 @@ export default function DestinationAsk({
           letterSpacing: '.08em',
           color: ASK_DIM,
         }}>
-          ここから、1843駅が、<br />あなたの中心を語りはじめる。
+          {t('subtitleLine1')}<br />{t('subtitleLine2')}
         </p>
 
         {/* ── AI 推薦 hero card ────────────────────────────────────
@@ -201,7 +203,7 @@ export default function DestinationAsk({
             textTransform: 'uppercase',
             opacity: .8,
           }}>
-            {aiCacheFresh ? '✦ AI Advisor · 利用済み' : '✦ AI Advisor · 新機能'}
+            {aiCacheFresh ? t('heroBadgeUsed') : t('heroBadgeNew')}
           </div>
           <div style={{
             marginTop: 6,
@@ -221,9 +223,7 @@ export default function DestinationAsk({
             fontSize: isMobile ? 13 : 14,
             letterSpacing: '.06em',
           }}>
-            {aiCacheFresh
-              ? '過去の推薦 20 駅を再表示する →'
-              : '6 つの質問に答えて、ChatGPT に提案してもらう →'}
+            {aiCacheFresh ? t('heroCtaUsed') : t('heroCtaNew')}
           </div>
         </button>
 
@@ -240,7 +240,7 @@ export default function DestinationAsk({
               lineHeight: 1.6,
             }}
           >
-            新しい推薦の作成は 24 時間に 1 回までです。
+            {t('heroLimitNote')}
           </p>
         )}
         {!aiCacheFresh && (
@@ -276,7 +276,7 @@ export default function DestinationAsk({
             onKeyDown={e => {
               if (e.key === 'Enter' && filtered.length > 0) close('custom', filtered[0])
             }}
-            placeholder="駅名を入力（例：吉祥寺）"
+            placeholder={t('searchPlaceholder')}
             style={{
               width: '100%',
               padding: isMobile ? '12px 16px' : '14px 18px',
@@ -341,7 +341,7 @@ export default function DestinationAsk({
           letterSpacing: '.32em', textTransform: 'uppercase',
           color: '#a89c82',
         }}>
-          — or 定番の駅から —
+          {t('orFromPopular')}
         </div>
 
         {/* Quick CTAs (3 駅) */}
@@ -403,7 +403,7 @@ export default function DestinationAsk({
             onMouseEnter={e => { e.currentTarget.style.color = ASK_INK }}
             onMouseLeave={e => { e.currentTarget.style.color = ASK_DIM }}
           >
-            他の人気通勤先 27 駅 ▼
+            {t('popularToggle')}
           </button>
         ) : (
           <div style={{
@@ -465,7 +465,7 @@ export default function DestinationAsk({
           onMouseEnter={e => { e.currentTarget.style.color = ASK_INK }}
           onMouseLeave={e => { e.currentTarget.style.color = ASK_DIM }}
         >
-          とりあえず眺める →
+          {t('skipCta')}
         </button>
 
         {/* bottom mark — Story の Coda と統一 */}

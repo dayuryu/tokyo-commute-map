@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
 
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export default function CookieConsent({ drawerOpen = false }: Props) {
+  const t = useTranslations('cookieConsent')
   // undefined = まだ localStorage を読んでいない（hydration 待ち）
   // null = 読み終わったが未選択 → 横幅を表示
   // 'all' / 'necessary' = 既に選択済み → 表示しない
@@ -56,7 +58,7 @@ export default function CookieConsent({ drawerOpen = false }: Props) {
   return (
     <div
       role="dialog"
-      aria-label="Cookie 同意のお願い"
+      aria-label={t('ariaLabel')}
       className={`fixed z-20
                  left-3 bottom-3
                  ${drawerOpen
@@ -91,15 +93,15 @@ export default function CookieConsent({ drawerOpen = false }: Props) {
           margin: 0,
         }}
       >
-        当サイトは Cookie を使用し、アフィリエイト広告経由の購買・申込行動を計測することがあります。詳細は{' '}
+        {t('messageLead')}{' '}
         <Link
           href="/legal/privacy"
           className="underline"
           style={{ color: 'var(--ink)' }}
         >
-          プライバシーポリシー
+          {t('messagePrivacyLink')}
         </Link>
-        {' '}をご確認ください。
+        {' '}{t('messageTail')}
       </p>
 
       <div className="flex gap-2 mt-4 justify-end flex-wrap">
@@ -119,7 +121,7 @@ export default function CookieConsent({ drawerOpen = false }: Props) {
             cursor: 'pointer',
           }}
         >
-          必要のみ
+          {t('acceptNecessary')}
         </button>
         <button
           onClick={() => save('all')}
@@ -137,7 +139,7 @@ export default function CookieConsent({ drawerOpen = false }: Props) {
             cursor: 'pointer',
           }}
         >
-          すべて承認
+          {t('acceptAll')}
         </button>
       </div>
     </div>

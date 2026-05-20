@@ -39,6 +39,7 @@ import type {
 import { computeCommutes, type PreparedGraph } from '@/lib/dijkstra'
 import { getDeviceId } from '@/lib/device-id'
 import type { CustomStation } from '@/lib/types'
+import { useTranslations } from 'next-intl'
 import AiResultGrid from './AiResultGrid'
 
 const BG  = '#f3ecdd'
@@ -87,58 +88,61 @@ type QuestionDef = {
   options: { value: AnswerValue; label: string }[]
 }
 
+// title と label は messages/{locale}.json の `aiWizard.*` キーを参照する。
+// value は backend に POST される識別子で日本語のまま固定 (OpenAI prompt が日文運用)。
+// 多言語化時に value を enum 化するのは backend prompt 改修と同期、ここでは触らない。
 const QUESTIONS: QuestionDef[] = [
   {
     key:     'maxMinutes',
     prelude: 'how much time can you give?',
-    title:   '通勤時間の上限は？',
+    title:   'q2Title',
     options: [
-      { value: 30, label: '30 分以内' },
-      { value: 45, label: '45 分以内' },
-      { value: 60, label: '60 分以内' },
-      { value: 90, label: '90 分以内' },
+      { value: 30, label: 'q2Opt30' },
+      { value: 45, label: 'q2Opt45' },
+      { value: 60, label: 'q2Opt60' },
+      { value: 90, label: 'q2Opt90' },
     ],
   },
   {
     key:     'rentMax',
     prelude: 'and your rent ceiling?',
-    title:   '家賃の上限は？（月額）',
+    title:   'q3Title',
     options: [
-      { value: '~7万',    label: '〜 7 万円' },
-      { value: '7-10万',  label: '7 〜 10 万円' },
-      { value: '10-15万', label: '10 〜 15 万円' },
-      { value: '15万+',   label: '15 万円以上' },
+      { value: '~7万',    label: 'q3OptUnder7' },
+      { value: '7-10万',  label: 'q3Opt7to10' },
+      { value: '10-15万', label: 'q3Opt10to15' },
+      { value: '15万+',   label: 'q3OptOver15' },
     ],
   },
   {
     key:     'household',
     prelude: 'who are you living with?',
-    title:   'ご家族構成は？',
+    title:   'q4Title',
     options: [
-      { value: '単身',     label: '単身' },
-      { value: 'カップル', label: 'カップル' },
-      { value: '子持ち',   label: '子持ち' },
+      { value: '単身',     label: 'q4OptSingle' },
+      { value: 'カップル', label: 'q4OptCouple' },
+      { value: '子持ち',   label: 'q4OptFamily' },
     ],
   },
   {
     key:     'atmosphere',
     prelude: 'what kind of street?',
-    title:   '街の雰囲気は？',
+    title:   'q5Title',
     options: [
-      { value: '賑やか',       label: '賑やか' },
-      { value: '落ち着いた',   label: '落ち着いた' },
-      { value: '緑が多い',     label: '緑が多い' },
-      { value: '商業集中',     label: '商業集中' },
+      { value: '賑やか',       label: 'q5OptLively' },
+      { value: '落ち着いた',   label: 'q5OptCalm' },
+      { value: '緑が多い',     label: 'q5OptGreen' },
+      { value: '商業集中',     label: 'q5OptCommercial' },
     ],
   },
   {
     key:     'safety',
     prelude: 'how much does safety matter?',
-    title:   '治安はどれくらい重視？',
+    title:   'q6Title',
     options: [
-      { value: '最重要',       label: '最重要' },
-      { value: '普通',         label: '普通' },
-      { value: '気にしない',   label: '気にしない' },
+      { value: '最重要',       label: 'q6OptCrucial' },
+      { value: '普通',         label: 'q6OptNormal' },
+      { value: '気にしない',   label: 'q6OptDontCare' },
     ],
   },
 ]
@@ -211,6 +215,7 @@ export default function AiWizard({
   onResolve,
   onResultReady,
 }: Props) {
+  const t = useTranslations('aiWizard')
   const isMobile = useIsMobile()
   const [mounted, setMounted] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -369,7 +374,7 @@ export default function AiWizard({
         const canRetry = res.status !== 429  // rate limit は再試行不可
         setState({
           phase: 'error',
-          message: data.error || '推薦の取得に失敗しました。',
+          message: data.error || t('errorDefault'),
           canRetry,
         })
         return
@@ -392,9 +397,7 @@ export default function AiWizard({
       console.error('[AiWizard] /api/recommend failed:', e)
       setState({
         phase: 'error',
-        message: isAbort
-          ? 'タイムアウトしました。ネットワーク環境をご確認の上、再度お試しください。'
-          : 'ネットワークエラーが発生しました。',
+        message: isAbort ? t('errorTimeout') : t('errorNetwork'),
         canRetry: true,
       })
     }
@@ -525,6 +528,7 @@ function DestinationView({
   /** 30 駅に通勤先が無い user 向けの退出ハンドラ — Wizard を閉じて地図へ戻る */
   onExit:         () => void
 }) {
+  const t = useTranslations('aiWizard')
   const [showMore, setShowMore] = useState(false)
   const [query, setQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
@@ -615,7 +619,7 @@ function DestinationView({
             color: INK,
           }}
         >
-          通勤先を一つ選んでください
+          {t('q1Title')}
         </h1>
 
         {/* 検索 input + autocomplete — 任意の 1843 駅
@@ -632,7 +636,7 @@ function DestinationView({
               if (e.key === 'Escape') { setQuery(''); setShowDropdown(false); inputRef.current?.blur() }
               if (e.key === 'Enter' && filtered.length > 0) selectStation(filtered[0])
             }}
-            placeholder={graphReady ? '駅名で検索...' : '読込中...'}
+            placeholder={graphReady ? t('q1SearchPlaceholderReady') : t('q1SearchPlaceholderLoading')}
             disabled={!graphReady}
             style={{
               width: '100%',
@@ -713,7 +717,7 @@ function DestinationView({
             letterSpacing: '.02em',
           }}
         >
-          または人気駅から：
+          {t('q1SubFromPopular')}
         </p>
 
         {/* QUICK 3 駅 — 大ボタン */}
@@ -780,7 +784,7 @@ function DestinationView({
             onMouseEnter={e => { e.currentTarget.style.color = INK }}
             onMouseLeave={e => { e.currentTarget.style.color = DIM }}
           >
-            他の人気通勤先 27 駅 ▼
+            {t('q1PopularToggle')}
           </button>
         ) : (
           <div
@@ -842,7 +846,7 @@ function DestinationView({
               letterSpacing: '.02em',
             }}
           >
-            AI 推薦は通勤先として全 1843 駅に対応しています。検索または下記の人気駅からお選びください。
+            {t('q1FallbackNote')}
           </p>
           <button
             onClick={onExit}
@@ -864,7 +868,7 @@ function DestinationView({
             onMouseEnter={e => { e.currentTarget.style.color = RED }}
             onMouseLeave={e => { e.currentTarget.style.color = INK }}
           >
-            ← 自分で探したい方は、地図へ戻る
+            {t('q1BackToMap')}
           </button>
         </div>
       </div>
@@ -890,6 +894,7 @@ function QuestionView({
   onAnswer:         (value: AnswerValue) => void
   onBack:           (() => void) | null
 }) {
+  const t = useTranslations('aiWizard')
   return (
     <div
       style={{
@@ -919,7 +924,7 @@ function QuestionView({
         >
           Question {String(index + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
           {' · '}
-          {destinationLabel} へ
+          {t('destinationToHeading', { name: destinationLabel })}
         </div>
 
         {/* italic prelude */}
@@ -949,7 +954,7 @@ function QuestionView({
             color: INK,
           }}
         >
-          {q.title}
+          {t(q.title)}
         </h1>
 
         {/* options — flex wrap */}
@@ -992,7 +997,7 @@ function QuestionView({
                 e.currentTarget.style.borderColor = INK
               }}
             >
-              {opt.label}
+              {t(opt.label)}
             </button>
           ))}
         </div>
@@ -1009,7 +1014,7 @@ function QuestionView({
               letterSpacing: '.04em',
             }}
           >
-            {destinationLabel} への通勤を前提に
+            {t('destinationContext', { name: destinationLabel })}
           </p>
         )}
 
@@ -1031,7 +1036,7 @@ function QuestionView({
             onMouseEnter={e => { e.currentTarget.style.color = INK }}
             onMouseLeave={e => { e.currentTarget.style.color = DIM }}
           >
-            ← 一つ戻る
+            {t('back')}
           </button>
         )}
       </div>
@@ -1041,6 +1046,7 @@ function QuestionView({
 
 // ── ローディングビュー ───────────────────────────────────────────
 function LoadingView({ isMobile }: { isMobile: boolean }) {
+  const t = useTranslations('aiWizard')
   return (
     <div
       style={{
@@ -1088,7 +1094,7 @@ function LoadingView({ isMobile }: { isMobile: boolean }) {
             lineHeight: 1.8,
           }}
         >
-          1,843 駅の中から、<br />あなたに合う 20 駅を選んでいます。
+          {t('loadingHeading1')}<br />{t('loadingHeading2')}
         </p>
         <p
           style={{
@@ -1099,7 +1105,7 @@ function LoadingView({ isMobile }: { isMobile: boolean }) {
             color: DIM,
           }}
         >
-          通常 5 〜 10 秒かかります
+          {t('loadingSubtitle')}
         </p>
       </div>
     </div>
@@ -1157,6 +1163,7 @@ function ErrorView({
   onClose:  () => void
   isMobile: boolean
 }) {
+  const t = useTranslations('aiWizard')
   return (
     <div
       style={{
@@ -1189,7 +1196,7 @@ function ErrorView({
             letterSpacing: '.06em',
           }}
         >
-          推薦を取得できませんでした
+          {t('errorTitle')}
         </h2>
         <p
           style={{
@@ -1221,7 +1228,7 @@ function ErrorView({
                 borderRadius: 0,
               }}
             >
-              もう一度試す
+              {t('errorRetry')}
             </button>
           )}
           <button
@@ -1239,7 +1246,7 @@ function ErrorView({
               borderRadius: 0,
             }}
           >
-            地図に戻る
+            {t('errorBackToMap')}
           </button>
         </div>
       </div>

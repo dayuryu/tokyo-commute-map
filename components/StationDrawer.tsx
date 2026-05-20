@@ -1,6 +1,7 @@
 // components/StationDrawer.tsx
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { supabase } from '@/lib/supabase'
 import type { ConsensusMap, CustomCommutesMap, CustomStation, Destination, Station } from '@/lib/types'
 import CorrectionReporter from './CorrectionReporter'
@@ -83,6 +84,7 @@ function isStationCurrentDestination(
 // デバイス ID は lib/device-id.ts に集約（非 Secure Context でも安全な fallback 付き）
 
 export default function StationDrawer({ station, destination, customStation, customCommutes, consensus, suumoMap, rentMap, governmentRent, lineStyles, areaFeatures, aiRecallAvailable, onRecallAi, onSetAsDestination, onClose }: Props) {
+  const t = useTranslations('stationDrawer')
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
   const [reviews,    setReviews]    = useState<any[]>([])
   const [form,       setForm]       = useState<ReviewForm>({
@@ -268,7 +270,7 @@ export default function StationDrawer({ station, destination, customStation, cus
 
   // 表示用ラベル — custom destination の場合は実際の駅名を出す（「カスタム」固定文字を回避）
   const destLabel = destination === 'custom'
-    ? (customStation?.name ?? 'カスタム')
+    ? (customStation?.name ?? t('customDestFallback'))
     : getDestinationDisplayName(destination)
 
   // 主要路線 — build_stations_geojson_v3.py が station_database/out/main/line/*.json
@@ -361,7 +363,7 @@ export default function StationDrawer({ station, destination, customStation, cus
                 onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
                 onMouseLeave={e => { e.currentTarget.style.opacity = '0.92' }}
               >
-                ← AI 推薦 20 駅に戻る
+                {t('backToAiRecs')}
               </button>
             )}
 
@@ -370,7 +372,7 @@ export default function StationDrawer({ station, destination, customStation, cus
               className="smallcaps mb-4"
               style={{ color: 'var(--ink-mute)' }}
             >
-              STATION · 駅
+              {t('stationLabel')}
             </div>
 
             {/* station name (大字 36px) + romaji */}
@@ -428,7 +430,7 @@ export default function StationDrawer({ station, destination, customStation, cus
                   onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.opacity = '1' }}
                   onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.opacity = '0.92' }}
                 >
-                  {isCurrent ? '✓ 通勤先に設定中' : 'ここを通勤先にする →'}
+                  {isCurrent ? t('setAsDestActive') : t('setAsDestCta')}
                 </button>
               )
             })()}
@@ -460,12 +462,12 @@ export default function StationDrawer({ station, destination, customStation, cus
                   letterSpacing: '.06em',
                 }}
               >
-                分 to {destLabel}
+                {t('commuteToDest', { dest: destLabel })}
                 {consensusEntry && (
                   <span
                     className="ml-1.5"
                     style={{ color: '#5e7044' }}
-                    title={`コミュニティ確認済み（${consensusEntry.count}件の報告）`}
+                    title={t('consensusTitle', { count: consensusEntry.count })}
                   >
                     ✓
                   </span>
@@ -481,7 +483,7 @@ export default function StationDrawer({ station, destination, customStation, cus
                 className="inline-block mt-2 text-xs underline transition-colors hover:opacity-80"
                 style={{ color: 'var(--ink-mute)' }}
               >
-                Yahoo!乗換案内で確認（平日 8:30 出発）→
+                {t('yahooCheck')}
               </a>
             )}
 
@@ -510,7 +512,7 @@ export default function StationDrawer({ station, destination, customStation, cus
                 margin: '12px 0 0 0',
               }}
             >
-              ※通勤時間は当サイト推算値（誤差 ±5〜10 分）です。
+              {t('commuteDisclaimer')}
             </p>
 
             {/* hairline divider */}
@@ -522,7 +524,7 @@ export default function StationDrawer({ station, destination, customStation, cus
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
                 <div className="smallcaps" style={{ color: 'var(--ink-mute)' }}>
-                  住居を探す
+                  {t('findHousing')}
                 </div>
                 <span
                   style={{
@@ -585,7 +587,7 @@ export default function StationDrawer({ station, destination, customStation, cus
                 }}
               >
                 <a href="/legal/ads" className="underline" style={{ color: 'var(--ink-mute)' }}>
-                  広告について
+                  {t('aboutAds')}
                 </a>
               </p>
             </div>
@@ -596,7 +598,7 @@ export default function StationDrawer({ station, destination, customStation, cus
             {/* detail rows: 家賃目安 / 主要路線 / 周辺の特徴 */}
             <div className="space-y-3.5">
               <DetailRow
-                label="家賃目安"
+                label={t('rentLabel')}
                 value={
                   rentSource === 'suumo' ? (
                     <span>
@@ -612,19 +614,19 @@ export default function StationDrawer({ station, destination, customStation, cus
                   ) : '—'
                 }
                 hint={
-                  rentSource === 'suumo'      ? '徒歩 10 分以内目安 · SUUMO 相場より' :
-                  rentSource === 'government' ? '住宅・土地統計調査 · 区平均' :
-                                                'データなし（人口 1.5 万未満）'
+                  rentSource === 'suumo'      ? t('rentSourceSuumo') :
+                  rentSource === 'government' ? t('rentSourceGov') :
+                                                t('rentSourceNone')
                 }
               />
               <DetailRow
-                label="主要路線"
+                label={t('linesLabel')}
                 value={
                   mainLines.length > 0
                     ? <LineList lines={mainLines} styles={lineStyles} />
                     : '—'
                 }
-                hint={mainLines.length === 0 ? '（データ未接続）' : undefined}
+                hint={mainLines.length === 0 ? t('linesHintNoData') : undefined}
               />
               <AreaFeatureRow features={station ? areaFeatures[station.name] : undefined} />
             </div>
@@ -639,12 +641,12 @@ export default function StationDrawer({ station, destination, customStation, cus
                   className="smallcaps mb-3"
                   style={{ color: 'var(--ink-mute)' }}
                 >
-                  コミュニティ評価 · {avgScore.review_count} 件
+                  {t('communityHeader', { count: avgScore.review_count })}
                 </div>
                 {[
-                  { label: '物価水準', value: avgScore.avg_price },
-                  { label: '治安状況', value: avgScore.avg_safety },
-                  { label: '電車混雑', value: avgScore.avg_crowd },
+                  { label: t('ratingPrice'), value: avgScore.avg_price },
+                  { label: t('ratingSafety'), value: avgScore.avg_safety },
+                  { label: t('ratingCrowd'), value: avgScore.avg_crowd },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex items-center gap-3 mb-2.5">
                     <span
@@ -694,13 +696,13 @@ export default function StationDrawer({ station, destination, customStation, cus
                   className="smallcaps mb-3"
                   style={{ color: 'var(--ink-mute)' }}
                 >
-                  あなたの評価を投稿
+                  {t('yourReviewHeading')}
                 </div>
                 <div className="space-y-3.5">
                   {([
-                    { key: 'price_score',  label: '物価水準' },
-                    { key: 'safety_score', label: '治安状況' },
-                    { key: 'crowd_score',  label: '電車混雑' },
+                    { key: 'price_score',  label: t('ratingPrice') },
+                    { key: 'safety_score', label: t('ratingSafety') },
+                    { key: 'crowd_score',  label: t('ratingCrowd') },
                   ] as { key: ScoreKey; label: string }[]).map(({ key, label }) => {
                     const v = form[key]
                     const scored = v != null
@@ -726,7 +728,7 @@ export default function StationDrawer({ station, destination, customStation, cus
                               fontStyle: scored ? 'normal' : 'italic',
                             }}
                           >
-                            {scored ? `${v} / 10` : '未評価'}
+                            {scored ? `${v} ${t('scoreSuffix')}` : t('notRated')}
                           </span>
                         </div>
                         <input
@@ -745,13 +747,13 @@ export default function StationDrawer({ station, destination, customStation, cus
                           }}
                           className="pretty w-full"
                           style={{ opacity: scored ? 1 : 0.45 }}
-                          aria-valuetext={scored ? `${v} / 10` : '未評価'}
+                          aria-valuetext={scored ? `${v} ${t('scoreSuffix')}` : t('notRated')}
                         />
                       </div>
                     )
                   })}
                   <textarea
-                    placeholder="一言コメント（任意）..."
+                    placeholder={t('commentPlaceholder')}
                     value={form.comment}
                     onChange={(e) => setForm(f => ({ ...f, comment: e.target.value }))}
                     /* text-[16px] で iOS Safari focus 時の自動 zoom 防止 */
@@ -782,11 +784,11 @@ export default function StationDrawer({ station, destination, customStation, cus
                         ? 'wait'
                         : (allScored ? 'pointer' : 'not-allowed'),
                     }}
-                    title={allScored ? '' : '3 項目すべて評価してください'}
+                    title={allScored ? '' : t('submitAllRequired')}
                   >
                     {submitting
-                      ? '送信中…'
-                      : (allScored ? '投稿する' : '3 項目を評価してください')}
+                      ? t('submitting')
+                      : (allScored ? t('submitDo') : t('submitNeedAllThree'))}
                   </button>
                 </div>
               </div>
@@ -801,7 +803,7 @@ export default function StationDrawer({ station, destination, customStation, cus
                   letterSpacing: '.06em',
                 }}
               >
-                ✓ 投稿ありがとうございます
+                {t('submittedThanks')}
               </div>
             )}
 
@@ -813,7 +815,7 @@ export default function StationDrawer({ station, destination, customStation, cus
                   className="smallcaps mb-3"
                   style={{ color: 'var(--ink-mute)' }}
                 >
-                  最新コメント
+                  {t('latestComments')}
                 </div>
                 <div className="space-y-2.5">
                   {reviews.filter(r => r.comment).map((r) => (
@@ -895,6 +897,7 @@ function LineList({ lines, styles }: { lines: string[]; styles: LineStyleMap }) 
 // label を上に独立配置 + 本文を block で流す。AI 生成の disclaimer は
 // 景表法配慮で「参考情報・現地確認」を明示する。
 function AreaFeatureRow({ features }: { features: string | undefined }) {
+  const t = useTranslations('stationDrawer')
   const hasText = features != null && features.trim().length > 0
   return (
     <div>
@@ -909,7 +912,7 @@ function AreaFeatureRow({ features }: { features: string | undefined }) {
           marginBottom: 6,
         }}
       >
-        周辺の特徴
+        {t('areaFeaturesLabel')}
       </div>
       <p
         style={{
@@ -934,7 +937,7 @@ function AreaFeatureRow({ features }: { features: string | undefined }) {
           lineHeight: 1.5,
         }}
       >
-        {hasText ? 'ChatGPT による要約・参考情報。最新の街の様子は現地でご確認ください。' : '（データなし）'}
+        {hasText ? t('areaFeaturesDisclaimer') : t('areaFeaturesNoData')}
       </p>
     </div>
   )

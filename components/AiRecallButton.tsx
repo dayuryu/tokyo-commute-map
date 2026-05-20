@@ -22,6 +22,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
 
@@ -39,6 +40,7 @@ interface Props {
 }
 
 export default function AiRecallButton({ hasCache, onClick }: Props) {
+  const t = useTranslations('aiRecallButton')
   const isMobile = useIsMobile()
   const [showHint, setShowHint] = useState(false)
 
@@ -133,8 +135,8 @@ export default function AiRecallButton({ hasCache, onClick }: Props) {
             }}
           >
             {hasCache
-              ? <>ここから 20 駅推薦を<br />いつでも再表示できます</>
-              : <>6 つの質問で、<br />あなたに合う 20 駅を提案</>}
+              ? <>{t('tooltipUsedLine1')}<br />{t('tooltipUsedLine2')}</>
+              : <>{t('tooltipNewLine1')}<br />{t('tooltipNewLine2')}</>}
           </div>
           {/* 三角形矢印 — button 方向を指す */}
           <div
@@ -154,7 +156,7 @@ export default function AiRecallButton({ hasCache, onClick }: Props) {
         {/* button 本体 */}
         <button
           onClick={onClick}
-          aria-label={hasCache ? 'AI 推薦を再表示' : 'AI に駅を提案してもらう'}
+          aria-label={hasCache ? t('ariaUsed') : t('ariaNew')}
           style={{
             padding: isMobile ? '8px 14px' : '10px 18px',
             background: 'rgba(244, 241, 234, 0.92)',
@@ -202,7 +204,7 @@ export default function AiRecallButton({ hasCache, onClick }: Props) {
               letterSpacing: '.06em',
             }}
           >
-            {hasCache ? '20 駅を再表示 →' : 'AI に聞いてみる →'}
+            {hasCache ? t('ctaUsed') : t('ctaNew')}
           </div>
         </button>
       </div>

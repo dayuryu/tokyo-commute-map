@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useIsMobile } from '@/lib/useIsMobile'
 
 // editorial palette — DestinationAsk と統一（cream paper + ink + red accent）
@@ -23,14 +24,15 @@ interface Props {
  * 親側で `visible=false` にすると ~1.1s かけて opacity 0 へ。
  */
 export default function LoadingOverlay({ visible }: Props) {
+  const t = useTranslations('loading')
   const isMobile = useIsMobile()
   const [mounted, setMounted] = useState(false)
   const [hintIdx, setHintIdx] = useState(0)
 
   const HINTS = [
-    '路線をひいています',
-    '駅をならべています',
-    '通勤の地図を描いています',
+    t('hint1'),
+    t('hint2'),
+    t('hint3'),
   ]
 
   useEffect(() => {

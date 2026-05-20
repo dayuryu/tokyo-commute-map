@@ -11,6 +11,7 @@
  * 「20 駅を眺めて選ぶ」体験を引き締める。
  */
 
+import { useTranslations } from 'next-intl'
 import type { Recommendation } from '@/lib/ai-recommend/types'
 
 const INK = '#1c1812'
@@ -75,6 +76,7 @@ function Header({
   isFallback?:       boolean
   isCached?:         boolean
 }) {
+  const t = useTranslations('aiResultGrid')
   return (
     <div className="ai-print-header" style={{ textAlign: 'center' }}>
       <div
@@ -115,7 +117,7 @@ function Header({
           margin: '12px 0 0 0',
         }}
       >
-        あなたへの 20 の街
+        {t('heading')}
       </h1>
       {destinationLabel && (
         <p
@@ -128,7 +130,7 @@ function Header({
             color: DIM,
           }}
         >
-          {destinationLabel} への通勤を起点に
+          {t('destinationContext', { name: destinationLabel })}
         </p>
       )}
       {(isFallback || isCached) && (
@@ -143,9 +145,7 @@ function Header({
             letterSpacing: '.02em',
           }}
         >
-          {isFallback
-            ? '※ AI 接続を簡略化した代替推薦を表示しています'
-            : '※ 同じ条件の過去推薦を再利用しています'}
+          {isFallback ? t('fallbackNote') : t('cachedNote')}
         </p>
       )}
     </div>
@@ -246,6 +246,7 @@ function CtaBlock({
   onCtaClick: () => void
   destinationLabel?: string
 }) {
+  const t = useTranslations('aiResultGrid')
   // 結果保存ボタン: window.print() で OS 印刷ダイアログを開く。
   // ユーザーは「PDF として保存」または物理プリンタへ送信を選べる。
   // PDF 既定ファイル名は document.title から取られるため、print 前に
@@ -284,7 +285,7 @@ function CtaBlock({
         onMouseEnter={e => { e.currentTarget.style.opacity = '0.9' }}
         onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
       >
-        地図で見比べる →
+        {t('ctaCompareOnMap')}
       </button>
       {/* 結果保存・印刷ボタン — secondary、CTA より控えめな editorial スタイル */}
       <div className="ai-result-print-hide" style={{ marginTop: 16 }}>
@@ -307,7 +308,7 @@ function CtaBlock({
           onMouseEnter={e => { e.currentTarget.style.background = INK; e.currentTarget.style.color = '#f5e7d2' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = INK }}
         >
-          結果を保存・印刷
+          {t('saveAndPrint')}
         </button>
       </div>
       <p
@@ -320,7 +321,7 @@ function CtaBlock({
           letterSpacing: '.02em',
         }}
       >
-        ChatGPT による参考情報。最終的な判断はご自身でお願いします。
+        {t('disclaimer')}
       </p>
       {/* brand attribution — OpenAI brand guideline に従い、ロゴ不使用・文字のみで明示 */}
       <p
