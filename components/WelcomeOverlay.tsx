@@ -1,13 +1,16 @@
 'use client'
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
+import { useRouter } from '@/i18n/navigation'
 import { useIsMobile } from '@/lib/useIsMobile'
+import { STORAGE_KEYS } from '@/lib/storage-keys'
 
 interface Props {
   onEnterMap: () => void
   onEnterStory: () => void
 }
 
-const TITLE_TEXT = '次の駅で、暮らしをめくる。'
+// Subtitle はブランド表記なので翻訳しない (Kayoha = ローマ字主品牌、通葉 = 漢字徽章)。
 const SUBTITLE_TEXT = 'Kayoha — 通葉'
 
 // smoke card chrome — 暗烟玻璃 + 米色字（design 原型 cardStyle='smoke'）
@@ -20,6 +23,9 @@ const BTN_GHOST_FG = '#f5e7d2'
 const BTN_GHOST_HOVER = 'rgba(245,231,210,.12)'
 
 export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
+  const t = useTranslations('welcome')
+  const locale = useLocale()
+  const TITLE_TEXT = t('tagline')
   const isMobile = useIsMobile()
   const [mounted, setMounted] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -331,10 +337,13 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
           textShadow: '0 1px 8px rgba(0,0,0,.5)',
         }}
       >
-        <a style={{ color: INK_S, textDecoration: 'none', borderBottom: `.5px solid ${INK_S}` }}>
-          JA
-        </a>
-        <a style={{ color: INK_M, textDecoration: 'none' }}>EN</a>
+        <LocaleLink locale="ja" active={locale === 'ja'} label="JA" inkActive={INK_S} inkIdle={INK_M} />
+        <LocaleLink locale="zh" active={locale === 'zh'} label="ZH" inkActive={INK_S} inkIdle={INK_M} />
+        {/* TODO(i18n-en): 英語版は次フェーズで再開。i18n/routing.ts の locales に 'en' を
+            戻し、messages/en.json のレイアウト調整 (button label / tagline 行高 / Legend
+            ラベル幅) を済ませてからアンコメント。
+        <LocaleLink locale="en" active={locale === 'en'} label="EN" inkActive={INK_S} inkIdle={INK_M} />
+        */}
       </div>
 
       {/* ── brand mark (top-left): Kayoha + 通葉 ────────── */}
@@ -467,11 +476,13 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
                 style={{
                   margin: 0,
                   fontFamily: 'var(--display-italic, "Cormorant Garamond","Shippori Mincho",Garamond,serif)',
-                  fontWeight: 400,
-                  fontStyle: 'italic',
+                  // 中文では italic 概念が無く、強制斜体は破綻するため normal + SemiBold で
+                  // 視覚的重みを補い、letter-spacing も方塊字向けに positive 寄せ。
+                  fontWeight: locale === 'zh' ? 500 : 400,
+                  fontStyle: locale === 'zh' ? 'normal' : 'italic',
                   fontSize: isMobile ? 'clamp(28px, 9vw, 44px)' : 'clamp(44px, 6vw, 88px)',
-                  lineHeight: 1.1,
-                  letterSpacing: '-.015em',
+                  lineHeight: locale === 'zh' ? 1.25 : 1.1,
+                  letterSpacing: locale === 'zh' ? '.04em' : '-.015em',
                   color: INK,
                   textWrap: 'balance' as React.CSSProperties['textWrap'],
                   minHeight: '1.1em',
@@ -544,12 +555,12 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
                   padding: isMobile ? '0 4px' : 0,
                 }}
               >
-                このサイトをご利用になるには、
+                {t('consentLead')}
                 <br />
                 <strong style={{ fontWeight: 600 }}>
-                  東京圏での暮らしに関心があること
-                </strong>{' '}
-                をご確認ください。
+                  {t('consentBold')}
+                </strong>
+                {t('consentTail')}
               </div>
 
               <div
@@ -590,7 +601,7 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
                     e.currentTarget.style.color = BTN_FILL_FG
                   }}
                 >
-                  はい、地図を開く
+                  {t('openMap')}
                 </button>
                 <button
                   onClick={handleGhost}
@@ -617,7 +628,7 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
                     e.currentTarget.style.background = 'transparent'
                   }}
                 >
-                  先に物語を読む
+                  {t('readStory')}
                 </button>
               </div>
             </div>
@@ -662,12 +673,60 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
         >
           <span>Sora · Mura · Eki</span>
           <span style={{ display: 'flex', gap: 22 }}>
-            <span>物語</span>
-            <span>路線図</span>
-            <span>口コミ</span>
+            <span>{t('footerStory')}</span>
+            <span>{t('footerRoutes')}</span>
+            <span>{t('footerReviews')}</span>
           </span>
         </div>
       )}
     </div>
+  )
+}
+
+// 言語切替リンク。`next-intl` の Link でも動くが、`onClick` prop が内部の click
+// handler に呑まれて sessionStorage flag を立てる前に navigate されるケースを観測。
+// `useRouter().replace({locale})` を明示的に呼び、flag → navigate の順序を保証する。
+// `router.replace(...)` は内部で NEXT_LOCALE cookie も同時更新する。
+function LocaleLink({
+  locale,
+  active,
+  label,
+  inkActive,
+  inkIdle,
+}: {
+  // TODO(i18n-en): locales に 'en' 再投入時にここも 'ja' | 'zh' | 'en' に拡張。
+  locale: 'ja' | 'zh'
+  active: boolean
+  label: string
+  inkActive: string
+  inkIdle: string
+}) {
+  const router = useRouter()
+  return (
+    <a
+      // href を実物 URL にしておくと右クリック「新しいタブで開く」/ middle-click も動く。
+      // as-needed mode で ja は prefix 無し、zh は /zh。
+      href={locale === 'ja' ? '/' : `/${locale}`}
+      onClick={(e) => {
+        // 左クリック + 修飾キー無しのみ SPA navigation を奪う。それ以外（Cmd+Click 等）は
+        // ブラウザ標準動作に任せる。
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+        e.preventDefault()
+        // Welcome 上で切替 → reload 後も Welcome に留めるため sessionStorage flag を立てる。
+        // page.tsx の mount 時に読まれ、visited に関わらず Welcome を再表示し flag は即削除。
+        // tab 限定の flag なので別 tab / 後日の通常訪問には影響しない。
+        try { sessionStorage.setItem(STORAGE_KEYS.welcomeAfterLocaleSwitch, '1') } catch {}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        router.replace('/' as any, { locale })
+      }}
+      style={{
+        color: active ? inkActive : inkIdle,
+        textDecoration: 'none',
+        borderBottom: active ? `.5px solid ${inkActive}` : 'none',
+        cursor: 'pointer',
+      }}
+    >
+      {label}
+    </a>
   )
 }

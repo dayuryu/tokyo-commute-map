@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 import { BUCKET_COLORS, getBucketThresholds, getBucketLabels } from '@/lib/buckets'
 
 interface Props {
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export default function Legend({ maxMinutes }: Props) {
+  const t = useTranslations('legend')
   const thresholds = getBucketThresholds(maxMinutes)
   const labels = getBucketLabels(thresholds)
 
@@ -29,7 +31,7 @@ export default function Legend({ maxMinutes }: Props) {
       >
         <div className="smallcaps mb-2 text-center"
              style={{ color: 'var(--ink-mute)' }}>
-          通勤時間
+          {t('commuteTime')}
         </div>
         <ul className="space-y-1.5">
           {labels.map((label, i) => (
@@ -82,7 +84,7 @@ export default function Legend({ maxMinutes }: Props) {
             letterSpacing: '.04em',
           }}
         >
-          <span style={{ minWidth: 28, textAlign: 'right' }}>近</span>
+          <span style={{ minWidth: 28, textAlign: 'right' }}>{t('near')}</span>
           <div className="flex items-center">
             {BUCKET_COLORS.slice(0, thresholds.length + 1).map((color, i) => (
               <span
@@ -102,7 +104,7 @@ export default function Legend({ maxMinutes }: Props) {
               />
             ))}
           </div>
-          <span style={{ minWidth: 28 }}>遠</span>
+          <span style={{ minWidth: 28 }}>{t('far')}</span>
         </div>
         <div
           className="font-mono-num tabular-nums mt-1 text-center"
@@ -112,7 +114,7 @@ export default function Legend({ maxMinutes }: Props) {
             letterSpacing: '.06em',
           }}
         >
-          0 — {maxMinutes}分
+          0 — {t('rangeUnit', { max: maxMinutes })}
         </div>
       </div>
     </>

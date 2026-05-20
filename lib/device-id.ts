@@ -32,7 +32,7 @@ function genUuid(): string {
   })
 }
 
-const DEVICE_KEY = 'tcm_device_id'
+import { STORAGE_KEYS } from './storage-keys'
 
 /**
  * localStorage 永続化された device ID を取得。未生成なら新規発行 + 保存。
@@ -41,10 +41,10 @@ const DEVICE_KEY = 'tcm_device_id'
  */
 export function getDeviceId(): string {
   try {
-    let id = localStorage.getItem(DEVICE_KEY) ?? ''
+    let id = localStorage.getItem(STORAGE_KEYS.deviceId) ?? ''
     if (!id) {
       id = genUuid()
-      try { localStorage.setItem(DEVICE_KEY, id) } catch {}
+      try { localStorage.setItem(STORAGE_KEYS.deviceId, id) } catch {}
     }
     return id
   } catch {

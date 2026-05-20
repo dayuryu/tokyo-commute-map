@@ -35,6 +35,19 @@
   --mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+/* ──────────────────────────────────────────────────────────────
+   中文 (簡体) ロケールの type stack 上書き。
+   `:lang(zh)` は zh / zh-CN / zh-Hans 等すべての zh- prefix にマッチ (CSS spec)。
+   Noto Serif SC = 思源宋体简体 (Adobe/Google CJK 同源、Shippori と整合)。
+   --display-italic は中文では本来 italic 概念が無いので、見た目の重みは Noto Serif
+   の SemiBold で代替し、style 側で font-style: normal に倒す。
+   ──────────────────────────────────────────────────────────── */
+:lang(zh) {
+  --display-font: var(--font-noto-serif-sc), "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", serif;
+  --display-italic: var(--font-noto-serif-sc), "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+  --ui-font: var(--font-noto-sans-sc), "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, sans-serif;
+}
+
 /* Background / foreground retained for system theme defaults */
 :root {
   --background: var(--bg);

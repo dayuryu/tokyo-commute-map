@@ -1,31 +1,124 @@
-# Tokyo Commute Map — 残タスク備忘録
+# Kayoha — 残タスク備忘録
 
 > このファイルは将来の作業候補をストックする備忘録です。
 > 商業化フェーズの詳細運用ランブックは [`affiliate-setup.md`](./affiliate-setup.md) を参照。
+> 基礎工程の戦略は [`adr/0002-just-in-time-architecture.md`](./adr/0002-just-in-time-architecture.md) を参照。
 
-最終整理日: 2026-05-13（Night）
+最終整理日: 2026-05-21（i18n 進行中 + 基礎工程戦略確定）
 
 ---
 
 ## ⭐ 次に着手する候補（優先度別）
 
-### 🥇 最優先（収益 / 体験ブロッカー）
-1. **A8 申請を進める（運営側タスク）** — ドメイン + 住所 + 銀行口座が揃えば申請可能。
-   実コード統合済み、後は `a8mat` を `.env.local` に入れるだけで計測 ON。
-2. **真機モバイル多端末 verification** — 直近のラウンドで修した mobile bug 群
-   （100dvh / touch-action / input zoom / crypto.randomUUID）を iPhone Safari /
-   Android Chrome の異なる機種で実際に踏んで確認する。LAN dev server + Vercel
-   production の両方で。
+### 🥇 最優先（今週中に着手）
+1. **基礎工程 P0「防屎山骨架」** — `lib/storage-keys.ts` / `lib/types/` /
+   `lib/constants.ts` / `docs/adr/` 等の SSOT (Single Source of Truth) 層を
+   建てる。半日工事、低リスク高 ROI。詳細は下記「🏗️ 基礎工程」section。
+2. **i18n 中文化 P0** — 小紅書からの流入があるため、中文版の主要 user-facing
+   path（DestinationAsk / AiWizard / StationDrawer 主体 / CookieConsent 等）を
+   優先翻訳。詳細は下記「🌐 多言語化 i18n」section。
 
-### 🥈 次の大物候補（プロダクト方針で 1 つ選ぶ）
-- **A: AI 推薦 v2** — 20 駅一括 highlight on map + funnel 計測（GA4 必要）
-- **B: 多言語化 i18n** — 英→中→韓、AI 推薦の reason も多言語化
+### 🥈 次の大物候補（i18n P0 完了後、プロダクト方針で 1 つ選ぶ）
+- **A: i18n P1-P2 続行** — Story / 法務 / SEO metadata / sitemap hreflang 等
+- **B: AI 推薦 v2 polish** — 既に 20 駅一括 highlight 上線、残るは funnel 計測 (GA4)
 - **C: PWA 化（manifest + service worker）** — 1-2 日工時、ホーム画面追加体験
+- **D: A8 申請進める（運営側タスク）** — ドメイン + 住所 + 銀行口座が揃えば申請可能
 
 ### 🥉 余裕がある時の polish
-- mobile UX audit の curtain timing 短縮（900ms→700ms、過渡感覚改善）
+- 真機モバイル多端末 verification（iPhone Safari / Android Chrome）
+- mobile UX audit の curtain timing 短縮（900ms→700ms）
 - 技術的負債（ESLint warning + Supabase 型自動生成）
 - AI 推薦 prompt 改善（production データ蓄積後）
+
+---
+
+## 🌐 多言語化 i18n（進行中 — 2026-05-21 着手）
+
+### 現状（2026-05-21）
+- ✅ **骨架完成**：next-intl 4.x + middleware + `/[locale]` ルーティング、localePrefix=as-needed（`/` = ja default、`/zh` = 中文）
+- ✅ **3 component 翻訳済**：HeaderMenu / Legend / WelcomeOverlay
+- ✅ **字体接入**：Noto Serif SC + Noto Sans SC（簡体専字 fallback バグ解消）+ tagline 中文 italic 修正
+- ✅ **言語切替 UI 2 箇所**：Welcome 右上 + HeaderMenu dropdown（segmented control）
+- ✅ **切替副作用解決**：next-intl cookie + sessionStorage `welcome_after_switch` flag（Welcome 上切替 → reload 後 Welcome に留まる）
+- ⚠️ **英文版（en）暂停**：locales = `['ja', 'zh']`、`messages/en.json` 保留（復活時 routing 戻すだけ）
+
+### 中文半成品処理方針（決定 2026-05-21）
+
+**Option 3 採用** — 核心 user path 優先翻訳 + 二級コンテンツ ja-fallback 表示。
+
+> 中国の小紅書からの流入があるため `/zh` 公開停止は NG。代わりに DestinationAsk +
+> AI 推薦 path を最優先で翻訳し、深層コンテンツ（Story 物語 / 法務 / SEO landing 等）は
+> 翻訳完了まで日文表示のままにする。中文版は「中日混合 beta 状態」だが、main map UX で
+> 完結する path のみ翻訳が間に合うよう優先順位を組む。
+
+P0 完了時点で「i18n 進行中」banner を中文版に出すか主人と再協議（現状では出さない）。
+
+### P0 — 主要 user-facing（小紅書流入時に最初に見る箇所）
+- [ ] DestinationAsk 6 問翻訳
+- [ ] AiWizard 6 問翻訳（一問一屏 editorial の各 question / option / loading copy）
+- [ ] AiResultGrid 結果カード + reason placeholder 翻訳
+- [ ] AiRecallButton attention tooltip 翻訳
+- [ ] StationDrawer 主要 section 翻訳（評価フォーム / 通勤時間 / Affiliate / 周辺特徴 header）
+- [ ] LoadingOverlay 翻訳
+- [ ] CookieConsent 翻訳
+
+### P1 — 次要 user-facing
+- [ ] Story 物語 3 章翻訳（品牌叙事、本小姐が母語クオリティで初訳 → 主人レビュー）
+- [ ] MapView popup（駅名 hover）翻訳
+- [ ] TimeSlider / TransferFilter / CorrectionReporter 翻訳
+
+### P2 — SEO / 法務 / 国際化深層
+- [ ] Metadata 多言語化（title / description / OG / Twitter / JSON-LD）
+- [ ] sitemap.ts hreflang + 多言語 URL
+- [ ] Legal 4-5 頁中文版（合規要件あり、慎重に）
+- [ ] `/to/[slug]` SEO landing 30 頁中文版（`destination_descriptions.json` 多言語化）
+
+### P3 — 大物 / 戦略
+- [ ] `area_features.json` 中文版（重新跑 OpenAI 生成、~326KB、別 API コスト + 別 generate script）
+- [ ] 英文版（en）復活 + 全コンテンツ翻訳（layout 調整 / button label / Legend ラベル幅）
+
+### 翻訳方針
+- MVP 段階の中文文案は本小姐（凛）が母語クオリティで初訳 → 主人レビュー
+- 量が多い時（Story / AreaFeatures 等）は外部 LLM 初訳 → 主人レビューも併用
+- 法務文案は機械翻訳禁止、主人 + 本小姐人手翻訳のみ
+
+---
+
+## 🏗️ 基礎工程（防屎山骨架・Just-In-Time Architecture）
+
+主人決定（2026-05-21）：**Airbnb tier ではなく「小型商業 tier」基建で十分**。
+詳細戦略は [`adr/0002-just-in-time-architecture.md`](./adr/0002-just-in-time-architecture.md)（実施時に作成）。
+
+### 5 大反屎山原則
+1. **Single Source of Truth** — 1 つの事実は 1 箇所だけに定義
+2. **Content vs Presentation 分離** — 文案 / 設計 token / ロジックは別レイヤー
+3. **Domain Layering** — `app/ → components/ → lib/ → data/` 単向依赖、逆方向 import 禁止
+4. **Type-Driven Boundaries** — 跨文件型の境界には型 + 可能なら zod 等の runtime 校验
+5. **Convention over Configuration but Documented** — 決定は ADR に書く
+
+### P0 — A 清单（半日工事、必做、最高 ROI）
+- [ ] `lib/storage-keys.ts` — localStorage / sessionStorage key 集中管理（現状 3 箇所散在）
+- [ ] `lib/types/` — `app/[locale]/page.tsx` が export している 5 個の type を抽出（CustomStation / ConsensusMap / CustomCommutesMap / Destination / Station 等）
+- [ ] `lib/constants.ts` — magic numbers / 業務常數収納（fade 時長 / cache TTL 等）
+- [ ] `docs/adr/` 目錄建立 + `0001-i18n-next-intl.md` + `0002-just-in-time-architecture.md`
+- [ ] `CLAUDE.md` 更新（i18n status + 新 lib 構造 + ADR 言及）
+
+### P1 — B 清单（Just-In-Time、pain 発生時に随時）
+- [ ] `lib/api/supabase/` 集中 + zod schema 校验（現状 component 内で fetch 散在）
+- [ ] `lib/api/openai/` 集中（`app/api/recommend/route.ts` を含む）
+- [ ] `lib/hooks/` — `page.tsx` から 5 個の custom hook 抽出
+   （`useVisitedState` / `useAiCache` / `useStationData` / `useDestinationMemory` / `useOverlayChoreography`）
+- [ ] `components/` 按 feature 分目錄（welcome / map / drawer / ai / chrome / flow）
+- [ ] `WelcomeOverlay` 拆 3 個動畫 hook（`useTypewriter` / `useMouseParallax` / `useVideoFreezeFrame`）
+
+### C 清单 — 当前不做（延后到真有需求驱动）
+- ❌ Zustand / Jotai（`useState` + props lift 还撑得住）
+- ❌ design token 系統化（CSS var で十分、inline color 撲滅は over-engineering）
+- ❌ Storybook（1 人项目无 ROI、3 人以上で再評価）
+- ❌ 自動化テスト framework（主人が手動 verification する方が現状コスパ良）
+
+### D 清单 — 这辈子可能不做（明示）
+- ❌ monorepo / microfrontend / DDD 重型版本 / 自定 framework wrapper
 
 ---
 

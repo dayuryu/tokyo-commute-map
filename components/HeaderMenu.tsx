@@ -1,19 +1,27 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
+import { useTranslations, useLocale } from 'next-intl'
+import { Link, usePathname } from '@/i18n/navigation'
 
 interface Props {
   onHelp: () => void
 }
 
 /**
- * 右上角ハンバーガーメニュー — Welcome 再表示・法的情報リンクを集約。
+ * 右上角ハンバーガーメニュー — Welcome 再表示・法的情報リンク・言語切替を集約。
  * 旧 HelpButton / LegalLink（左下フローティング 2 つ）を 1 つに統合し、
  * モバイル下半分の操作領域を解放する。
  *
  * safe-area-inset 対応：iPhone notch / Android status bar を回避。
+ *
+ * Link は next-intl 版を使用 — `/legal` 等のリンクが現在ロケールの prefix を
+ * 自動継承し、`/zh/legal` 等に解決される (default ja は as-needed で素のまま)。
  */
 export default function HeaderMenu({ onHelp }: Props) {
+  const t = useTranslations('header')
+  const tLang = useTranslations('language')
+  const locale = useLocale()
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -45,7 +53,7 @@ export default function HeaderMenu({ onHelp }: Props) {
     >
       <button
         onClick={() => setOpen(v => !v)}
-        aria-label={open ? 'メニューを閉じる' : 'メニューを開く'}
+        aria-label={open ? t('closeMenu') : t('openMenu')}
         aria-expanded={open}
         className="w-10 h-10 rounded-full flex items-center justify-center
                    transition-all duration-200 hover:scale-105 active:scale-95"
@@ -92,8 +100,8 @@ export default function HeaderMenu({ onHelp }: Props) {
                 <path d="M8 7v4M8 5v.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
               </svg>
             }
-            label="使い方・はじめに"
-            sub="物語と地図の入口へ"
+            label={t('howToUse')}
+            sub={t('howToUseSub')}
           />
 
           <div className="mx-3 h-px" style={{ background: 'rgba(28,24,18,.08)' }} />
@@ -107,8 +115,8 @@ export default function HeaderMenu({ onHelp }: Props) {
                 <path d="M5.5 6h5M5.5 8.5h5M5.5 11h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
               </svg>
             }
-            label="法的情報"
-            sub="プライバシー・利用規約"
+            label={t('legal')}
+            sub={t('legalSub')}
           />
 
           <MenuLink
@@ -119,12 +127,83 @@ export default function HeaderMenu({ onHelp }: Props) {
                 <path d="M3 8.5l2.5 2.5L13 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             }
-            label="広告について"
-            sub="アフィリエイト表記"
+            label={t('ads')}
+            sub={t('adsSub')}
           />
+
+          <div className="mx-3 h-px" style={{ background: 'rgba(28,24,18,.08)' }} />
+
+          {/* 言語切替セクション — segmented control 風。Map 上でも切替できるよう
+              HeaderMenu に常駐させる。Welcome 上の LocaleLink (sessionStorage flag) と
+              違い、ここは Map context なので flag は立てず、reload 後も Map 表示が維持される。 */}
+          <div className="px-3.5 py-2.5">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="flex-shrink-0" style={{ color: 'var(--ink-soft)' }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.4" />
+                  <ellipse cx="8" cy="8" rx="3" ry="6" stroke="currentColor" strokeWidth="1.4" />
+                  <path d="M2 8h12" stroke="currentColor" strokeWidth="1.4" />
+                </svg>
+              </span>
+              <span
+                className="text-sm leading-tight"
+                style={{
+                  fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                  fontWeight: 600,
+                  letterSpacing: '.02em',
+                  color: 'var(--ink)',
+                }}
+              >
+                {tLang('switcher')}
+              </span>
+            </div>
+            <div className="flex gap-1.5" style={{ paddingLeft: 28 }}>
+              <LocaleButton target="ja" active={locale === 'ja'} label="JA" pathname={pathname} onClose={() => setOpen(false)} />
+              <LocaleButton target="zh" active={locale === 'zh'} label="ZH" pathname={pathname} onClose={() => setOpen(false)} />
+              {/* TODO(i18n-en): locales に 'en' を戻したらここに <LocaleButton target="en" label="EN" .../> を追加。 */}
+            </div>
+          </div>
         </div>
       </div>
     </div>
+  )
+}
+
+function LocaleButton({
+  target, active, label, pathname, onClose,
+}: {
+  // TODO(i18n-en): locales に 'en' 再投入時に 'ja' | 'zh' | 'en' へ拡張。
+  target: 'ja' | 'zh'
+  active: boolean
+  label: string
+  pathname: string
+  onClose: () => void
+}) {
+  return (
+    <Link
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      href={pathname as any}
+      locale={target}
+      onClick={onClose}
+      style={{
+        padding: '4px 14px',
+        fontFamily: 'var(--mono, ui-monospace, monospace)',
+        fontSize: 11,
+        fontWeight: 500,
+        letterSpacing: '.18em',
+        textTransform: 'uppercase',
+        textDecoration: 'none',
+        color: active ? 'var(--ink)' : 'var(--ink-mute)',
+        background: active ? 'rgba(28,24,18,.06)' : 'transparent',
+        border: '.5px solid',
+        borderColor: active ? 'rgba(28,24,18,.20)' : 'rgba(28,24,18,.08)',
+        borderRadius: 6,
+        transition: 'all .18s',
+        cursor: 'pointer',
+      }}
+    >
+      {label}
+    </Link>
   )
 }
 

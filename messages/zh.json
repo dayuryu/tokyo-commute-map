@@ -1,0 +1,35 @@
+{
+  "header": {
+    "openMenu": "打开菜单",
+    "closeMenu": "关闭菜单",
+    "howToUse": "使用说明",
+    "howToUseSub": "进入故事与地图",
+    "legal": "法律信息",
+    "legalSub": "隐私 · 用户协议",
+    "ads": "广告说明",
+    "adsSub": "推广广告披露"
+  },
+  "legend": {
+    "commuteTime": "通勤时间",
+    "near": "近",
+    "far": "远",
+    "rangeUnit": "{max} 分钟"
+  },
+  "welcome": {
+    "tagline": "在下一站，翻开新的生活。",
+    "consentLead": "使用本网站前，请确认您",
+    "consentBold": "对在东京圈生活感兴趣",
+    "consentTail": "。",
+    "openMap": "好的，打开地图",
+    "readStory": "先看故事",
+    "footerStory": "故事",
+    "footerRoutes": "路线图",
+    "footerReviews": "评价"
+  },
+  "language": {
+    "switcher": "语言",
+    "ja": "日本語",
+    "zh": "中文",
+    "en": "English"
+  }
+}

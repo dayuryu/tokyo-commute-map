@@ -38,7 +38,7 @@ import type {
 } from '@/lib/ai-recommend/types'
 import { computeCommutes, type PreparedGraph } from '@/lib/dijkstra'
 import { getDeviceId } from '@/lib/device-id'
-import type { CustomStation } from '@/app/page'
+import type { CustomStation } from '@/lib/types'
 import AiResultGrid from './AiResultGrid'
 
 const BG  = '#f3ecdd'

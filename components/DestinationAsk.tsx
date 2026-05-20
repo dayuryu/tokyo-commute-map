@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { useIsMobile } from '@/lib/useIsMobile'
-import type { Destination, CustomStation } from '@/app/page'
+import type { Destination, CustomStation } from '@/lib/types'
 import { QUICK_DESTINATIONS, POPULAR_DESTINATIONS } from '@/lib/destinations'
 
 // editorial palette は Story と統一

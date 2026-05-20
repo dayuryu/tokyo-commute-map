@@ -23,11 +23,11 @@
 
 import { useEffect, useState } from 'react'
 import { useIsMobile } from '@/lib/useIsMobile'
+import { STORAGE_KEYS } from '@/lib/storage-keys'
 
 const INK = '#1c1812'
 const RED = '#a8332b'
 
-const HINT_SESSION_KEY = 'tcm_ai_recall_hinted_v1'
 const HINT_DELAY_MS    = 500
 const HINT_DURATION_MS = 3500
 
@@ -46,7 +46,7 @@ export default function AiRecallButton({ hasCache, onClick }: Props) {
   useEffect(() => {
     let alreadyHinted = true
     try {
-      alreadyHinted = sessionStorage.getItem(HINT_SESSION_KEY) === '1'
+      alreadyHinted = sessionStorage.getItem(STORAGE_KEYS.aiRecallHinted) === '1'
     } catch {}
     if (alreadyHinted) return
 
@@ -55,7 +55,7 @@ export default function AiRecallButton({ hasCache, onClick }: Props) {
       () => setShowHint(false),
       HINT_DELAY_MS + HINT_DURATION_MS,
     )
-    try { sessionStorage.setItem(HINT_SESSION_KEY, '1') } catch {}
+    try { sessionStorage.setItem(STORAGE_KEYS.aiRecallHinted, '1') } catch {}
 
     return () => {
       window.clearTimeout(fadeInTimer)

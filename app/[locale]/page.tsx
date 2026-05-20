@@ -27,21 +27,15 @@ import {
   type FixedDestination,
   isFixedDestination,
 } from '@/lib/destinations'
-import { prepareGraph, computeCommutes, type GraphData, type PreparedGraph, type CommuteResult } from '@/lib/dijkstra'
-
-/** custom destination 用、駅 code → 通勤情報の Map（MapView と StationDrawer の共通入力） */
-export type CustomCommutesMap = Map<number, CommuteResult> | null
-
-export type { Destination, FixedDestination } from '@/lib/destinations'
-
-const VISITED_KEY = 'tcm.visited.v1'
-// DestinationAsk で選ばれた通勤先を保存。リピート訪問時は復元して
-// 「もう一度通勤先を聞かれる」体験を回避する。
-const DESTINATION_KEY = 'tcm.destination.v1'
-// AI 推薦 result + destination + 真調用時刻のキャッシュ。
-// - リコール（再表示）は 24h 以後も可能（OpenAI を呼ばないため）
-// - DestinationAsk 内の「新規」CTA は 24h 以内なら disable して「再表示」に変身
-const AI_CACHE_KEY = 'tcm.ai_cache.v1'
+import { prepareGraph, computeCommutes, type GraphData, type PreparedGraph } from '@/lib/dijkstra'
+import { STORAGE_KEYS } from '@/lib/storage-keys'
+import { ONE_DAY_MS, OVERLAY_FADE_MS } from '@/lib/constants'
+import type {
+  CustomCommutesMap,
+  CustomStation,
+  ConsensusMap,
+  Station,
+} from '@/lib/types'
 
 interface AiCache {
   /** 30 fixed slug、または 'custom' (custom destination 指定時) */
@@ -56,47 +50,11 @@ interface AiCache {
 function isAiCacheFresh(c: AiCache | null): boolean {
   if (!c) return false
   const ageMs = Date.now() - new Date(c.usedAt).getTime()
-  return ageMs < 24 * 60 * 60 * 1000
+  return ageMs < ONE_DAY_MS
 }
 
 /** Wizard の起動モード — false=閉、'new'=新規 6 問、'recall'=キャッシュから result phase 直起動 */
 type WizardOpenMode = false | 'new' | 'recall'
-
-export type ConsensusEntry = { min: number; count: number }
-export type ConsensusMap = Record<
-  number,
-  Partial<Record<FixedDestination, ConsensusEntry>>
->
-
-export interface CustomStation {
-  code: number
-  name: string
-  lat: number
-  lon: number
-}
-
-// 30 個の fixed destination ごとに自動生成される通勤時間フィールド。
-// build_stations_geojson_v3.py がこれらを stations.geojson の properties に書き出す。
-type CommuteFields = {
-  [K in FixedDestination as `min_to_${K}`]?:       number
-} & {
-  [K in FixedDestination as `transfers_to_${K}`]?: number
-} & {
-  [K in FixedDestination as `bucket_${K}`]?:       number
-} & {
-  // custom destination は client 側で別途算出されることがある
-  min_to_custom?:       number
-  transfers_to_custom?: number
-}
-
-export interface Station extends CommuteFields {
-  code:   number
-  name:   string
-  lat:    number
-  lon:    number
-  bucket: number  // shinjuku ベースのデフォルト bucket
-  line_names?: string[]  // 所属路線名（build_stations_geojson_v3.py が station_database から注入）
-}
 
 export default function Home() {
   const [destination, setDestination] = useState<Destination>('shinjuku')
@@ -196,12 +154,20 @@ export default function Home() {
   // localStorage 読み取り（初回のみ）
   useEffect(() => {
     let visited = false
-    try { visited = localStorage.getItem(VISITED_KEY) === '1' } catch {}
-    setWelcomeOpen(!visited)
+    try { visited = localStorage.getItem(STORAGE_KEYS.visited) === '1' } catch {}
+    // 言語切替直後の強制 Welcome 表示 — flag は読んだ後即消費（1-shot）。
+    let forceWelcome = false
+    try {
+      if (sessionStorage.getItem(STORAGE_KEYS.welcomeAfterLocaleSwitch) === '1') {
+        forceWelcome = true
+        sessionStorage.removeItem(STORAGE_KEYS.welcomeAfterLocaleSwitch)
+      }
+    } catch {}
+    setWelcomeOpen(!visited || forceWelcome)
     // AI cache 復元 — 古い・壊れたデータは silent ignore
     // v1 形式 (custom 非対応) も互換: destination が fixed slug の旧 entry はそのまま読める。
     try {
-      const raw = localStorage.getItem(AI_CACHE_KEY)
+      const raw = localStorage.getItem(STORAGE_KEYS.aiCache)
       if (raw) {
         const parsed = JSON.parse(raw) as AiCache
         const baseOk = parsed?.recs?.length && parsed.destination && parsed.usedAt
@@ -213,14 +179,15 @@ export default function Home() {
         }
       }
     } catch {}
-    // 一度訪問済みのユーザーはマップを直接マウント、かつ保存済みの通勤先を復元
-    if (visited) {
+    // 一度訪問済みのユーザーはマップを直接マウント、かつ保存済みの通勤先を復元。
+    // ただし forceWelcome の時は Welcome を見せる優先度が上なので skip。
+    if (visited && !forceWelcome) {
       setMapMounted(true)
       // 加载画面 — タイル取得中の白画面を覆う
       setLoaderMounted(true)
       setLoaderVisible(true)
       try {
-        const stored = localStorage.getItem(DESTINATION_KEY)
+        const stored = localStorage.getItem(STORAGE_KEYS.destination)
         if (stored) {
           const parsed = JSON.parse(stored) as
             | { type: 'custom'; station: CustomStation }
@@ -347,14 +314,14 @@ export default function Home() {
   }
 
   function persistVisited() {
-    try { localStorage.setItem(VISITED_KEY, '1') } catch {}
+    try { localStorage.setItem(STORAGE_KEYS.visited, '1') } catch {}
   }
 
   // Welcome → Map / Story 遷移は、Welcome の fade out アニメーション (≈900ms)
   // と次のレイヤーの fade in を重ねる必要がある。Welcome を即座に unmount
   // すると下層の地図 / Story がまだ opacity 0 で背景が一瞬透ける（闪现）。
-  // ⇒ 次のレイヤーを先に mount し、Welcome は ~900ms 後に外す。
-  const WELCOME_FADE_MS = 900
+  // ⇒ 次のレイヤーを先に mount し、Welcome は OVERLAY_FADE_MS 後に外す。
+  // (OVERLAY_FADE_MS は lib/constants.ts、globals.css の transition 値と同期)
 
   // Welcome / Story の「地図へ」CTA — DestinationAsk を経由してから Map へ。
   // mapMounted はここでは true にせず、DestinationAsk で確定したタイミングで上げる。
@@ -366,7 +333,7 @@ export default function Home() {
       setStoryOpen(false)
       setWelcomeOpen(false)
       setDestinationAskFadeIn(false)  // fade in 完了 → curtain を外す
-    }, WELCOME_FADE_MS)
+    }, OVERLAY_FADE_MS)
   }
 
   // StationDrawer から「ここを通勤先にする」ボタン押下時の処理。
@@ -382,7 +349,7 @@ export default function Home() {
     setCustomStation(custom)
     setDestination('custom')
     try {
-      localStorage.setItem(DESTINATION_KEY, JSON.stringify({ type: 'custom', station: custom }))
+      localStorage.setItem(STORAGE_KEYS.destination, JSON.stringify({ type: 'custom', station: custom }))
     } catch {}
     setSelectedStation(null)
   }
@@ -401,7 +368,7 @@ export default function Home() {
       const payload = dest === 'custom' && custom
         ? { type: 'custom' as const, station: custom }
         : { type: 'default' as const, dest }
-      localStorage.setItem(DESTINATION_KEY, JSON.stringify(payload))
+      localStorage.setItem(STORAGE_KEYS.destination, JSON.stringify(payload))
     } catch {}
     setMapMounted(true)
     // 加载画面を表示して地図の初期タイル読み込みを覆う。
@@ -416,7 +383,7 @@ export default function Home() {
       window.setTimeout(() => setLoaderMounted(false), 800 + 1200)
     }
     // DestinationAsk 自身の fade out アニメ完了後に unmount
-    window.setTimeout(() => setDestinationAskOpen(false), WELCOME_FADE_MS)
+    window.setTimeout(() => setDestinationAskOpen(false), OVERLAY_FADE_MS)
   }
 
   // ── AI Wizard 関連 handler ──────────────────────────────────────
@@ -429,7 +396,7 @@ export default function Home() {
     }
     persistVisited()
     setWizardOpen('new')
-    window.setTimeout(() => setDestinationAskOpen(false), WELCOME_FADE_MS)
+    window.setTimeout(() => setDestinationAskOpen(false), OVERLAY_FADE_MS)
   }
 
   // DestinationAsk の「過去の推薦を再表示」/ 地図上の AiRecallButton から呼ばれる。
@@ -439,7 +406,7 @@ export default function Home() {
     persistVisited()
     setWizardOpen('recall')
     if (destinationAskOpen) {
-      window.setTimeout(() => setDestinationAskOpen(false), WELCOME_FADE_MS)
+      window.setTimeout(() => setDestinationAskOpen(false), OVERLAY_FADE_MS)
     }
   }
 
@@ -459,7 +426,7 @@ export default function Home() {
       : { destination: 'custom', customStation: dest.station, recs, usedAt: new Date().toISOString() }
     setAiCache(next)
     try {
-      localStorage.setItem(AI_CACHE_KEY, JSON.stringify(next))
+      localStorage.setItem(STORAGE_KEYS.aiCache, JSON.stringify(next))
     } catch {}
   }
 
@@ -471,7 +438,7 @@ export default function Home() {
       setCustomStation(null)
       try {
         localStorage.setItem(
-          DESTINATION_KEY,
+          STORAGE_KEYS.destination,
           JSON.stringify({ type: 'default' as const, dest: 'shinjuku' }),
         )
       } catch {}
@@ -482,7 +449,7 @@ export default function Home() {
       setCustomStation(null)
       try {
         localStorage.setItem(
-          DESTINATION_KEY,
+          STORAGE_KEYS.destination,
           JSON.stringify({ type: 'default' as const, dest: dest.slug }),
         )
       } catch {}
@@ -492,7 +459,7 @@ export default function Home() {
       setDestination('custom')
       try {
         localStorage.setItem(
-          DESTINATION_KEY,
+          STORAGE_KEYS.destination,
           JSON.stringify({ type: 'custom' as const, station: dest.station }),
         )
       } catch {}
@@ -515,7 +482,7 @@ export default function Home() {
       window.setTimeout(() => setLoaderVisible(false), 600)
       window.setTimeout(() => setLoaderMounted(false), 600 + 1200)
     }
-    window.setTimeout(() => setWizardOpen(false), WELCOME_FADE_MS)
+    window.setTimeout(() => setWizardOpen(false), OVERLAY_FADE_MS)
   }
 
   // 結果カードクリック — destination を反映 + 該当駅の drawer を即時 open。
@@ -536,7 +503,7 @@ export default function Home() {
       setLoaderVisible(true)
     }
     // AiWizard.handleResolve 側で既に 700ms closing fade を消費しているため、
-    // ここでは即時に drawer 開 + wizard unmount。以前は更に 900ms (WELCOME_FADE_MS)
+    // ここでは即時に drawer 開 + wizard unmount。以前は更に 900ms (OVERLAY_FADE_MS)
     // 待っていて、合計 1.6s「点击 → 飛び始め」の遅延体感を生んでいた (報告)。
     setSelectedStation(found)
     setWizardOpen(false)
@@ -556,7 +523,7 @@ export default function Home() {
   function handleEnterStory() {
     persistVisited()
     setStoryOpen(true)
-    window.setTimeout(() => setWelcomeOpen(false), WELCOME_FADE_MS)
+    window.setTimeout(() => setWelcomeOpen(false), OVERLAY_FADE_MS)
   }
 
   // Story → Welcome 戻り遷移も同様に重ねる。Welcome を先に mount し、
@@ -564,7 +531,7 @@ export default function Home() {
   // 地図を隠す。
   function handleStoryBack() {
     setWelcomeOpen(true)
-    window.setTimeout(() => setStoryOpen(false), WELCOME_FADE_MS)
+    window.setTimeout(() => setStoryOpen(false), OVERLAY_FADE_MS)
   }
 
   // Help ボタン — Welcome を再表示（mapMounted は維持）

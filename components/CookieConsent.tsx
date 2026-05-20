@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { STORAGE_KEYS } from '@/lib/storage-keys'
 
-const CONSENT_KEY = 'tcm.cookie_consent.v1'
 type Consent = 'all' | 'necessary'
 
 /**
@@ -35,7 +35,7 @@ export default function CookieConsent({ drawerOpen = false }: Props) {
     // 出るため rAF で次フレームに逃がす。視覚的にはユーザは差を感じない。
     const id = requestAnimationFrame(() => {
       let v: string | null = null
-      try { v = localStorage.getItem(CONSENT_KEY) } catch {}
+      try { v = localStorage.getItem(STORAGE_KEYS.cookieConsent) } catch {}
       if (v === 'all' || v === 'necessary') setConsent(v)
       else setConsent(null)
     })
@@ -43,7 +43,7 @@ export default function CookieConsent({ drawerOpen = false }: Props) {
   }, [])
 
   function save(value: Consent) {
-    try { localStorage.setItem(CONSENT_KEY, value) } catch {}
+    try { localStorage.setItem(STORAGE_KEYS.cookieConsent, value) } catch {}
     setConsent(value)
   }
 

@@ -2,10 +2,10 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
-import type { Destination, Station, CustomStation } from '@/app/page'
+import type { Destination, Station, CustomStation } from '@/lib/types'
 import { BUCKET_COLORS, getBucketThresholds, bucketize } from '@/lib/buckets'
 import { DESTINATIONS_META } from '@/lib/destinations'
-import { type CustomCommutesMap } from '@/app/page'
+import { type CustomCommutesMap } from '@/lib/types'
 
 // 30 個の fixed destination の coord / code / label は stations.geojson 読み込み時に
 // 動的検索する（旧 v3.4 の hardcode 3 件を完全廃止）。

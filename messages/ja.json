@@ -1,0 +1,35 @@
+{
+  "header": {
+    "openMenu": "メニューを開く",
+    "closeMenu": "メニューを閉じる",
+    "howToUse": "使い方・はじめに",
+    "howToUseSub": "物語と地図の入口へ",
+    "legal": "法的情報",
+    "legalSub": "プライバシー・利用規約",
+    "ads": "広告について",
+    "adsSub": "アフィリエイト表記"
+  },
+  "legend": {
+    "commuteTime": "通勤時間",
+    "near": "近",
+    "far": "遠",
+    "rangeUnit": "{max}分"
+  },
+  "welcome": {
+    "tagline": "次の駅で、暮らしをめくる。",
+    "consentLead": "このサイトをご利用になるには、",
+    "consentBold": "東京圏での暮らしに関心があること",
+    "consentTail": "をご確認ください。",
+    "openMap": "はい、地図を開く",
+    "readStory": "先に物語を読む",
+    "footerStory": "物語",
+    "footerRoutes": "路線図",
+    "footerReviews": "口コミ"
+  },
+  "language": {
+    "switcher": "言語",
+    "ja": "日本語",
+    "zh": "中文",
+    "en": "English"
+  }
+}

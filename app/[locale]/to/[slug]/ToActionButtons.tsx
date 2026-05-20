@@ -1,19 +1,17 @@
 'use client'
+import { STORAGE_KEYS } from '@/lib/storage-keys'
 
 interface Props {
   slug: string
   displayName: string
 }
 
-const VISITED_KEY = 'tcm.visited.v1'
-const DESTINATION_KEY = 'tcm.destination.v1'
-
 export default function ToActionButtons({ slug, displayName }: Props) {
   function persistAndGo() {
     try {
-      localStorage.setItem(VISITED_KEY, '1')
+      localStorage.setItem(STORAGE_KEYS.visited, '1')
       localStorage.setItem(
-        DESTINATION_KEY,
+        STORAGE_KEYS.destination,
         JSON.stringify({ type: 'default', dest: slug }),
       )
     } catch {

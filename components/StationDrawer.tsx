@@ -2,7 +2,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { ConsensusMap, CustomCommutesMap, CustomStation, Destination, Station } from '@/app/page'
+import type { ConsensusMap, CustomCommutesMap, CustomStation, Destination, Station } from '@/lib/types'
 import CorrectionReporter from './CorrectionReporter'
 import { buildAffiliateLink, ALL_PROGRAMS, type AffiliateProgram, type SuumoStationMap } from '@/lib/affiliate'
 import { getDestinationDisplayName, getDestinationTransitName, DESTINATIONS_META } from '@/lib/destinations'

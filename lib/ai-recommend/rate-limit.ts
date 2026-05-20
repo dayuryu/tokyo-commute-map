@@ -15,6 +15,7 @@
 
 import crypto from 'crypto'
 import { supabase } from '@/lib/supabase'
+import { ONE_DAY_MS } from '@/lib/constants'
 
 // ── 厳格型阈値（2026-05-13 改訂） ──────────────────────
 // プロダクト方針: AI 推薦は探索の補助、主役ではない。1 デバイス 1 日 1 回で API 節約 + 体験
@@ -64,7 +65,7 @@ export async function checkRateLimit(
 ): Promise<RateLimitResult> {
   const now = Date.now()
   const oneMinAgoISO = new Date(now - 60 * 1000).toISOString()
-  const oneDayAgoISO = new Date(now - 24 * 60 * 60 * 1000).toISOString()
+  const oneDayAgoISO = new Date(now - ONE_DAY_MS).toISOString()
 
   // 共通: cache_hit=false（真調用のみ）でカウント
   const ofMiss = () => supabase

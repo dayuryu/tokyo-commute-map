@@ -3,7 +3,7 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getDeviceId } from '@/lib/device-id'
-import type { Destination } from '@/app/page'
+import type { Destination } from '@/lib/types'
 
 interface Props {
   stationCode:  number

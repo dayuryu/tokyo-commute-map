@@ -1,0 +1,35 @@
+{
+  "header": {
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "howToUse": "How to use",
+    "howToUseSub": "Story & map entry",
+    "legal": "Legal",
+    "legalSub": "Privacy & Terms",
+    "ads": "About ads",
+    "adsSub": "Affiliate disclosure"
+  },
+  "legend": {
+    "commuteTime": "Commute time",
+    "near": "Near",
+    "far": "Far",
+    "rangeUnit": "{max} min"
+  },
+  "welcome": {
+    "tagline": "Turn the page at the next station.",
+    "consentLead": "Before continuing, please confirm that you ",
+    "consentBold": "are interested in life in the Greater Tokyo area",
+    "consentTail": ".",
+    "openMap": "Yes, open the map",
+    "readStory": "Read the story first",
+    "footerStory": "Story",
+    "footerRoutes": "Routes",
+    "footerReviews": "Reviews"
+  },
+  "language": {
+    "switcher": "Language",
+    "ja": "日本語",
+    "zh": "中文",
+    "en": "English"
+  }
+}

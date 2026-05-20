@@ -1,7 +1,7 @@
 // components/DestinationPicker.tsx
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import type { Destination, CustomStation } from '@/app/page'
+import type { Destination, CustomStation } from '@/lib/types'
 import { QUICK_DESTINATIONS, DESTINATIONS_META } from '@/lib/destinations'
 
 const OPTIONS = QUICK_DESTINATIONS.map(d => ({
