@@ -39,7 +39,7 @@ import type {
 import { computeCommutes, type PreparedGraph } from '@/lib/dijkstra'
 import { getDeviceId } from '@/lib/device-id'
 import type { CustomStation } from '@/lib/types'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import AiResultGrid from './AiResultGrid'
 
 const BG  = '#f3ecdd'
@@ -216,6 +216,7 @@ export default function AiWizard({
   onResultReady,
 }: Props) {
   const t = useTranslations('aiWizard')
+  const locale = useLocale()
   const isMobile = useIsMobile()
   const [mounted, setMounted] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -361,10 +362,13 @@ export default function AiWizard({
               commuteByCode:     p.commuteByCode,
             }
           : {}
+      // language は backend prompt の reason 出力言語を切替える。
+      // 'ja' | 'zh' | 'en' のみ valid、それ以外は backend 側で 'ja' fallback。
+      const lang: 'ja' | 'zh' | 'en' = locale === 'zh' || locale === 'en' ? locale : 'ja'
       const res = await fetch('/api/recommend', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ deviceId, ...answers, ...customPayload }),
+        body:    JSON.stringify({ deviceId, language: lang, ...answers, ...customPayload }),
         signal:  controller.signal,
       })
       window.clearTimeout(timeoutId)

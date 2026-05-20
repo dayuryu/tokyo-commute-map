@@ -12,15 +12,17 @@
 
 import crypto from 'crypto'
 import { supabase } from '@/lib/supabase'
-import type { WizardAnswers, Recommendation } from './types'
+import type { WizardAnswers, Recommendation, RecommendLanguage } from './types'
 
 const CACHE_TTL_DAYS = 30
 
 /**
- * 6 問答えを正規化して SHA-256 で hash。
+ * 6 問答え + language を正規化して SHA-256 で hash。
+ * language を key に含めることで ja 用户の cache が zh 用户に返らないようにする
+ * (= 同条件でも reason 言語ごとに別 entry を作る)。
  * key の順序を固定にすることで JSON.stringify の決定性を担保。
  */
-export function buildCacheKey(answers: WizardAnswers): string {
+export function buildCacheKey(answers: WizardAnswers, language: RecommendLanguage = 'ja'): string {
   const normalized = JSON.stringify({
     d: answers.destination,
     m: answers.maxMinutes,
@@ -28,6 +30,7 @@ export function buildCacheKey(answers: WizardAnswers): string {
     h: answers.household,
     a: answers.atmosphere,
     s: answers.safety,
+    l: language,
   })
   return crypto.createHash('sha256').update(normalized).digest('hex')
 }

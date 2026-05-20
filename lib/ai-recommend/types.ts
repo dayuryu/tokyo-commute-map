@@ -6,6 +6,10 @@
 
 // ── 6 問の選択肢 ──────────────────────────────────────────────
 
+/** 推薦理由 (reason) を出力する言語。
+ *  i18n 対応で AiWizard が `useLocale()` 結果を POST body に同送する。 */
+export type RecommendLanguage = 'ja' | 'zh' | 'en'
+
 /** 通勤先 — 30 fixed destinations の slug（destinations.ts と同期）or 'custom' */
 export type CommuteDestination = string
 
@@ -54,6 +58,8 @@ export type CommuteByCode = Record<number, { min: number; transfers: number }>
 export interface RecommendRequest extends WizardAnswers {
   /** クライアント localStorage の UUID、rate limit / 利用統計に使用 */
   deviceId: string
+  /** 推薦 reason を出力する言語。未指定時は 'ja' fallback (後方互換) */
+  language?: RecommendLanguage
   /** destination === 'custom' の時のみ必須。custom 駅の code + 表示名 */
   customDestination?: CustomDestinationInfo
   /** destination === 'custom' の時のみ必須。client が事前算出した通勤 map */
@@ -64,9 +70,9 @@ export interface RecommendRequest extends WizardAnswers {
 
 /** 1 駅の推薦 */
 export interface Recommendation {
-  /** 駅名（必ず stations.geojson の name と完全一致） */
+  /** 駅名（必ず stations.geojson の name と完全一致、locale 不問で日本語固定） */
   station_name: string
-  /** 推薦理由 1-2 文、日本語、maxLength 120 */
+  /** 推薦理由 1-2 文、maxLength 120、language パラメータに応じて ja/zh/en で生成 */
   reason: string
 }
 

@@ -20,7 +20,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import type { RecommendRequest, WizardAnswers, CommuteByCode, RecommendApiResponse } from '@/lib/ai-recommend/types'
+import type { RecommendRequest, WizardAnswers, CommuteByCode, RecommendApiResponse, RecommendLanguage } from '@/lib/ai-recommend/types'
 import { buildCandidates } from '@/lib/ai-recommend/candidates'
 import { callRecommend, buildFallback, MODEL } from '@/lib/ai-recommend/openai'
 import { buildCacheKey, isCacheable, lookupCache, insertCache } from '@/lib/ai-recommend/cache'
@@ -31,6 +31,7 @@ const VALID_RENT       = ['~7万', '7-10万', '10-15万', '15万+']
 const VALID_HOUSEHOLD  = ['単身', 'カップル', '子持ち']
 const VALID_ATMOSPHERE = ['賑やか', '落ち着いた', '緑が多い', '商業集中']
 const VALID_SAFETY     = ['最重要', '普通', '気にしない']
+const VALID_LANGUAGE: RecommendLanguage[] = ['ja', 'zh', 'en']
 
 // 1843 駅程度を想定、上限は防御的に余裕を取る
 const MAX_COMMUTE_ENTRIES = 3000
@@ -96,8 +97,12 @@ export async function POST(req: Request) {
   }
   // commuteByCode と customDestination は WizardAnswers ではなく request body 専用 field、
   // candidates / cache / 統計 は WizardAnswers 部分のみに依存。
-  const { deviceId, commuteByCode, customDestination: _customDestination, ...answersFields } = body as RecommendRequest
+  // language は reason の出力言語制御用 (未指定時 ja fallback)。
+  const { deviceId, commuteByCode, customDestination: _customDestination, language: langRaw, ...answersFields } = body as RecommendRequest
   const answers = answersFields as WizardAnswers
+  const language: RecommendLanguage = VALID_LANGUAGE.includes(langRaw as RecommendLanguage)
+    ? (langRaw as RecommendLanguage)
+    : 'ja'
 
   // ── Step 3: extract IP & hash（生 IP は保存しない） ──────────
   const ipRaw = extractIp(req)
@@ -106,7 +111,7 @@ export async function POST(req: Request) {
   // ── Step 4: cache lookup（custom destination はスキップ） ───
   let cacheKey: string | null = null
   if (isCacheable(answers)) {
-    cacheKey = buildCacheKey(answers)
+    cacheKey = buildCacheKey(answers, language)
     const cached = await lookupCache(cacheKey)
     if (cached && cached.length > 0) {
       // cache hit は rate limit 対象外、ただし統計用に usage 記録
@@ -141,7 +146,7 @@ export async function POST(req: Request) {
   // 注: AI 呼ばないので rate limit 対象外
   if (candidates.length < 20) {
     void recordUsage(deviceId, ipHashed, answers.destination, true)  // 真調用扱いではない
-    const recs = buildFallback(candidates)
+    const recs = buildFallback(candidates, language)
     return jsonRes({
       ok: true,
       recommendations: recs,
@@ -163,7 +168,7 @@ export async function POST(req: Request) {
 
   // ── Step 7: AI 呼び出し ─────────────────────────────────────
   try {
-    const recs = await callRecommend(answers, candidates)
+    const recs = await callRecommend(answers, candidates, language)
     if (recs.length === 0) {
       throw new Error('AI returned zero valid recommendations after filter')
     }
@@ -180,7 +185,7 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error('[/api/recommend] OpenAI failed, using fallback:', e)
     void recordUsage(deviceId, ipHashed, answers.destination, false)  // 真調用試行扱い
-    const recs = buildFallback(candidates)
+    const recs = buildFallback(candidates, language)
     return jsonRes({
       ok: true,
       recommendations: recs,

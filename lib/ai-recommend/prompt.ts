@@ -5,9 +5,17 @@
  * GPT-5.4 nano は structured outputs（JSON schema）で安定して 20 駅推薦を返す。
  */
 
-import type { WizardAnswers, CandidateStation } from './types'
+import type { WizardAnswers, CandidateStation, RecommendLanguage } from './types'
 
-const SYSTEM_PROMPT = `あなたは東京圏の住宅エリア推薦アシスタント。ユーザーは多様な層（日本人・在日外国人・海外から日本移住を検討中の人など）、ユーザーの 6 項目の希望と候補駅 list から 20 駅を選んで日本語で推薦理由を返す。多言語化を将来予定しているため、特定民族・文化圏向けの表現は避け、誰にでも通じるニュートラルな書き方をする。
+// reason の出力言語インストラクション。system prompt 末尾に追加して
+// gpt-5.4-nano に reason 字段の言語を制御させる。station_name は常に日本語固定。
+const LANGUAGE_INSTRUCTION: Record<RecommendLanguage, string> = {
+  ja: '\n\n# 重要: reason は日本語で書いてください。station_name は候補 list の日本語駅名のままで。',
+  zh: '\n\n# 重要: reason は中文（簡体字）で書いてください (1-2 文、50 字以内、editorial 調)。station_name は候補 list の日本語駅名のままで翻訳しないこと。',
+  en: '\n\n# IMPORTANT: Write `reason` in English (1-2 sentences, under 100 chars, editorial tone). Keep `station_name` as the original Japanese name from the candidate list — do not translate it.',
+}
+
+const SYSTEM_PROMPT = `あなたは東京圏の住宅エリア推薦アシスタント。ユーザーは多様な層（日本人・在日外国人・海外から日本移住を検討中の人など）、ユーザーの 6 項目の希望と候補駅 list から 20 駅を選んで推薦理由を返す。多言語化対応のため、特定民族・文化圏向けの表現は避け、誰にでも通じるニュートラルな書き方をする。
 
 # 出力ルール
 - 必ず JSON object、\`recommendations\` 配列に厳密に 20 件
@@ -32,8 +40,8 @@ const SYSTEM_PROMPT = `あなたは東京圏の住宅エリア推薦アシスタ
 - ❌「下北沢には ABC ライブハウスが…」（固有施設名幻覚）
 - ❌「素晴らしい街で皆さんに大人気！」（宣伝口調）`
 
-export function buildSystemPrompt(): string {
-  return SYSTEM_PROMPT
+export function buildSystemPrompt(language: RecommendLanguage = 'ja'): string {
+  return SYSTEM_PROMPT + LANGUAGE_INSTRUCTION[language]
 }
 
 /**
