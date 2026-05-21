@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import type { CSSProperties } from 'react'
+import { useTranslations } from 'next-intl'
 import { useIsMobile } from '@/lib/useIsMobile'
 
 // 3 ページ構成（旧 7 章から精選）。
@@ -380,6 +381,7 @@ function PageRail({ total, index, onJump }: { total: number; index: number; onJu
 
 // ─── 1 · 知らない名前 — city light dots scatter + AI 対比 ────────────────
 function PageNames({ active, isMobile }: { active: boolean; isMobile: boolean }) {
+  const t = useTranslations('story.page1')
   // deterministic pseudo-random dot field
   const dots = useMemo(() => {
     const arr: { x: number; y: number; r: number; d: number }[] = []
@@ -391,7 +393,7 @@ function PageNames({ active, isMobile }: { active: boolean; isMobile: boolean })
     return arr
   }, [])
   return (
-    <Page active={active} isMobile={isMobile} n="一" en="I · A Sea of Names" jp="知らない名前">
+    <Page active={active} isMobile={isMobile} n={t('n')} en={t('en')} jp={t('title')}>
       <div aria-hidden style={{
         position: 'absolute', inset: 0, opacity: active ? .9 : 0, transition: 'opacity 1.6s',
       }}>
@@ -437,15 +439,15 @@ function PageNames({ active, isMobile }: { active: boolean; isMobile: boolean })
         transform: active ? 'translateY(0)' : 'translateY(20px)',
         transition: 'opacity 1.2s .9s, transform 1.2s .9s',
       }}>
-        <p style={{ margin: '0 0 .35em' }}>東京と、その周りに、1843の駅がある。</p>
-        <p style={{ margin: '0 0 .35em' }}>夜の灯は、名前の海のように広がっている。</p>
+        <p style={{ margin: '0 0 .35em' }}>{t('p1')}</p>
+        <p style={{ margin: '0 0 .35em' }}>{t('p2')}</p>
         <p style={{ margin: '.7em 0 .35em', color: STORY_DIM, fontStyle: 'italic' }}>
-          引っ越し先を、ネットで調べてみる——
+          {t('p3Italic')}
         </p>
-        <p style={{ margin: '0 0 .35em' }}>「渋谷まで30分、家賃7万円」</p>
-        <p style={{ margin: '0 0 .35em' }}>画面には、見知らぬ駅の名前が、ずらりと並ぶ。</p>
+        <p style={{ margin: '0 0 .35em' }}>{t('p4Quote')}</p>
+        <p style={{ margin: '0 0 .35em' }}>{t('p5')}</p>
         <p style={{ margin: '.7em 0 0', color: STORY_RED }}>
-          けれど、その駅で暮らす朝が、<br />どんな光で始まるのかは、<br />名前だけでは、わからない。
+          {t.rich('p6Red', { br: () => <br /> })}
         </p>
       </div>
     </Page>
@@ -457,6 +459,7 @@ const OTHER_MAP_RINGS = [70, 130, 210, 300, 400, 510]
 
 // ─── 2 · もうひとつの地図 — isochrone rings + 駅の色点 ────────────────────
 function PageOtherMap({ active, isMobile }: { active: boolean; isMobile: boolean }) {
+  const t = useTranslations('story.page2')
   const ringTransform = isMobile ? 'translate(500, 540)' : 'translate(680, 320)'
 
   // 駅の色点 — 通勤時間によって色を変える。
@@ -489,7 +492,7 @@ function PageOtherMap({ active, isMobile }: { active: boolean; isMobile: boolean
   }, [])
 
   return (
-    <Page active={active} isMobile={isMobile} n="二" en="II · The Other Map" jp="もうひとつの地図">
+    <Page active={active} isMobile={isMobile} n={t('n')} en={t('en')} jp={t('title')}>
       <svg aria-hidden viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice"
         style={{
           position: 'absolute', inset: 0, width: '100%', height: '100%',
@@ -536,9 +539,9 @@ function PageOtherMap({ active, isMobile }: { active: boolean; isMobile: boolean
         opacity: active ? 1 : 0, transform: active ? 'translateY(0)' : 'translateY(20px)',
         transition: 'opacity 1.2s .8s, transform 1.2s .8s',
       }}>
-        <p style={{ margin: '0 0 .8em' }}>通勤時間で、地図が色を変えていく。</p>
-        <p style={{ margin: '0 0 .35em' }}>1843の駅が、あなたから何分の場所にあるのかを語りはじめる。</p>
-        <p style={{ margin: '0', color: STORY_DIM }}>近い駅は緑、遠い駅は朱。</p>
+        <p style={{ margin: '0 0 .8em' }}>{t('p1')}</p>
+        <p style={{ margin: '0 0 .35em' }}>{t('p2')}</p>
+        <p style={{ margin: '0', color: STORY_DIM }}>{t('p3Dim')}</p>
       </div>
     </Page>
   )
@@ -546,9 +549,10 @@ function PageOtherMap({ active, isMobile }: { active: boolean; isMobile: boolean
 
 // ─── 終 · あなたの番 — minute clock + CTA ────────────────────────────────
 function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter: () => void; isMobile: boolean }) {
+  const t = useTranslations('story.page3')
   const minutes = Array.from({ length: 60 })
   return (
-    <Page active={active} isMobile={isMobile} n="終" en="Coda · Your Turn" jp="あなたの番">
+    <Page active={active} isMobile={isMobile} n={t('n')} en={t('en')} jp={t('title')}>
       {/* minute clock — 時計の針が「いまから」のはじまりを暗示 */}
       <div aria-hidden style={{
         position: 'absolute',
@@ -610,14 +614,14 @@ function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter:
           lineHeight: isMobile ? 2 : 2.2,
           letterSpacing: '.08em', color: STORY_INK,
         }}>
-          ここからは、<br />
-          <span style={{ color: STORY_RED }}>あなたの番。</span>
+          {t('p1Lead')}<br />
+          <span style={{ color: STORY_RED }}>{t('p1Red')}</span>
         </p>
 
         {/* 大見出しの折り返し守則 ── 句読点ごとに <span whiteSpace:nowrap> で分割し、
             「行こ／う。」のような孤字断行を防止する。textWrap: balance は CJK では信頼
             できないため使わず、span 単位の nowrap で制御。
-            将来この文案を差し替える際も、各句を nowrap span で包む構造を維持すること。 */}
+            i18n message の h2Line1/2/3 各 key を 1 nowrap span = 1 行で割り当てる。 */}
         <h2 style={{
           margin: isMobile ? '0 0 22px' : '0 0 28px',
           fontFamily: 'var(--display-italic, "Cormorant Garamond","Shippori Mincho",serif)',
@@ -626,10 +630,10 @@ function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter:
           lineHeight: isMobile ? 1.2 : 1.15,
           letterSpacing: '-.012em', color: STORY_INK,
         }}>
-          <span style={{ whiteSpace: 'nowrap' }}>自分の足で、</span>
+          <span style={{ whiteSpace: 'nowrap' }}>{t('h2Line1')}</span>
           <br />
-          <span style={{ whiteSpace: 'nowrap' }}>自分のまちを</span>
-          <span style={{ whiteSpace: 'nowrap' }}>見つけに行こう。</span>
+          <span style={{ whiteSpace: 'nowrap' }}>{t('h2Line2')}</span>
+          <span style={{ whiteSpace: 'nowrap' }}>{t('h2Line3')}</span>
         </h2>
 
         <p style={{
@@ -639,11 +643,7 @@ function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter:
           lineHeight: isMobile ? 1.85 : 1.95,
           letterSpacing: '.06em', color: STORY_DIM,
         }}>
-          東京には、きっとまだ、<br />
-          あなたの知らない、あなただけの1駅がある。<br />
-          AIも、口コミも、道しるべに過ぎない。<br />
-          画面をスクロールするたび、<br />
-          動き出すのは、あなたの好奇心。
+          {t.rich('dimP', { br: () => <br /> })}
         </p>
 
         <button onClick={onEnter} style={{
@@ -659,7 +659,7 @@ function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter:
           onMouseEnter={e => { e.currentTarget.style.background = STORY_RED; e.currentTarget.style.borderColor = STORY_RED }}
           onMouseLeave={e => { e.currentTarget.style.background = STORY_INK; e.currentTarget.style.borderColor = STORY_INK }}
         >
-          地図を開く →
+          {t('button')}
         </button>
 
         <div style={{
@@ -668,7 +668,7 @@ function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter:
           fontSize: isMobile ? 9 : 10,
           letterSpacing: '.32em', color: '#a89c82',
         }}>
-          1843 stations · waiting
+          {t('footer')}
         </div>
       </div>
     </Page>
