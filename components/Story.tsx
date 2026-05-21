@@ -1,8 +1,18 @@
 'use client'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import type { CSSProperties } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { useIsMobile } from '@/lib/useIsMobile'
+
+/** 中文文本密度补正 ── 同字号下汉字笔画密度比假名混排高、视覚的に細く見えるため、
+ *  zh locale で本文系 fontSize を +10% する。clamp(min, pref, max) を各成分スケール。 */
+function zhScale(isZh: boolean, base: string): string {
+  if (!isZh) return base
+  const m = base.match(/^clamp\(\s*([\d.]+)px\s*,\s*([\d.]+)vw\s*,\s*([\d.]+)px\s*\)$/)
+  if (!m) return base
+  const s = 1.1
+  return `clamp(${(+m[1] * s).toFixed(1)}px, ${(+m[2] * s).toFixed(2)}vw, ${(+m[3] * s).toFixed(1)}px)`
+}
 
 // 3 ページ構成（旧 7 章から精選）。
 // 各章は「テーマ → 産品価値 → CTA」の流れで、文学密度を抑え行動への導線を最短化する。
@@ -292,6 +302,7 @@ interface PageProps {
 }
 
 function Page({ children, active, isMobile, n, en, jp, style }: PageProps) {
+  const isZh = useLocale() === 'zh'
   return (
     <section data-active={active} style={{
       position: 'relative',
@@ -339,7 +350,7 @@ function Page({ children, active, isMobile, n, en, jp, style }: PageProps) {
           left: isMobile ? '5vw' : 'auto',
           right: isMobile ? 'auto' : '6vw',
           fontFamily: 'var(--display-font, "Shippori Mincho",serif)', fontWeight: 600,
-          fontSize: isMobile ? 'clamp(13px, 4.2vw, 17px)' : 'clamp(20px, 1.8vw, 24px)',
+          fontSize: zhScale(isZh, isMobile ? 'clamp(13px, 4.2vw, 17px)' : 'clamp(20px, 1.8vw, 24px)'),
           letterSpacing: isMobile ? '.16em' : '.24em',
           color: STORY_INK,
           opacity: active ? 1 : 0,
@@ -382,6 +393,7 @@ function PageRail({ total, index, onJump }: { total: number; index: number; onJu
 // ─── 1 · 知らない名前 — city light dots scatter + AI 対比 ────────────────
 function PageNames({ active, isMobile }: { active: boolean; isMobile: boolean }) {
   const t = useTranslations('story.page1')
+  const isZh = useLocale() === 'zh'
   // deterministic pseudo-random dot field
   const dots = useMemo(() => {
     const arr: { x: number; y: number; r: number; d: number }[] = []
@@ -426,7 +438,7 @@ function PageNames({ active, isMobile }: { active: boolean; isMobile: boolean })
         position: 'relative',
         maxWidth: isMobile ? '100%' : 580,
         fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
-        fontSize: isMobile ? 'clamp(14px, 4.2vw, 17px)' : 'clamp(18px, 1.55vw, 22px)',
+        fontSize: zhScale(isZh, isMobile ? 'clamp(14px, 4.2vw, 17px)' : 'clamp(18px, 1.55vw, 22px)'),
         lineHeight: isMobile ? 2 : 2.25,
         letterSpacing: '.08em', color: STORY_INK,
         // frosted glass — Welcome の参数を米色基底に翻訳（0.32 / blur 28px）。
@@ -460,6 +472,7 @@ const OTHER_MAP_RINGS = [70, 130, 210, 300, 400, 510]
 // ─── 2 · もうひとつの地図 — isochrone rings + 駅の色点 ────────────────────
 function PageOtherMap({ active, isMobile }: { active: boolean; isMobile: boolean }) {
   const t = useTranslations('story.page2')
+  const isZh = useLocale() === 'zh'
   const ringTransform = isMobile ? 'translate(500, 540)' : 'translate(680, 320)'
 
   // 駅の色点 — 通勤時間によって色を変える。
@@ -533,7 +546,7 @@ function PageOtherMap({ active, isMobile }: { active: boolean; isMobile: boolean
         marginRight: 'auto', marginLeft: 0,
         marginTop: isMobile ? '6vh' : '4vh',
         fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
-        fontSize: isMobile ? 'clamp(14px, 4.2vw, 17px)' : 'clamp(18px, 1.55vw, 22px)',
+        fontSize: zhScale(isZh, isMobile ? 'clamp(14px, 4.2vw, 17px)' : 'clamp(18px, 1.55vw, 22px)'),
         lineHeight: isMobile ? 1.95 : 2.2,
         letterSpacing: '.08em', color: STORY_INK,
         opacity: active ? 1 : 0, transform: active ? 'translateY(0)' : 'translateY(20px)',
@@ -550,6 +563,7 @@ function PageOtherMap({ active, isMobile }: { active: boolean; isMobile: boolean
 // ─── 終 · あなたの番 — minute clock + CTA ────────────────────────────────
 function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter: () => void; isMobile: boolean }) {
   const t = useTranslations('story.page3')
+  const isZh = useLocale() === 'zh'
   const minutes = Array.from({ length: 60 })
   return (
     <Page active={active} isMobile={isMobile} n={t('n')} en={t('en')} jp={t('title')}>
@@ -610,7 +624,7 @@ function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter:
         <p style={{
           margin: isMobile ? '0 0 24px' : '0 0 30px',
           fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
-          fontSize: isMobile ? 'clamp(14px, 4.2vw, 17px)' : 'clamp(18px, 1.55vw, 22px)',
+          fontSize: zhScale(isZh, isMobile ? 'clamp(14px, 4.2vw, 17px)' : 'clamp(18px, 1.55vw, 22px)'),
           lineHeight: isMobile ? 2 : 2.2,
           letterSpacing: '.08em', color: STORY_INK,
         }}>
@@ -626,7 +640,7 @@ function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter:
           margin: isMobile ? '0 0 22px' : '0 0 28px',
           fontFamily: 'var(--display-italic, "Cormorant Garamond","Shippori Mincho",serif)',
           fontStyle: 'italic', fontWeight: 400,
-          fontSize: isMobile ? 'clamp(24px, 7.2vw, 38px)' : 'clamp(32px, 4vw, 56px)',
+          fontSize: zhScale(isZh, isMobile ? 'clamp(24px, 7.2vw, 38px)' : 'clamp(32px, 4vw, 56px)'),
           lineHeight: isMobile ? 1.2 : 1.15,
           letterSpacing: '-.012em', color: STORY_INK,
         }}>
@@ -639,7 +653,7 @@ function PageYourTurn({ active, onEnter, isMobile }: { active: boolean; onEnter:
         <p style={{
           margin: isMobile ? '0 0 30px' : '0 0 40px',
           fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
-          fontSize: isMobile ? 'clamp(12px, 3.5vw, 14px)' : 'clamp(14px, 1.2vw, 16px)',
+          fontSize: zhScale(isZh, isMobile ? 'clamp(12px, 3.5vw, 14px)' : 'clamp(14px, 1.2vw, 16px)'),
           lineHeight: isMobile ? 1.85 : 1.95,
           letterSpacing: '.06em', color: STORY_DIM,
         }}>
