@@ -629,16 +629,16 @@ export default function StationDrawer({ station, destination, customStation, cus
                 hint={mainLines.length === 0 ? t('linesHintNoData') : undefined}
               />
               <DetailRow
-                label={t('streetViewLabel')}
+                label={t('mapLabel')}
                 value={
                   <a
-                    href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${station.lat},${station.lon}`}
+                    href={`https://www.google.com/maps/@${station.lat},${station.lon},18z`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="underline transition-opacity hover:opacity-70"
                     style={{ color: 'var(--ink)' }}
                   >
-                    {t('streetViewLink')} ↗
+                    {t('mapLink')} ↗
                   </a>
                 }
               />
