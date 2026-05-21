@@ -26,22 +26,41 @@ export interface AreaFeaturesData {
 /** 駅名 → 周辺特徴文字列の map */
 export type AreaFeatureMap = Record<string, string>
 
-let inflight: Promise<AreaFeaturesData | null> | null = null
+const inflight: Map<string, Promise<AreaFeaturesData | null>> = new Map()
 
 /**
- * /data/area_features.json を取得。失敗時は null。
- * 多重呼出しは inflight キャッシュで 1 回に集約。
+ * locale ごとの area features を取得。失敗時は null。
+ * - 'ja' (既定): /data/area_features.json
+ * - 'zh': /data/area_features_zh.json (未生成時は ja fallback)
+ * - 'en': /data/area_features_en.json (未生成時は ja fallback)
+ *
+ * 多重呼出しは locale 単位の inflight キャッシュで 1 回に集約。
  */
-export async function loadAreaFeaturesData(): Promise<AreaFeaturesData | null> {
-  if (inflight) return inflight
-  inflight = (async () => {
+export async function loadAreaFeaturesData(locale: string = 'ja'): Promise<AreaFeaturesData | null> {
+  const key = locale === 'zh' || locale === 'en' ? locale : 'ja'
+  const cached = inflight.get(key)
+  if (cached) return cached
+
+  const promise = (async () => {
+    const primary = key === 'ja' ? '/data/area_features.json' : `/data/area_features_${key}.json`
     try {
-      const r = await fetch('/data/area_features.json')
-      if (!r.ok) return null
-      return (await r.json()) as AreaFeaturesData
+      const r = await fetch(primary)
+      if (r.ok) return (await r.json()) as AreaFeaturesData
     } catch {
-      return null
+      /* fallthrough to ja fallback below */
     }
+    // 非 ja locale で対応 JSON が無い場合は ja にフォールバック（中文 / en 版がまだ
+    // 生成されていない段階での graceful degrade）。
+    if (key !== 'ja') {
+      try {
+        const r = await fetch('/data/area_features.json')
+        if (r.ok) return (await r.json()) as AreaFeaturesData
+      } catch {
+        /* fallthrough */
+      }
+    }
+    return null
   })()
-  return inflight
+  inflight.set(key, promise)
+  return promise
 }

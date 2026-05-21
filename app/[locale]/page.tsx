@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
+import { useLocale } from 'next-intl'
 import MapView from '@/components/MapView'
 import TimeSlider from '@/components/TimeSlider'
 import DestinationPicker from '@/components/DestinationPicker'
@@ -57,6 +58,7 @@ function isAiCacheFresh(c: AiCache | null): boolean {
 type WizardOpenMode = false | 'new' | 'recall'
 
 export default function Home() {
+  const locale = useLocale()
   const [destination, setDestination] = useState<Destination>('shinjuku')
   const [maxMinutes, setMaxMinutes] = useState(45)
   const [maxTransfers, setMaxTransfers] = useState(99)
@@ -277,12 +279,13 @@ export default function Home() {
     })
   }, [])
 
-  // 駅周辺エリアの AI 要約データ（1843 駅）。未取得時は空 dict、Drawer 側で「—」fallback。
+  // 駅周辺エリアの AI 要約データ（1843 駅）。locale ごとに分かれた JSON を取得、
+  // 未生成 locale は ja にフォールバック。未取得時は空 dict、Drawer 側で「—」fallback。
   useEffect(() => {
-    loadAreaFeaturesData().then(data => {
+    loadAreaFeaturesData(locale).then(data => {
       if (data?.stations) setAreaFeatures(data.stations)
     })
-  }, [])
+  }, [locale])
 
   useEffect(() => {
     supabase

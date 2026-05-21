@@ -3,15 +3,32 @@
 
 外部 LLM CLI を subprocess で呼び出して各駅の特徴文を生成する。
 （現在は Claude CLI に配線済み — `call_llm()` 内の CLI binary 名 / 引数を
-書き換えれば他プロバイダにも差し替え可能。）
+書き換えれば他プロバイダにも差し替え可能。Claude Max 配額内で動作。）
 - 入力: ../_handoff/stations_for_features.md（1843 駅）
-- 風格基準: ../_handoff/batch1_完成サンプル.json（先頭 101 駅、Few-shot に使用）
-- 出力: ./public/data/area_features.json（増分保存）
+- 風格基準: ../_handoff/batch1_完成サンプル.json（先頭 101 駅、ja の Few-shot に使用）
+- 出力:
+  - ja: ./public/data/area_features.json（増分保存、ja の batch1 を seed として継続）
+  - zh: ./public/data/area_features_zh.json（全 1843 駅をゼロから生成）
+  - en: ./public/data/area_features_en.json（同上）
 
 使い方:
-    python scripts/generate_area_features.py --dry-run             # 80 駅サンプル
-    python scripts/generate_area_features.py                       # 全量
+    # 日本語（既定、既存挙動互換）
+    python scripts/generate_area_features.py --dry-run
+    python scripts/generate_area_features.py
+
+    # 中文（簡体）— 全 1843 駅を中文で生成
+    python scripts/generate_area_features.py --lang zh --dry-run
+    python scripts/generate_area_features.py --lang zh
+
+    # 英文
+    python scripts/generate_area_features.py --lang en --dry-run
+    python scripts/generate_area_features.py --lang en
+
     python scripts/generate_area_features.py --max-batches 3       # 最初の 3 batch のみ
+
+完了後の next step:
+- 出力 JSON は `public/data/` 配下に直書きされるので、git add + commit するだけで
+  本番反映される（`lib/area-features.ts` の loader が locale から自動で対応 JSON を取得する）。
 """
 from __future__ import annotations
 
@@ -33,9 +50,19 @@ HANDOFF_DIR = PROJECT_ROOT / "_handoff"
 
 INPUT_MD = HANDOFF_DIR / "stations_for_features.md"
 BATCH1_JSON = HANDOFF_DIR / "batch1_完成サンプル.json"
-OUTPUT_JSON = REPO_ROOT / "public" / "data" / "area_features.json"
 FAIL_LOG = REPO_ROOT / "scripts" / "_area_features_failures.json"
-DRY_RUN_OUT = HANDOFF_DIR / "dry_run_sample.json"
+
+# 出力 JSON は lang ごとに分離。ja は既存ファイル名を維持（後方互換）。
+OUTPUT_FOR_LANG = {
+    "ja": REPO_ROOT / "public" / "data" / "area_features.json",
+    "zh": REPO_ROOT / "public" / "data" / "area_features_zh.json",
+    "en": REPO_ROOT / "public" / "data" / "area_features_en.json",
+}
+DRY_RUN_OUT_FOR_LANG = {
+    "ja": HANDOFF_DIR / "dry_run_sample.json",
+    "zh": HANDOFF_DIR / "dry_run_sample_zh.json",
+    "en": HANDOFF_DIR / "dry_run_sample_en.json",
+}
 
 MODEL = "sonnet"
 BATCH_SIZE = 40
@@ -44,7 +71,7 @@ RETRY_BASE_DELAY = 5
 LLM_TIMEOUT = 1200
 DEFAULT_CONCURRENCY = 3
 
-SYSTEM_PROMPT = """\
+SYSTEM_PROMPT_JA = """\
 あなたは関東圏の街・駅に詳しい日本語ライターです。
 これから複数の駅のリストを渡しますので、各駅の「周辺の特徴」を日本語で 1〜2 文、40〜80 字程度で書いてください。
 
@@ -86,6 +113,134 @@ JSON のみ。前置きや説明文、markdown code fence は一切不要。
 - 改行・感嘆符・絵文字
 - ethnicity 特定（「華人向け」「欧米人向け」等）
 """
+
+SYSTEM_PROMPT_ZH = """\
+你是熟悉东京关东地区街区与车站的中文（简体）作者。
+我会给你一份车站列表，请为每个车站写出「周边特征」，1-2 句中文，40-80 字。
+
+【输出格式】
+仅输出 JSON。不要前置说明、不要 markdown code fence。
+{
+  "stations": {
+    "<车站名1>": "<特征句1>",
+    "<车站名2>": "<特征句2>"
+  }
+}
+
+【规则】
+- key 必须与传入的车站名完全一致（保留日文汉字 / 假名 / 括号 / 全角半角的原样）
+- value 是 1-2 句中文，40-80 字，结尾必须是「。」
+- 分隔仅用「，」「·」「。」。禁止换行、感叹号、表情符号、普通引号
+- editorial / 简洁事实调。禁止宣传口吻（「绝佳」「人气爆棚」等）
+- 形容词 1-2 个为限
+- 全车站 ethnicity / 文化圈 neutral（不要假设读者国籍或民族）
+
+【应包含的内容（若已知）】
+- 街区性格（住宅 / 商业 / 学生街 / 下町 / 高档住宅 / 地方郊区 等）
+- 沿线交通（线路数 / 直达地 / 到新宿所需时间）
+- 主要设施（公园 / 大学 / 商店街 / 地标）
+- 房租感（高 / 中 / 低）
+- 治安与居住环境
+- 主要目标人群（单身 / 情侣 / 家庭 / 学生）
+
+【防幻觉规则】
+1. 熟悉的车站 → 自信描述
+2. 不熟但能从沿线 / 都道府县推论 → 用一般性描述，避免具体店名 / 公园名
+   例：「栃木县南部住宅区，乌山线沿线。到新宿近 2 小时，东京通勤圈外。适合地方生活。」
+3. 完全不知道 / 没把握 → value 直接写 4 字「数据不足」
+4. 通勤时间「无法到达」的车站 → 用「东京通勤圈外」「观光 / 生活据点」语调
+
+【绝对禁止】
+- 编造不存在的店铺 / 设施 / 公园
+- 宣传口吻
+- 换行 / 感叹号 / 表情符号
+- ethnicity 特定化（「适合华人」「适合欧美人」等）
+"""
+
+SYSTEM_PROMPT_EN = """\
+You are an editorial writer familiar with neighborhoods and stations in the Kanto region of Japan.
+I will give you a list of stations. Write a 1-2 sentence English description of each station's neighborhood, 60-140 characters.
+
+[Output format]
+JSON only. No preface, no markdown code fence.
+{
+  "stations": {
+    "<station name 1>": "<description 1>",
+    "<station name 2>": "<description 2>"
+  }
+}
+
+[Rules]
+- key MUST match the input station name exactly (preserve original Japanese kanji / kana / brackets / full-width chars)
+- value is 1-2 English sentences, 60-140 characters, ending with a period
+- Use only commas, periods, and middle dots (·). No line breaks, exclamation marks, emoji, or fancy quotes
+- Editorial / concise factual tone. No marketing language ("amazing!", "super popular!")
+- Maximum 1-2 adjectives
+- All stations ethnicity / culture neutral (do not assume reader nationality)
+
+[Content to include if known]
+- Neighborhood character (residential / commercial / student / shitamachi / upscale / suburban)
+- Transport (lines, direct destinations, time to Shinjuku)
+- Major facilities (parks, universities, shopping streets, landmarks)
+- Rent feel (high / mid / low)
+- Safety and living environment
+- Primary demographics (single / couple / family / students)
+
+[Anti-hallucination rules]
+1. Known station → write confidently
+2. Less familiar but inferable from line/prefecture → general description, no specific shop/park names
+   e.g., "Southern Tochigi residential area on the Karasuyama Line. Nearly 2 hours to Shinjuku, outside Tokyo commute range. Suited to regional life."
+3. Completely unknown / uncertain → value is the 12-char string "Insufficient data"
+4. Stations marked "unreachable" → tone like "Outside Tokyo commute range" / "Tourist or work base"
+
+[Absolutely forbidden]
+- Fabricated shops / facilities / parks
+- Marketing tone
+- Line breaks / exclamation marks / emoji
+- Ethnicity-specific framing ("for Chinese expats", "for Westerners")
+"""
+
+# 多言語切替。lang='ja' は既存挙動と完全互換。
+SYSTEM_PROMPT_FOR_LANG = {
+    "ja": SYSTEM_PROMPT_JA,
+    "zh": SYSTEM_PROMPT_ZH,
+    "en": SYSTEM_PROMPT_EN,
+}
+
+# Validate 用の lang 別パラメータ。
+LANG_VALIDATION = {
+    "ja": {"no_data_marker": "データ不足", "must_end": "。", "min_len": 25, "max_len": 120},
+    "zh": {"no_data_marker": "数据不足", "must_end": "。", "min_len": 20, "max_len": 120},
+    "en": {"no_data_marker": "Insufficient data", "must_end": ".", "min_len": 50, "max_len": 200},
+}
+
+# user prompt 内のメタ文言の lang 別翻訳。
+USER_PROMPT_TEXTS = {
+    "ja": {
+        "intro_ja_with_batch1": "以下は Batch 1（東京都中心 101 駅）で先行生成された参考スタイル例です。同じ簡潔事実調・40〜80 字・JSON 形式で出力してください。",
+        "intro_zero_shot": "以下は他言語の参考スタイル例です。同じ簡潔事実調・40〜80 字・JSON 形式で、value は日本語で出力してください。",
+        "examples_label": "【参考スタイル例】",
+        "list_label_fmt": "【今回生成する駅リスト（{n} 駅）】",
+        "row_header": "各行: 駅名 — 沿線 — 都道府県 — 新宿駅まで所要時間",
+        "tail": "上記の全駅について JSON で出力してください。key は完全一致、value は 40〜80 字の特徴文（自信が無ければ「データ不足」）。出力は JSON オブジェクトのみ。",
+    },
+    "zh": {
+        "intro_ja_with_batch1": "下面是 ja 版 Batch 1（东京都 101 站）的参考风格示例。请用同样简洁事实调，但 value 写中文（简体），40-80 字，JSON 格式输出。",
+        "intro_zero_shot": "下面是 ja 版的参考风格示例。请用同样简洁事实调，但 value 写中文（简体），40-80 字，JSON 格式输出。",
+        "examples_label": "【ja 参考风格示例】",
+        "list_label_fmt": "【本次需生成的车站列表（{n} 站）】",
+        "row_header": "每行: 车站名 — 沿线 — 都道府县 — 到新宿所需时间",
+        "tail": "请对上述全部车站以 JSON 格式输出。key 必须完全一致，value 写 40-80 字中文（简体）特征句（没把握时写「数据不足」）。仅输出 JSON 对象。",
+    },
+    "en": {
+        "intro_ja_with_batch1": "Below is the ja-language Batch 1 (101 Tokyo stations) reference style. Use the same concise factual tone, but write `value` in English, 60-140 chars, JSON format.",
+        "intro_zero_shot": "Below is the ja-language reference style. Use the same concise factual tone, but write `value` in English, 60-140 chars, JSON format.",
+        "examples_label": "[Reference style (ja)]",
+        "list_label_fmt": "[Stations to generate now ({n} stations)]",
+        "row_header": "Each row: station name — lines — prefecture — time to Shinjuku",
+        "tail": "Output JSON for all stations above. Keys must match exactly. Values: 60-140 char English description (or \"Insufficient data\" if uncertain). JSON object only.",
+    },
+}
 
 FEW_SHOT_EXAMPLES = [
     ("新宿", "JR山手・中央線含む十数路線交差、東京最大級の繁華街。買物・娯楽すべて揃うが家賃高、一部エリアは治安要注意。"),
@@ -129,51 +284,77 @@ def parse_stations(md_path: Path) -> list[dict]:
     return stations
 
 
-def load_existing_output() -> dict:
-    if OUTPUT_JSON.exists():
-        return json.loads(OUTPUT_JSON.read_text(encoding="utf-8"))
-    batch1 = json.loads(BATCH1_JSON.read_text(encoding="utf-8"))
+def load_existing_output(lang: str) -> dict:
+    """lang ごとの出力 JSON を読み込む。
+    - ja: 既存の area_features.json (batch1 がシード済) を継続。
+    - zh / en: 既存ファイルがあれば継続、無ければ batch1 シード無しの空 stations から開始。
+    """
+    output_path = OUTPUT_FOR_LANG[lang]
+    if output_path.exists():
+        return json.loads(output_path.read_text(encoding="utf-8"))
+    if lang == "ja":
+        # ja のみ batch1 を seed として使う（既に日本語で完成しているため）
+        batch1 = json.loads(BATCH1_JSON.read_text(encoding="utf-8"))
+        return {
+            "_meta": {
+                "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "generator": f"external LLM (batch processing, lang={lang})",
+                "language": lang,
+                "station_count_target": 0,
+                "completed_batches": [1],
+                "disclaimer": "AI 生成的参考情报、最新实况建议现地确认",
+            },
+            "stations": dict(batch1["stations"]),
+        }
+    # zh / en は全 1843 駅をゼロから生成
     return {
         "_meta": {
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "generator": "external LLM (batch processing)",
+            "generator": f"external LLM (batch processing, lang={lang})",
+            "language": lang,
             "station_count_target": 0,
-            "completed_batches": [1],
-            "disclaimer": "AI 生成的参考情报、最新实况建议现地确认",
+            "completed_batches": [],
+            "disclaimer": "AI-generated reference info; verify locally for current conditions",
         },
-        "stations": dict(batch1["stations"]),
+        "stations": {},
     }
 
 
-def save_output(data: dict) -> None:
-    OUTPUT_JSON.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_JSON.write_text(
+def save_output(data: dict, lang: str) -> None:
+    output_path = OUTPUT_FOR_LANG[lang]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
         json.dumps(data, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
 
-def build_user_prompt(batch: list[dict]) -> str:
+def build_user_prompt(batch: list[dict], lang: str) -> str:
+    """lang ごとに intro / examples 表記 / tail を切替えた user prompt を構築。
+    Few-shot は常に ja の FEW_SHOT_EXAMPLES を使う (ja で完成しているスタイル基準を提示し、
+    各言語版はその「調」を踏襲しつつ value だけ翻訳する形)。"""
+    texts = USER_PROMPT_TEXTS[lang]
     example_json = {"stations": dict(FEW_SHOT_EXAMPLES)}
     example_block = json.dumps(example_json, ensure_ascii=False, indent=2)
+    intro = texts["intro_ja_with_batch1"] if lang == "ja" else texts["intro_zero_shot"]
     lines = [
-        "以下は Batch 1（東京都中心 101 駅）で先行生成された参考スタイル例です。同じ簡潔事実調・40〜80 字・JSON 形式で出力してください。",
+        intro,
         "",
-        "【参考スタイル例】",
+        texts["examples_label"],
         example_block,
         "",
-        f"【今回生成する駅リスト（{len(batch)} 駅）】",
-        "各行: 駅名 — 沿線 — 都道府県 — 新宿駅まで所要時間",
+        texts["list_label_fmt"].format(n=len(batch)),
+        texts["row_header"],
         "",
     ]
     for s in batch:
         lines.append(f"- {s['name']} — {s['lines']} — {s['pref']} — 新宿 {s['commute']}")
     lines.append("")
-    lines.append("上記の全駅について JSON で出力してください。key は完全一致、value は 40〜80 字の特徴文（自信が無ければ「データ不足」）。出力は JSON オブジェクトのみ。")
+    lines.append(texts["tail"])
     return "\n".join(lines)
 
 
-def call_llm(user_prompt: str, *, timeout: int = LLM_TIMEOUT) -> dict:
+def call_llm(user_prompt: str, lang: str, *, timeout: int = LLM_TIMEOUT) -> dict:
     # CLI binary 名と引数は使用する LLM provider に応じて差し替える。
     # 現在は Claude CLI (`claude -p ... --output-format json`) を想定。
     cmd = [
@@ -182,7 +363,7 @@ def call_llm(user_prompt: str, *, timeout: int = LLM_TIMEOUT) -> dict:
         "--output-format", "json",
         "--tools", "",
         "--no-session-persistence",
-        "--system-prompt", SYSTEM_PROMPT,
+        "--system-prompt", SYSTEM_PROMPT_FOR_LANG[lang],
         user_prompt,
     ]
     result = subprocess.run(
@@ -210,21 +391,22 @@ def call_llm(user_prompt: str, *, timeout: int = LLM_TIMEOUT) -> dict:
 FORBIDDEN_CHARS = set("！?\n\r\t")
 
 
-def validate_value(value) -> str | None:
+def validate_value(value, lang: str = "ja") -> str | None:
+    rules = LANG_VALIDATION[lang]
     if not isinstance(value, str):
         return "non-string value"
     v = value.strip()
     if not v:
         return "empty"
-    if v == "データ不足":
+    if v == rules["no_data_marker"]:
         return None
     if any(c in v for c in FORBIDDEN_CHARS):
-        return "forbidden chars (改行/感嘆符)"
-    if not v.endswith("。"):
-        return f"missing 句点: '...{v[-3:]}'"
-    if len(v) < 25:
+        return "forbidden chars (newline/exclamation)"
+    if not v.endswith(rules["must_end"]):
+        return f"missing terminator '{rules['must_end']}': '...{v[-3:]}'"
+    if len(v) < rules["min_len"]:
         return f"too short ({len(v)} chars)"
-    if len(v) > 120:
+    if len(v) > rules["max_len"]:
         return f"too long ({len(v)} chars)"
     return None
 
@@ -255,12 +437,17 @@ def stratified_sample(all_stations: list[dict], batch1_names: set[str], seed: in
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--lang", choices=["ja", "zh", "en"], default="ja", help="出力言語 (既定 ja、後方互換)")
     ap.add_argument("--dry-run", action="store_true", help="40 駅サンプル 1 batch、主出力には書かない")
     ap.add_argument("--max-batches", type=int, default=None)
     ap.add_argument("--batch-size", type=int, default=BATCH_SIZE)
     ap.add_argument("--concurrency", type=int, default=DEFAULT_CONCURRENCY, help="並列 batch 数")
     ap.add_argument("--sleep", type=float, default=2.0, help="(legacy, 並列モードでは無視)")
     args = ap.parse_args()
+    lang = args.lang
+    no_data_marker = LANG_VALIDATION[lang]["no_data_marker"]
+    dry_run_path = DRY_RUN_OUT_FOR_LANG[lang]
+    print(f"[info] lang = {lang}, output → {OUTPUT_FOR_LANG[lang].relative_to(REPO_ROOT)}")
 
     all_stations = parse_stations(INPUT_MD)
     print(f"[info] parsed {len(all_stations)} stations from {INPUT_MD.name}")
@@ -276,13 +463,13 @@ def main():
 
         t0 = time.time()
         try:
-            result = call_llm(build_user_prompt(sample))
+            result = call_llm(build_user_prompt(sample, lang), lang)
         except Exception as e:
             print(f"[dry-run] FAILED: {e}", file=sys.stderr)
             sys.exit(2)
         elapsed = time.time() - t0
 
-        DRY_RUN_OUT.write_text(
+        dry_run_path.write_text(
             json.dumps({"stations": result}, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
@@ -290,10 +477,10 @@ def main():
         errors = []
         no_data = []
         for name, val in result.items():
-            err = validate_value(val)
+            err = validate_value(val, lang)
             if err:
                 errors.append((name, err, val))
-            elif val == "データ不足":
+            elif val == no_data_marker:
                 no_data.append(name)
 
         requested = {s["name"] for s in sample}
@@ -302,16 +489,16 @@ def main():
         print(f"[dry-run] elapsed: {elapsed:.1f}s")
         print(f"[dry-run] received {len(result)} / requested {len(sample)} stations")
         print(f"[dry-run] missing keys: {len(missing)} {list(missing)[:5]}")
-        print(f"[dry-run] 「データ不足」: {len(no_data)} 駅")
+        print(f"[dry-run] '{no_data_marker}': {len(no_data)} stations")
         print(f"[dry-run] validation errors: {len(errors)}")
         for name, err, val in errors[:10]:
             print(f"  ✗ {name}: {err} → {val[:60]}")
-        print(f"[dry-run] sample written to {DRY_RUN_OUT.relative_to(PROJECT_ROOT)}")
+        print(f"[dry-run] sample written to {dry_run_path.relative_to(PROJECT_ROOT)}")
         return
 
-    existing = load_existing_output()
+    existing = load_existing_output(lang)
     existing["_meta"]["station_count_target"] = len(all_stations)
-    save_output(existing)
+    save_output(existing, lang)
 
     done_names = set(existing["stations"].keys())
     remaining = [s for s in all_stations if s["name"] not in done_names]
@@ -341,7 +528,7 @@ def main():
         last_err = None
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                result = call_llm(build_user_prompt(batch))
+                result = call_llm(build_user_prompt(batch, lang), lang)
                 return idx, result, None
             except Exception as e:
                 last_err = e
@@ -375,7 +562,7 @@ def main():
                     FAIL_LOG.write_text(json.dumps(failures, ensure_ascii=False, indent=2), encoding="utf-8")
                 continue
 
-            invalid = [(name, validate_value(val)) for name, val in result.items() if validate_value(val)]
+            invalid = [(name, validate_value(val, lang)) for name, val in result.items() if validate_value(val, lang)]
             requested = {s["name"] for s in batch}
             received = set(result.keys())
             missing = requested - received
@@ -386,7 +573,7 @@ def main():
             with state_lock:
                 existing["stations"].update(result)
                 existing["_meta"]["last_updated"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-                save_output(existing)
+                save_output(existing, lang)
                 suffix = []
                 if invalid:
                     suffix.append(f"invalid={len(invalid)}")
