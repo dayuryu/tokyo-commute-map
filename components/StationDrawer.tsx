@@ -628,6 +628,20 @@ export default function StationDrawer({ station, destination, customStation, cus
                 }
                 hint={mainLines.length === 0 ? t('linesHintNoData') : undefined}
               />
+              <DetailRow
+                label={t('streetViewLabel')}
+                value={
+                  <a
+                    href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${station.lat},${station.lon}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline transition-opacity hover:opacity-70"
+                    style={{ color: 'var(--ink)' }}
+                  >
+                    {t('streetViewLink')} ↗
+                  </a>
+                }
+              />
               <AreaFeatureRow features={station ? areaFeatures[station.name] : undefined} />
             </div>
 

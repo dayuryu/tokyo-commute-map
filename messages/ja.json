@@ -129,6 +129,8 @@
     "rentSourceNone": "データなし（人口 1.5 万未満）",
     "linesLabel": "主要路線",
     "linesHintNoData": "（データ未接続）",
+    "streetViewLabel": "ストリートビュー",
+    "streetViewLink": "Google で見る",
     "areaFeaturesLabel": "周辺の特徴",
     "areaFeaturesDisclaimer": "ChatGPT による要約・参考情報。最新の街の様子は現地でご確認ください。",
     "areaFeaturesNoData": "（データなし）",
