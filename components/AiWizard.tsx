@@ -961,13 +961,17 @@ function QuestionView({
           {t(q.title)}
         </h1>
 
-        {/* options — flex wrap */}
+        {/* options — flex wrap。rowGap を columnGap より大きく取り、また border の
+            代わりに inset box-shadow を使うことで、モバイルで第二行 button の上辺が
+            消える subpixel paint bug を回避する（border は subpixel 位置に置かれると
+            一部 browser で描画が脱落する既知問題）。 */}
         <div
           style={{
             display: 'flex',
             flexWrap: 'wrap',
             justifyContent: 'center',
-            gap: isMobile ? 10 : 14,
+            rowGap: isMobile ? 14 : 18,
+            columnGap: isMobile ? 10 : 14,
             margin: '0 auto',
             maxWidth: 560,
           }}
@@ -979,7 +983,8 @@ function QuestionView({
               style={{
                 padding: isMobile ? '12px 18px' : '14px 26px',
                 background: 'transparent',
-                border: `.5px solid ${INK}`,
+                border: 'none',
+                boxShadow: `inset 0 0 0 .5px ${INK}`,
                 color: INK,
                 fontFamily: 'var(--display-font, "Shippori Mincho",serif)',
                 fontWeight: 600,
@@ -987,18 +992,18 @@ function QuestionView({
                 letterSpacing: '.06em',
                 borderRadius: 0,
                 cursor: 'pointer',
-                transition: 'all .25s',
+                transition: 'background .25s, color .25s, box-shadow .25s',
                 minWidth: isMobile ? 124 : 144,
               } as CSSProperties}
               onMouseEnter={e => {
                 e.currentTarget.style.background = RED
                 e.currentTarget.style.color = '#f5e7d2'
-                e.currentTarget.style.borderColor = RED
+                e.currentTarget.style.boxShadow = `inset 0 0 0 .5px ${RED}`
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.background = 'transparent'
                 e.currentTarget.style.color = INK
-                e.currentTarget.style.borderColor = INK
+                e.currentTarget.style.boxShadow = `inset 0 0 0 .5px ${INK}`
               }}
             >
               {t(opt.label)}
