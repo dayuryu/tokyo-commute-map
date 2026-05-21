@@ -11,6 +11,7 @@ import { getSingleRentLabel, getCoupleRentLabel, type RentMap } from '@/lib/manu
 import { formatGovernmentRent, type GovernmentRentMap } from '@/lib/government-rent'
 import { getLineColor, type LineStyleMap } from '@/lib/line-styles'
 import type { AreaFeatureMap } from '@/lib/area-features'
+import { getStreetViewCoords, type EntranceMap } from '@/lib/station-entrances'
 import { getDeviceId } from '@/lib/device-id'
 import { buildYahooTransitUrl } from '@/lib/yahoo-url'
 
@@ -57,6 +58,8 @@ interface Props {
   governmentRent:    GovernmentRentMap
   lineStyles:        LineStyleMap
   areaFeatures:      AreaFeatureMap
+  /** OSM 由来の駅出入口座標 map（~77% カバレッジ）。未登録駅は駅本体座標に fallback。 */
+  stationEntrances:  EntranceMap
   /** AI 推薦リストへの返戻リンクを表示するか — 親側で「現在の駅が aiCache.recs に含まれる」を判定して true を渡す */
   aiRecallAvailable: boolean
   /** 「AI 推薦に戻る」リンク押下時の handler — drawer を閉じてから親側で Wizard を recall 起動 */
@@ -83,7 +86,7 @@ function isStationCurrentDestination(
 
 // デバイス ID は lib/device-id.ts に集約（非 Secure Context でも安全な fallback 付き）
 
-export default function StationDrawer({ station, destination, customStation, customCommutes, consensus, suumoMap, rentMap, governmentRent, lineStyles, areaFeatures, aiRecallAvailable, onRecallAi, onSetAsDestination, onClose }: Props) {
+export default function StationDrawer({ station, destination, customStation, customCommutes, consensus, suumoMap, rentMap, governmentRent, lineStyles, areaFeatures, stationEntrances, aiRecallAvailable, onRecallAi, onSetAsDestination, onClose }: Props) {
   const t = useTranslations('stationDrawer')
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
   const [reviews,    setReviews]    = useState<any[]>([])
@@ -628,20 +631,27 @@ export default function StationDrawer({ station, destination, customStation, cus
                 }
                 hint={mainLines.length === 0 ? t('linesHintNoData') : undefined}
               />
-              <DetailRow
-                label={t('mapLabel')}
-                value={
-                  <a
-                    href={`https://www.google.com/maps/@${station.lat},${station.lon},18z`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline transition-opacity hover:opacity-70"
-                    style={{ color: 'var(--ink)' }}
-                  >
-                    {t('mapLink')} ↗
-                  </a>
-                }
-              />
+              {(() => {
+                // OSM 出入口座標があればそれを使う。月台 indoor pano を回避し、駅出口外の
+                // 街並みを Google が選択してくれる。未収録駅は駅本体座標に fallback。
+                const sv = getStreetViewCoords(station.code, station.lat, station.lon, stationEntrances)
+                return (
+                  <DetailRow
+                    label={t('streetViewLabel')}
+                    value={
+                      <a
+                        href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${sv.lat},${sv.lon}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline transition-opacity hover:opacity-70"
+                        style={{ color: 'var(--ink)' }}
+                      >
+                        {t('streetViewLink')} ↗
+                      </a>
+                    }
+                  />
+                )
+              })()}
               <AreaFeatureRow features={station ? areaFeatures[station.name] : undefined} />
             </div>
 

@@ -23,6 +23,7 @@ import { loadManualRentData, type RentMap } from '@/lib/manual-rent'
 import { loadGovernmentRentData, type GovernmentRentMap } from '@/lib/government-rent'
 import { loadLineStyles, type LineStyleMap } from '@/lib/line-styles'
 import { loadAreaFeaturesData, type AreaFeatureMap } from '@/lib/area-features'
+import { loadStationEntrances, type EntranceMap } from '@/lib/station-entrances'
 import {
   type Destination,
   type FixedDestination,
@@ -79,6 +80,9 @@ export default function Home() {
   // 駅周辺エリアの AI 要約 map（駅名 → 特徴文字列）。1843 駅、StationDrawer の
   // 「周辺の特徴」DetailRow 用。未取得時は空 dict で「—」表示にフォールバック。
   const [areaFeatures, setAreaFeatures] = useState<AreaFeatureMap>({})
+  // 駅出入口座標 map（駅 code → {lat, lon, ...}）。OSM 由来、~77% カバレッジ。
+  // StationDrawer の「ストリートビュー」リンクで月台 indoor pano を回避するため使う。
+  const [stationEntrances, setStationEntrances] = useState<EntranceMap>({})
   // クライアント側 Dijkstra 用グラフ。カスタム目的地で haversine を置き換える。
   // 未ロード中は null（MapView 側で fallback として haversine が動作）。
   const [graph, setGraph] = useState<PreparedGraph | null>(null)
@@ -286,6 +290,13 @@ export default function Home() {
       if (data?.stations) setAreaFeatures(data.stations)
     })
   }, [locale])
+
+  // 駅出入口座標 map。locale 非依存。未取得時は空 dict、Drawer 側で駅本体座標に fallback。
+  useEffect(() => {
+    loadStationEntrances().then(map => {
+      if (map) setStationEntrances(map)
+    })
+  }, [])
 
   useEffect(() => {
     supabase
@@ -624,6 +635,7 @@ export default function Home() {
               governmentRent={governmentRent}
               lineStyles={lineStyles}
               areaFeatures={areaFeatures}
+              stationEntrances={stationEntrances}
               aiRecallAvailable={
                 !!aiCache && !!selectedStation &&
                 aiCache.recs.some(r => r.station_name === selectedStation.name)
