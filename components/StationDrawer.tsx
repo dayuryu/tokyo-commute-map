@@ -303,25 +303,33 @@ export default function StationDrawer({ station, destination, customStation, cus
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchCancel}
-        className={`absolute right-0 top-0 h-full z-30 w-full sm:w-[380px]
-                    overflow-y-auto
-                    ${station ? 'translate-x-0' : 'translate-x-full'}`}
+        className="absolute right-0 top-0 h-full z-30 w-full sm:w-[380px] overflow-y-auto"
         style={{
+          // 重要 ── transform は inline で直接書く。Tailwind v4 の translate-x-* utility は
+          // CSS variable (--tw-translate-x) 経由で transform を組み立てるが、CSS variable
+          // の値変化は transition プロパティの対象にならない (transition は具体的な計算済み
+          // CSS property のみを補間する)。translate-x-0 ↔ translate-x-full への切替は
+          // jump cut となり、transition: transform を書いても motion が起きない。
+          // 純粋な inline transform 値 (translateX(0) / translateX(100%)) なら標準の
+          // transform 補間が走り、cubic-bezier も期待通り効く。
+          transform: station ? 'translateX(0)' : 'translateX(100%)',
+          willChange: 'transform',
           // 毛玻璃 / liquid-glass — 半透明米色 + backdrop-filter で地図が透けて見える。
-          // 0.78 alpha は「文字可読性」と「ガラス感」のバランス点 (0.72 だと文字が地図 dot
-          // と干渉して読みにくい、0.85 以上だと毛玻璃感が出ない)。
           background: 'rgba(244, 241, 234, 0.78)',
           backdropFilter: 'blur(28px) saturate(140%)',
           WebkitBackdropFilter: 'blur(28px) saturate(140%)',
           color: 'var(--ink)',
           fontFamily: 'var(--ui-font, system-ui, sans-serif)',
           boxShadow: '-1px 0 2px rgba(0,0,0,.06), -20px 0 60px rgba(0,0,0,.20)',
-          // Spring-like motion ── open 時は微 overshoot で「弾入」感、close 時は overshoot
-          // 無し ease-out で離屏方向に綺麗に消える。逆方向 overshoot は「抽屉が逆に一瞬覗く」
-          // 違和感を生むため open/close で timing function を分ける。
+          // Material "emphasized decelerated" motion (Claude mobile app の menu drawer
+          // と同系統)。cubic-bezier(0.05, 0.7, 0.1, 1) は P2 が (0.1, 1) なので
+          // 「冒頭 ~10% で大部分の距離を走り、残り 90% の時間でゆっくり終点に近づく」
+          // 強い末端減速を生む。物理的には spring の dampingRatio≈1 と近い体感。
+          // 720ms と長めに取って末端の settle 感をはっきり感じられるようにする。
+          // close は同曲線族の短い ease-out で、テンポよく離屏。
           transition: station
-            ? 'transform 520ms cubic-bezier(0.22, 1.18, 0.36, 1)'
-            : 'transform 380ms cubic-bezier(0.4, 0, 0.2, 1)',
+            ? 'transform 720ms cubic-bezier(0.05, 0.7, 0.1, 1)'
+            : 'transform 360ms cubic-bezier(0.32, 0.72, 0.5, 1)',
           borderLeft: '.5px solid rgba(28,24,18,.10)',
           // iOS Safari の touch スクロール慣性を有効化（駅情報が長いため）
           WebkitOverflowScrolling: 'touch',
