@@ -4,6 +4,8 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { cache } from 'react'
 import { notFound } from 'next/navigation'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   DESTINATIONS_META,
   isFixedDestination,
@@ -17,17 +19,25 @@ type DestStats = {
   avgRent: number
 }
 
-const loadDescriptions = cache(async (): Promise<Record<string, string>> => {
-  const descPath = path.join(
+type V2Content = {
+  slug: string
+  displayName: string
+  last_updated: string
+  intro: string
+  faq: { q: string; a: string }[]
+}
+
+const loadDestinationV2 = cache(async (slug: string): Promise<V2Content | null> => {
+  const filePath = path.join(
     process.cwd(),
-    'public/data/destination_descriptions.json',
+    'public/data/destinations_v2',
+    `${slug}.json`,
   )
   try {
-    const raw = await fs.readFile(descPath, 'utf-8')
-    const parsed = JSON.parse(raw) as { stations?: Record<string, string> }
-    return parsed.stations ?? {}
+    const raw = await fs.readFile(filePath, 'utf-8')
+    return JSON.parse(raw) as V2Content
   } catch {
-    return {}
+    return null
   }
 })
 
@@ -118,18 +128,17 @@ export default async function ToDestinationPage({
   const { slug } = await params
   if (!isFixedDestination(slug)) notFound()
   const meta = DESTINATIONS_META.find(m => m.slug === slug)!
-  const [allStats, descriptions] = await Promise.all([
+  const [allStats, content] = await Promise.all([
     loadStats(),
-    loadDescriptions(),
+    loadDestinationV2(slug),
   ])
   const stats = allStats[slug]
   const others = DESTINATIONS_META.filter(m => m.slug !== slug)
 
   const fallbackDescription =
     `${meta.displayName} を通勤先として街選びをする人のための地図ページです。Kayoha では東京圏 1843 駅それぞれから ${meta.displayName} までの通勤時間を実際の GTFS 時刻表で算出し、5 分刻みのカラーリングで一目で読める形に整理しています。家賃の目安、周辺エリアの特徴、コミュニティの評価をあわせて確認しながら、自分に合う街を地図上で探してください。`
-  const description = descriptions[slug] || fallbackDescription
 
-  const jsonLd = {
+  const webPageJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: `${meta.displayName}への通勤時間地図 | Kayoha`,
@@ -143,12 +152,30 @@ export default async function ToDestinationPage({
     },
   }
 
+  const faqJsonLd = content?.faq && content.faq.length > 0
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: content.faq.map(({ q, a }) => ({
+          '@type': 'Question',
+          name: q,
+          acceptedAnswer: { '@type': 'Answer', text: a },
+        })),
+      }
+    : null
+
   return (
     <main className="overflow-y-auto h-[100dvh] w-screen bg-sp-bg">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageJsonLd) }}
       />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
       <article className="mx-auto max-w-3xl px-6 py-12 md:py-20">
         <header className="mb-12 md:mb-16 text-center">
           <p className="font-cormorant text-sm uppercase tracking-[0.3em] text-ed-ink/60 mb-3">
@@ -162,12 +189,6 @@ export default async function ToDestinationPage({
           </p>
         </header>
 
-        <section className="mb-12 md:mb-16">
-          <p className="font-shippori text-base md:text-lg leading-loose text-ed-ink/85">
-            {description}
-          </p>
-        </section>
-
         <section className="mb-12 md:mb-16 grid grid-cols-3 gap-4 md:gap-8 border-y border-ed-ink/10 py-8">
           <StatBlock label="30 分以内" value={String(stats.within30)} unit="駅" />
           <StatBlock label="45 分以内" value={String(stats.within45)} unit="駅" />
@@ -178,9 +199,57 @@ export default async function ToDestinationPage({
           />
         </section>
 
+        <section className="mb-16 md:mb-20">
+          {content?.intro ? (
+            <div className="font-shippori text-base md:text-lg leading-loose text-ed-ink/85
+              [&_p]:mb-6
+              [&_p:last-child]:mb-0
+              [&_strong]:font-medium [&_strong]:text-ed-ink
+              [&_table]:my-8 [&_table]:w-full [&_table]:text-sm [&_table]:border-collapse
+              [&_thead]:border-b [&_thead]:border-ed-ink/30
+              [&_th]:text-left [&_th]:font-medium [&_th]:py-3 [&_th]:px-2 [&_th]:text-ed-ink
+              [&_tbody_tr]:border-b [&_tbody_tr]:border-ed-ink/10
+              [&_td]:py-3 [&_td]:px-2 [&_td]:align-top">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {content.intro}
+              </ReactMarkdown>
+            </div>
+          ) : (
+            <p className="font-shippori text-base md:text-lg leading-loose text-ed-ink/85">
+              {fallbackDescription}
+            </p>
+          )}
+        </section>
+
         <section className="mb-16 md:mb-24">
           <ToActionButtons slug={meta.slug} displayName={meta.displayName} />
         </section>
+
+        {content?.faq && content.faq.length > 0 && (
+          <section className="mb-16 md:mb-20 border-t border-ed-ink/10 pt-12 md:pt-16">
+            <h2 className="font-cormorant text-sm uppercase tracking-[0.3em] text-ed-ink/60 mb-8 md:mb-10 text-center">
+              よくある質問
+            </h2>
+            <dl className="space-y-8 md:space-y-10">
+              {content.faq.map((item, i) => (
+                <div key={i}>
+                  <dt className="font-shippori text-base md:text-lg font-medium text-ed-ink mb-3 leading-snug">
+                    Q. {item.q}
+                  </dt>
+                  <dd className="font-shippori text-sm md:text-base text-ed-ink/85 leading-loose pl-5">
+                    {item.a}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )}
+
+        {content?.last_updated && (
+          <p className="text-center font-cormorant text-xs uppercase tracking-[0.25em] text-ed-ink/45 mb-12">
+            最終更新 · {content.last_updated}
+          </p>
+        )}
 
         <section className="border-t border-ed-ink/10 pt-12">
           <h2 className="font-cormorant text-sm uppercase tracking-[0.3em] text-ed-ink/60 mb-6 text-center">
@@ -232,4 +301,3 @@ function StatBlock({ label, value, unit }: { label: string; value: string; unit:
     </div>
   )
 }
-
