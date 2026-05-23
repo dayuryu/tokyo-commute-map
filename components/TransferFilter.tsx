@@ -1,27 +1,13 @@
 // components/TransferFilter.tsx
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 
-const OPTIONS = [
-  {
-    value: 99,
-    label: '制限なし',
-    sub: 'すべての路線を表示',
-    badge: null,
-  },
-  {
-    value: 0,
-    label: '直通のみ',
-    sub: '乗り換えなしで到着',
-    badge: '0',
-  },
-  {
-    value: 1,
-    label: '1回乗換まで',
-    sub: '1回以内の乗り換えで到着',
-    badge: '1',
-  },
-]
+const OPTION_DEFS = [
+  { value: 99, labelKey: 'noLimitLabel', subKey: 'noLimitSub', badge: null },
+  { value: 0, labelKey: 'directLabel', subKey: 'directSub', badge: '0' },
+  { value: 1, labelKey: 'oneLabel', subKey: 'oneSub', badge: '1' },
+] as const
 
 // 乗換アイコン（矢印2本が交差するSVG）
 function TransferIcon({ className = 'w-4 h-4' }: { className?: string }) {
@@ -39,6 +25,7 @@ interface Props {
 }
 
 export default function TransferFilter({ value, onChange }: Props) {
+  const t = useTranslations('transferFilter')
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -50,6 +37,12 @@ export default function TransferFilter({ value, onChange }: Props) {
     return () => document.removeEventListener('mousedown', onOutside)
   }, [])
 
+  const OPTIONS = OPTION_DEFS.map(o => ({
+    value: o.value,
+    label: t(o.labelKey),
+    sub: t(o.subKey),
+    badge: o.badge,
+  }))
   const current = OPTIONS.find(o => o.value === value) ?? OPTIONS[0]
   const isActive = value < 99
 
@@ -74,7 +67,7 @@ export default function TransferFilter({ value, onChange }: Props) {
       >
         <TransferIcon className="w-3.5 h-3.5 transition-colors"
                        />
-        <span className="leading-none">{isActive ? current.label : '乗換'}</span>
+        <span className="leading-none">{isActive ? current.label : t('trigger')}</span>
         <svg
           className={`w-3 h-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           viewBox="0 0 12 8" fill="none"
@@ -103,7 +96,7 @@ export default function TransferFilter({ value, onChange }: Props) {
         <div className="px-4 pt-3.5 pb-2">
           <div className="flex items-center gap-1.5" style={{ color: 'var(--ink-soft)' }}>
             <TransferIcon className="w-3.5 h-3.5" />
-            <span className="smallcaps" style={{ color: 'var(--ink-mute)' }}>乗換回数</span>
+            <span className="smallcaps" style={{ color: 'var(--ink-mute)' }}>{t('dropdownHeader')}</span>
           </div>
         </div>
 

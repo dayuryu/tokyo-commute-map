@@ -188,6 +188,39 @@
     "hint2": "正在排列车站",
     "hint3": "正在绘制通勤地图"
   },
+  "timeSlider": {
+    "label": "通勤上限",
+    "valueSuffix": "分钟"
+  },
+  "transferFilter": {
+    "trigger": "换乘",
+    "dropdownHeader": "换乘次数",
+    "noLimitLabel": "不限",
+    "noLimitSub": "显示所有线路",
+    "directLabel": "仅直达",
+    "directSub": "无需换乘即可到达",
+    "oneLabel": "最多 1 次换乘",
+    "oneSub": "1 次以内换乘即可到达"
+  },
+  "destinationPicker": {
+    "searchTitle": "搜索车站",
+    "searchPlaceholder": "搜索车站..."
+  },
+  "correctionReporter": {
+    "triggerNormal": "这个时间不对？报告正确数值 →",
+    "triggerCustom": "关于这个时间 →",
+    "submitError": "提交失败，请稍后重试。",
+    "submitted": "✓ 感谢您的报告（3 人以上时反映到显示）",
+    "customInfoBody": "自定义目的地（{destLabel}）的校正报告将于今后支持。",
+    "customInfoNote": "目前可以社区校正前往 30 个主要通勤车站（新宿・渋谷・東京駅・池袋・品川 等）的通勤时间。",
+    "close": "← 关闭",
+    "inputLead": "{stationName} → {destLabel} 的实际通勤时间（分钟）",
+    "inputPlaceholder": "例：35",
+    "submitting": "…",
+    "submit": "提交",
+    "rangeHint": "※ 请在推算值 {algorithm} 分 ±{tolerance} 分以内输入",
+    "consensusNote": "※ 3 人以上的报告会更新显示时间"
+  },
   "cookieConsent": {
     "ariaLabel": "Cookie 同意请求",
     "messageLead": "本网站使用 Cookie，可能会通过推广广告统计购买与申请行为。详情请见",

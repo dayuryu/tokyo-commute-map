@@ -1,5 +1,6 @@
 // components/TimeSlider.tsx
 'use client'
+import { useTranslations } from 'next-intl'
 
 interface Props {
   value: number
@@ -7,13 +8,14 @@ interface Props {
 }
 
 export default function TimeSlider({ value, onChange }: Props) {
+  const t = useTranslations('timeSlider')
   return (
     <div className="flex items-center gap-2 flex-1 min-w-0">
       <span
         className="smallcaps whitespace-nowrap"
         style={{ color: 'var(--ink-mute)', fontSize: 10.5 }}
       >
-        通勤上限
+        {t('label')}
       </span>
       <input
         type="range"
@@ -31,7 +33,7 @@ export default function TimeSlider({ value, onChange }: Props) {
           letterSpacing: '.02em',
         }}
       >
-        {value} 分
+        {value} {t('valueSuffix')}
       </span>
     </div>
   )

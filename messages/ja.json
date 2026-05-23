@@ -188,6 +188,39 @@
     "hint2": "駅をならべています",
     "hint3": "通勤の地図を描いています"
   },
+  "timeSlider": {
+    "label": "通勤上限",
+    "valueSuffix": "分"
+  },
+  "transferFilter": {
+    "trigger": "乗換",
+    "dropdownHeader": "乗換回数",
+    "noLimitLabel": "制限なし",
+    "noLimitSub": "すべての路線を表示",
+    "directLabel": "直通のみ",
+    "directSub": "乗り換えなしで到着",
+    "oneLabel": "1回乗換まで",
+    "oneSub": "1回以内の乗り換えで到着"
+  },
+  "destinationPicker": {
+    "searchTitle": "駅を検索",
+    "searchPlaceholder": "駅を検索..."
+  },
+  "correctionReporter": {
+    "triggerNormal": "この時間が違う？正しい値を報告 →",
+    "triggerCustom": "この時間について →",
+    "submitError": "送信に失敗しました。時間をおいて再試行してください。",
+    "submitted": "✓ 報告ありがとうございます（3人以上で反映）",
+    "customInfoBody": "カスタム目的地（{destLabel}）への校正報告は今後対応予定です。",
+    "customInfoNote": "現在は 30 個の主要通勤駅（新宿・渋谷・東京駅・池袋・品川 等）への通勤時間をコミュニティ校正できます。",
+    "close": "← 閉じる",
+    "inputLead": "{stationName} → {destLabel} の実際の通勤時間（分）",
+    "inputPlaceholder": "例: 35",
+    "submitting": "…",
+    "submit": "報告",
+    "rangeHint": "※ 推定値 {algorithm}分 から ±{tolerance}分 以内で入力してください",
+    "consensusNote": "※ 3人以上の報告で表示時間が更新されます"
+  },
   "cookieConsent": {
     "ariaLabel": "Cookie 同意のお願い",
     "messageLead": "当サイトは Cookie を使用し、アフィリエイト広告経由の購買・申込行動を計測することがあります。詳細は",

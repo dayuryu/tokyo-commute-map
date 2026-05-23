@@ -1,6 +1,7 @@
 // components/DestinationPicker.tsx
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import type { Destination, CustomStation } from '@/lib/types'
 import { QUICK_DESTINATIONS, DESTINATIONS_META } from '@/lib/destinations'
 
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export default function DestinationPicker({ value, onChange, stationList, customStation, onCustomChange }: Props) {
+  const t = useTranslations('destinationPicker')
   const [query, setQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [searchActive, setSearchActive] = useState(false)
@@ -122,7 +124,7 @@ export default function DestinationPicker({ value, onChange, stationList, custom
           onClick={activateSearch}
           className="px-2 py-1 rounded hover:bg-black/5 transition-all text-sm leading-none"
           style={{ color: 'var(--ink-mute)' }}
-          title="駅を検索"
+          title={t('searchTitle')}
         >
           <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
@@ -167,7 +169,7 @@ export default function DestinationPicker({ value, onChange, stationList, custom
                 if (e.key === 'Escape') deactivateSearch()
                 if (e.key === 'Enter' && filtered.length > 0) selectCustomStation(filtered[0])
               }}
-              placeholder="駅を検索..."
+              placeholder={t('searchPlaceholder')}
               /* text-[16px] で iOS Safari focus 時の自動 zoom 防止（< 16px は強制拡大される） */
               className="w-36 px-3 py-1 rounded text-[16px] bg-white/80 focus:outline-none transition-colors"
               style={{

@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
+import { useTranslations } from 'next-intl'
 import { supabase } from '@/lib/supabase'
 import { getDeviceId } from '@/lib/device-id'
 import type { Destination } from '@/lib/types'
@@ -8,12 +9,10 @@ import type { Destination } from '@/lib/types'
 interface Props {
   stationCode:  number
   stationName:  string
-  destination:  Destination       // 'custom' も受け取る
-  destLabel:    string             // 表示用ラベル（custom の場合は実駅名）
-  algorithmMin: number              // 表示中の算出値
+  destination:  Destination
+  destLabel:    string
+  algorithmMin: number
 }
-
-// デバイス ID は lib/device-id.ts に集約（非 Secure Context でも安全な fallback 付き）
 
 function getTolerance(algorithm: number): number {
   return Math.max(Math.round(algorithm * 0.4), 30)
@@ -25,7 +24,6 @@ function isInRange(reported: number, algorithm: number): boolean {
   return Math.abs(reported - algorithm) <= getTolerance(algorithm)
 }
 
-// 共通 link 風スタイル
 const linkBtnStyle: CSSProperties = {
   background: 'transparent',
   border: 'none',
@@ -43,6 +41,7 @@ const linkBtnStyle: CSSProperties = {
 export default function CorrectionReporter({
   stationCode, stationName, destination, destLabel, algorithmMin,
 }: Props) {
+  const t = useTranslations('correctionReporter')
   const [open,       setOpen]       = useState(false)
   const [value,      setValue]      = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -72,7 +71,7 @@ export default function CorrectionReporter({
 
     setSubmitting(false)
     if (dbError) {
-      setError('送信に失敗しました。時間をおいて再試行してください。')
+      setError(t('submitError'))
     } else {
       setSubmitted(true)
     }
@@ -87,7 +86,7 @@ export default function CorrectionReporter({
         color: '#5e7044',
         letterSpacing: '.04em',
       }}>
-        ✓ 報告ありがとうございます（3人以上で反映）
+        {t('submitted')}
       </div>
     )
   }
@@ -100,14 +99,11 @@ export default function CorrectionReporter({
         onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
         onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-mute)' }}
       >
-        {isCustom
-          ? 'この時間について →'
-          : 'この時間が違う？正しい値を報告 →'}
+        {isCustom ? t('triggerCustom') : t('triggerNormal')}
       </button>
     )
   }
 
-  // Custom destination 時の info panel（校正 backend 未対応のため）
   if (isCustom) {
     return (
       <div style={{
@@ -122,12 +118,10 @@ export default function CorrectionReporter({
         letterSpacing: '.04em',
       }}>
         <p style={{ margin: '0 0 6px' }}>
-          カスタム目的地（<strong style={{ color: 'var(--ink)' }}>{destLabel}</strong>）への
-          校正報告は今後対応予定です。
+          {t('customInfoBody', { destLabel })}
         </p>
         <p style={{ margin: 0, color: 'var(--ink-mute)', fontSize: 11 }}>
-          現在は <strong>30 個の主要通勤駅</strong>（新宿・渋谷・東京駅・池袋・品川 等）への
-          通勤時間をコミュニティ校正できます。
+          {t('customInfoNote')}
         </p>
         <button
           onClick={() => setOpen(false)}
@@ -140,13 +134,12 @@ export default function CorrectionReporter({
           onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
           onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-mute)' }}
         >
-          ← 閉じる
+          {t('close')}
         </button>
       </div>
     )
   }
 
-  // 通常モード（default 3 destination）
   const tol = getTolerance(algorithmMin)
 
   return (
@@ -163,7 +156,7 @@ export default function CorrectionReporter({
         letterSpacing: '.06em',
         marginBottom: 10,
       }}>
-        {stationName} → {destLabel} の実際の通勤時間（分）
+        {t('inputLead', { stationName, destLabel })}
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
@@ -171,7 +164,7 @@ export default function CorrectionReporter({
           type="number" min={5} max={180} step={1}
           value={value}
           onChange={e => setValue(e.target.value)}
-          placeholder="例: 35"
+          placeholder={t('inputPlaceholder')}
           style={{
             flex: 1,
             padding: '8px 12px',
@@ -179,7 +172,6 @@ export default function CorrectionReporter({
             border: '.5px solid rgba(28,24,18,.18)',
             borderRadius: 0,
             fontFamily: 'var(--mono, monospace)',
-            // mobile 16px 未満は iOS Safari が focus 時に自動 zoom する。
             fontSize: 16,
             color: 'var(--ink)',
             letterSpacing: '.02em',
@@ -209,7 +201,7 @@ export default function CorrectionReporter({
             whiteSpace: 'nowrap',
           }}
         >
-          {submitting ? '…' : '報告'}
+          {submitting ? t('submitting') : t('submit')}
         </button>
       </div>
 
@@ -221,7 +213,7 @@ export default function CorrectionReporter({
           color: 'var(--pin)',
           letterSpacing: '.04em',
         }}>
-          ※ 推定値 {algorithmMin}分 から ±{tol}分 以内で入力してください
+          {t('rangeHint', { algorithm: algorithmMin, tolerance: tol })}
         </div>
       )}
 
@@ -245,7 +237,7 @@ export default function CorrectionReporter({
         color: 'var(--ink-mute)',
         letterSpacing: '.02em',
       }}>
-        ※ 3人以上の報告で表示時間が更新されます
+        {t('consensusNote')}
       </div>
 
       <button
@@ -259,7 +251,7 @@ export default function CorrectionReporter({
         onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
         onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-mute)' }}
       >
-        ← 閉じる
+        {t('close')}
       </button>
     </div>
   )
