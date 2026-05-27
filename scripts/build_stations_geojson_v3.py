@@ -131,7 +131,7 @@ def load_stations(csv_path: Path) -> dict:
     stations = {}
     with open(csv_path, encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            if row["closed"].strip() == "true":
+            if row["closed"].strip() == "1":
                 continue
             try:
                 pref = int(row["prefecture"])
