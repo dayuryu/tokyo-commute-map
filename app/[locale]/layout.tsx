@@ -132,6 +132,15 @@ export async function generateMetadata({
       description: SITE_DESCRIPTION,
       images: ['/opengraph-image.png'],
     },
+    icons: {
+      icon: [
+        { url: '/favicon.ico', sizes: '48x48', type: 'image/x-icon' },
+        { url: '/icon.svg', type: 'image/svg+xml' },
+      ],
+      apple: [
+        { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
+      ],
+    },
   }
 }
 
