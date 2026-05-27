@@ -1,0 +1,23 @@
+name: kayoha (通葉)
+description: 東京圏1843駅の通勤時間を可視化し、AI推薦・家賃・エリア特徴で「どこに住むか」を直感的に決められる地図ツール
+
+stack:
+  - Next.js 16 (App Router)
+  - React 19
+  - TypeScript
+  - Tailwind CSS v4
+  - MapLibre GL JS
+  - OpenAI API
+  - Supabase (PostgreSQL)
+  - next-intl (i18n: ja / zh / en)
+  - Vercel Analytics
+  - react-markdown + remark-gfm
+  - Python (GTFS データパイプライン / GeoJSON ビルド)
+  - Puppeteer (OGP 画像生成)
+
+looking_for:
+  - "E2Eテストフレームワーク (Playwright / Cypress) — テストが一切存在せず、地図操作・AI Wizard・多言語切替などのリグレッション検知手段がない"
+  - "クライアント状態管理ライブラリ (Zustand / Jotai) — page.tsx に20以上のuseStateが密集しており、props drilling が深い; 地図・Drawer・Wizard間の状態共有を整理できる"
+  - "GTFS パイプラインオーケストレーター (Dagster / Prefect) — scripts/ に10以上のPythonスクリプトが依存順序不明のまま手動実行されており、データ更新の自動化・再現性が欠如"
+  - "英語ロケール完成のためのi18n翻訳ワークフロー (Crowdin / Lokalise) — TODOコメントで英語版が『次フェーズ』として凍結中、UIレイアウト崩れの検証込みで管理が必要"
+  - "Sentry / LogRocket などのエラー監視 — API rate limit超過・OpenAI障害時のfallback動作・Dijkstra計算のエッジケースなど、本番環境の可観測性がVercel Analyticsのみ"
