@@ -133,16 +133,11 @@
 
 ### 4.1 必須 (high priority)
 
-- [ ] **favicon set** (16 / 32 / 64 / 180 ICO + SVG)
-  - 方向 A: **通葉** 二字印章 (最優先、editorial 雅度最高)
-  - 方向 B: **通** 一字判子 (朱印風)
-  - 方向 C: **葉** 一字判子 (葉脈モチーフも可)
-  - 方向 D: 抽象図形 (葉 / 通 / 頁 モチーフ、modern interpretation)
-  - 各方向 3〜5 候補を並列出力し比較
+- [x] **favicon set** — 単字「通」判子スタイル（`app/favicon.ico` + `app/icon.svg` + `app/apple-icon.png`）
+  - commit `c2f648a` で実装済み
 
-- [ ] **OG image** (1200 × 630)
-  - 主版式: 大字 Kayoha + 副字 通葉 + tagline + 地図ミニカット corner
-  - 副版式: 通葉 切手風 + 余白 + 駅名 list
+- [x] **OG image** (1200 × 630) — `app/opengraph-image.png`
+  - commit `c2f648a` で実装済み
   - 多言語版 (中国語 / 英語) — 後日対応
 
 ### 4.2 推奨 (mid priority)
