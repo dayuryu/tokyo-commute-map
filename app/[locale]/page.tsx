@@ -445,17 +445,9 @@ export default function Home() {
   }
 
   // Wizard 内部状態を地図に反映する共通処理。
-  // dest が null（Q1 まで進まずに閉じた）の場合はデフォルト shinjuku で進む。
+  // dest が null（Q1 まで進まずに閉じた）の場合は現在の destination を維持する。
   function applyWizardDestination(dest: WizardDestination | null) {
     if (!dest) {
-      setDestination('shinjuku')
-      setCustomStation(null)
-      try {
-        localStorage.setItem(
-          STORAGE_KEYS.destination,
-          JSON.stringify({ type: 'default' as const, dest: 'shinjuku' }),
-        )
-      } catch {}
       return
     }
     if (dest.kind === 'fixed') {
