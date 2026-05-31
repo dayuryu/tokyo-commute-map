@@ -1,13 +1,12 @@
 'use client'
+import { useAtomValue } from 'jotai'
 import { useTranslations } from 'next-intl'
 import { BUCKET_COLORS, getBucketThresholds, getBucketLabels } from '@/lib/buckets'
+import { maxMinutesAtom } from '@/lib/atoms/ui'
 
-interface Props {
-  maxMinutes: number
-}
-
-export default function Legend({ maxMinutes }: Props) {
+export default function Legend() {
   const t = useTranslations('legend')
+  const maxMinutes = useAtomValue(maxMinutesAtom)
   const thresholds = getBucketThresholds(maxMinutes)
   const labels = getBucketLabels(thresholds)
 

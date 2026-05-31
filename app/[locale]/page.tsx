@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { useLocale } from 'next-intl'
 import MapView from '@/components/MapView'
 import TimeSlider from '@/components/TimeSlider'
@@ -32,6 +33,7 @@ import {
 import { prepareGraph, computeCommutes, type GraphData, type PreparedGraph } from '@/lib/dijkstra'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
 import { ONE_DAY_MS, OVERLAY_FADE_MS } from '@/lib/constants'
+import { maxMinutesAtom, maxTransfersAtom, selectedStationAtom } from '@/lib/atoms/ui'
 import type {
   CustomCommutesMap,
   CustomStation,
@@ -61,9 +63,11 @@ type WizardOpenMode = false | 'new' | 'recall'
 export default function Home() {
   const locale = useLocale()
   const [destination, setDestination] = useState<Destination>('shinjuku')
-  const [maxMinutes, setMaxMinutes] = useState(45)
-  const [maxTransfers, setMaxTransfers] = useState(99)
-  const [selectedStation, setSelectedStation] = useState<Station | null>(null)
+  // maxMinutes / maxTransfers は lib/atoms/ui.ts に移行（子 component が直接購読）。
+  // selectedStation は atom 化したが、page 側も aiRecallAvailable 算出と各 handler の
+  // 更新で参照するため、ここで読み取り + setter を取得する。
+  const selectedStation = useAtomValue(selectedStationAtom)
+  const setSelectedStation = useSetAtom(selectedStationAtom)
   const [customStation, setCustomStation] = useState<CustomStation | null>(null)
   const [stationList, setStationList] = useState<CustomStation[]>([])
   // 駅名 → Station の lookup map。AI Wizard 結果カードクリック時に
@@ -565,12 +569,8 @@ export default function Home() {
             >
               <MapView
                 destination={destination}
-                maxMinutes={maxMinutes}
-                maxTransfers={maxTransfers}
-                onStationClick={setSelectedStation}
                 customStation={customStation}
                 customCommutes={customCommutes}
-                selectedStation={selectedStation}
                 aiHighlightFeatures={aiHighlightFeatures}
                 onReady={handleMapReady}
               />
@@ -601,13 +601,13 @@ export default function Home() {
               <div className="md:hidden h-px bg-ed-ink/10" />
 
               <div className="flex items-center gap-3">
-                <TimeSlider value={maxMinutes} onChange={setMaxMinutes} />
+                <TimeSlider />
                 <div className="w-px h-5 bg-ed-ink/15" />
-                <TransferFilter value={maxTransfers} onChange={setMaxTransfers} />
+                <TransferFilter />
               </div>
             </div>
 
-            <Legend maxMinutes={maxMinutes} />
+            <Legend />
 
             {/* AI 推薦エントリ — 常時表示。hasCache=true で「20 駅再表示」、false で「初回 AI に聞く」(#6)
                 aiCache が無い user も地図上から後追いで AI Advisor を起動できるようにする死路 UX 対策。 */}
@@ -617,7 +617,6 @@ export default function Home() {
             />
 
             <StationDrawer
-              station={selectedStation}
               destination={destination}
               customStation={customStation}
               customCommutes={customCommutes}
@@ -634,11 +633,10 @@ export default function Home() {
               }
               onRecallAi={handleRecallAiFromDrawer}
               onSetAsDestination={handleSetAsDestination}
-              onClose={() => setSelectedStation(null)}
             />
 
             <HeaderMenu onHelp={handleHelpClick} />
-            <CookieConsent drawerOpen={!!selectedStation} />
+            <CookieConsent />
           </>
         )}
       </main>

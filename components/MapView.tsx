@@ -1,11 +1,13 @@
 // components/MapView.tsx
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
 import maplibregl from 'maplibre-gl'
 import type { Destination, Station, CustomStation } from '@/lib/types'
 import { BUCKET_COLORS, getBucketThresholds, bucketize } from '@/lib/buckets'
 import { DESTINATIONS_META } from '@/lib/destinations'
 import { type CustomCommutesMap } from '@/lib/types'
+import { maxMinutesAtom, maxTransfersAtom, selectedStationAtom } from '@/lib/atoms/ui'
 
 // 30 個の fixed destination の coord / code / label は stations.geojson 読み込み時に
 // 動的検索する（旧 v3.4 の hardcode 3 件を完全廃止）。
@@ -214,16 +216,10 @@ function getClusterColor(destination: Destination, maxMinutes: number): any {
 
 interface Props {
   destination: Destination
-  maxMinutes: number
-  maxTransfers: number
-  onStationClick: (station: Station) => void
   customStation: CustomStation | null
   /** custom destination 用の通勤 map（page.tsx で useMemo 算出）。
    *  null 時は haversine fallback。Map と StationDrawer の single source of truth。 */
   customCommutes: CustomCommutesMap
-  /** 現在 drawer を開いている駅。INK 黒のピンで地図に表示する（通勤先の赤ピンと区別）。
-   *  通勤先と同一駅・null・現在の destination 範囲外でも親側に任せて表示する。 */
-  selectedStation: Station | null
   /** AI 推薦 20 駅の地図 highlight features。aiCache が 24h 内 fresh の時のみ非空。
    *  page.tsx の useMemo で `stationByName` lookup 済み、各 feature.properties に
    *  code / name / rank を持つ。空配列時は highlight layer を非表示にする扱い。 */
@@ -233,7 +229,11 @@ interface Props {
   onReady?: () => void
 }
 
-export default function MapView({ destination, maxMinutes, maxTransfers, onStationClick, customStation, customCommutes, selectedStation, aiHighlightFeatures, onReady }: Props) {
+export default function MapView({ destination, customStation, customCommutes, aiHighlightFeatures, onReady }: Props) {
+  const maxMinutes = useAtomValue(maxMinutesAtom)
+  const maxTransfers = useAtomValue(maxTransfersAtom)
+  const selectedStation = useAtomValue(selectedStationAtom)
+  const setSelectedStation = useSetAtom(selectedStationAtom)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -546,7 +546,7 @@ export default function MapView({ destination, maxMinutes, maxTransfers, onStati
               commuteFields[key] = props[key]
             }
           }
-          onStationClick({
+          setSelectedStation({
             code: props.code,
             name: props.name,
             lat: geo.coordinates[1],

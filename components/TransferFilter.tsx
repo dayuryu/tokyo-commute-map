@@ -1,7 +1,9 @@
 // components/TransferFilter.tsx
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { useAtom } from 'jotai'
 import { useTranslations } from 'next-intl'
+import { maxTransfersAtom } from '@/lib/atoms/ui'
 
 const OPTION_DEFS = [
   { value: 99, labelKey: 'noLimitLabel', subKey: 'noLimitSub', badge: null },
@@ -19,13 +21,9 @@ function TransferIcon({ className = 'w-4 h-4' }: { className?: string }) {
   )
 }
 
-interface Props {
-  value: number
-  onChange: (v: number) => void
-}
-
-export default function TransferFilter({ value, onChange }: Props) {
+export default function TransferFilter() {
   const t = useTranslations('transferFilter')
+  const [value, setValue] = useAtom(maxTransfersAtom)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -106,7 +104,7 @@ export default function TransferFilter({ value, onChange }: Props) {
             return (
               <button
                 key={opt.value}
-                onClick={() => { onChange(opt.value); setOpen(false) }}
+                onClick={() => { setValue(opt.value); setOpen(false) }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150 group/item hover:bg-black/[.04]"
                 style={{
                   background: selected ? 'rgba(28,24,18,.06)' : 'transparent',

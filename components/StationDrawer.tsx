@@ -1,9 +1,11 @@
 // components/StationDrawer.tsx
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslations } from 'next-intl'
 import { supabase } from '@/lib/supabase'
 import type { ConsensusMap, CustomCommutesMap, CustomStation, Destination, Station } from '@/lib/types'
+import { selectedStationAtom } from '@/lib/atoms/ui'
 import CorrectionReporter from './CorrectionReporter'
 import { buildAffiliateLink, ALL_PROGRAMS, type AffiliateProgram, type SuumoStationMap } from '@/lib/affiliate'
 import { getDestinationDisplayName, getDestinationTransitName, DESTINATIONS_META } from '@/lib/destinations'
@@ -47,7 +49,6 @@ interface ReviewForm {
 type ScoreKey = 'price_score' | 'safety_score' | 'crowd_score'
 
 interface Props {
-  station:           Station | null
   destination:       Destination
   customStation:     CustomStation | null
   /** custom destination 時の駅 code → 通勤情報 Map（page.tsx で算出）。fixed 時は null。 */
@@ -65,7 +66,6 @@ interface Props {
   /** 「AI 推薦に戻る」リンク押下時の handler — drawer を閉じてから親側で Wizard を recall 起動 */
   onRecallAi:        () => void
   onSetAsDestination: (station: Station) => void
-  onClose:           () => void
 }
 
 // 駅が現在の通勤先と同じかを判定。custom は code で、fixed は駅名で照合
@@ -86,8 +86,11 @@ function isStationCurrentDestination(
 
 // デバイス ID は lib/device-id.ts に集約（非 Secure Context でも安全な fallback 付き）
 
-export default function StationDrawer({ station, destination, customStation, customCommutes, consensus, suumoMap, rentMap, governmentRent, lineStyles, areaFeatures, stationEntrances, aiRecallAvailable, onRecallAi, onSetAsDestination, onClose }: Props) {
+export default function StationDrawer({ destination, customStation, customCommutes, consensus, suumoMap, rentMap, governmentRent, lineStyles, areaFeatures, stationEntrances, aiRecallAvailable, onRecallAi, onSetAsDestination }: Props) {
   const t = useTranslations('stationDrawer')
+  const station = useAtomValue(selectedStationAtom)
+  const setSelectedStation = useSetAtom(selectedStationAtom)
+  const onClose = useCallback(() => setSelectedStation(null), [setSelectedStation])
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
   const [reviews,    setReviews]    = useState<any[]>([])
   const [form,       setForm]       = useState<ReviewForm>({

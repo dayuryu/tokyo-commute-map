@@ -1,8 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useAtomValue } from 'jotai'
 import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
+import { selectedStationAtom } from '@/lib/atoms/ui'
 
 type Consent = 'all' | 'necessary'
 
@@ -19,14 +21,12 @@ type Consent = 'all' | 'necessary'
  * - 親コンポーネント側で mapMounted 等で出すタイミングを制御する
  *   （WelcomeOverlay 表示中は本コンポーネント自体が mount されない設計）
  */
-interface Props {
-  /** StationDrawer が開いているか。true の時、桌面では左寄せ、モバイルでは非表示にして
-   *  drawer に隠れたまま選択を強要されないようにする。drawer を閉じれば再表示。 */
-  drawerOpen?: boolean
-}
-
-export default function CookieConsent({ drawerOpen = false }: Props) {
+export default function CookieConsent() {
   const t = useTranslations('cookieConsent')
+  // StationDrawer が開いているか（selectedStation 非 null）。true の時、桌面では
+  // 左寄せ、モバイルでは非表示にして drawer に隠れたまま選択を強要されないように
+  // する。drawer を閉じれば再表示。
+  const drawerOpen = useAtomValue(selectedStationAtom) !== null
   // undefined = まだ localStorage を読んでいない（hydration 待ち）
   // null = 読み終わったが未選択 → 横幅を表示
   // 'all' / 'necessary' = 既に選択済み → 表示しない
