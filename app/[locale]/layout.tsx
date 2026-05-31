@@ -13,6 +13,7 @@ import {
 } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { routing } from '@/i18n/routing'
+import Providers from '@/app/providers'
 
 const shippori = Shippori_Mincho({
   subsets: ['latin'],
@@ -211,7 +212,7 @@ export default async function LocaleLayout({ children, params }: Props) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <NextIntlClientProvider>
-          {children}
+          <Providers>{children}</Providers>
         </NextIntlClientProvider>
         <Analytics />
       </body>
