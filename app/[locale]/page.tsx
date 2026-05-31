@@ -413,6 +413,9 @@ export default function Home() {
       return
     }
     persistVisited()
+    // AI wizard は全画面フロー。開いている駅 drawer を閉じておく
+    // （wizard 完了後に地図へ戻った際、旧 drawer が残る UX 不整合を防ぐ）。
+    setSelectedStation(null)
     setWizardOpen('new')
     window.setTimeout(() => setDestinationAskOpen(false), OVERLAY_FADE_MS)
   }
@@ -422,6 +425,8 @@ export default function Home() {
   function handleRecallWizard() {
     if (!aiCache) return
     persistVisited()
+    // 同上 — recall でも開いている駅 drawer は閉じる。
+    setSelectedStation(null)
     setWizardOpen('recall')
     if (destinationAskOpen) {
       window.setTimeout(() => setDestinationAskOpen(false), OVERLAY_FADE_MS)
