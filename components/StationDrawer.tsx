@@ -4,16 +4,24 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslations } from 'next-intl'
 import { supabase } from '@/lib/supabase'
-import type { ConsensusMap, CustomCommutesMap, CustomStation, Destination, Station } from '@/lib/types'
+import type { CustomCommutesMap, CustomStation, Destination, Station } from '@/lib/types'
 import { selectedStationAtom } from '@/lib/atoms/ui'
+import {
+  consensusAtom,
+  suumoMapAtom,
+  rentMapAtom,
+  governmentRentAtom,
+  lineStylesAtom,
+  stationEntrancesAtom,
+} from '@/lib/atoms/data'
+import { areaFeaturesAtom } from '@/lib/atoms/area-features'
 import CorrectionReporter from './CorrectionReporter'
-import { buildAffiliateLink, ALL_PROGRAMS, type AffiliateProgram, type SuumoStationMap } from '@/lib/affiliate'
+import { buildAffiliateLink, ALL_PROGRAMS, type AffiliateProgram } from '@/lib/affiliate'
 import { getDestinationDisplayName, getDestinationTransitName, DESTINATIONS_META } from '@/lib/destinations'
-import { getSingleRentLabel, getCoupleRentLabel, type RentMap } from '@/lib/manual-rent'
-import { formatGovernmentRent, type GovernmentRentMap } from '@/lib/government-rent'
+import { getSingleRentLabel, getCoupleRentLabel } from '@/lib/manual-rent'
+import { formatGovernmentRent } from '@/lib/government-rent'
 import { getLineColor, type LineStyleMap } from '@/lib/line-styles'
-import type { AreaFeatureMap } from '@/lib/area-features'
-import { getStreetViewCoords, type EntranceMap } from '@/lib/station-entrances'
+import { getStreetViewCoords } from '@/lib/station-entrances'
 import { getDeviceId } from '@/lib/device-id'
 import { buildYahooTransitUrl } from '@/lib/yahoo-url'
 
@@ -53,14 +61,6 @@ interface Props {
   customStation:     CustomStation | null
   /** custom destination 時の駅 code → 通勤情報 Map（page.tsx で算出）。fixed 時は null。 */
   customCommutes:    CustomCommutesMap
-  consensus:         ConsensusMap
-  suumoMap:          SuumoStationMap | null
-  rentMap:           RentMap
-  governmentRent:    GovernmentRentMap
-  lineStyles:        LineStyleMap
-  areaFeatures:      AreaFeatureMap
-  /** OSM 由来の駅出入口座標 map（~77% カバレッジ）。未登録駅は駅本体座標に fallback。 */
-  stationEntrances:  EntranceMap
   /** AI 推薦リストへの返戻リンクを表示するか — 親側で「現在の駅が aiCache.recs に含まれる」を判定して true を渡す */
   aiRecallAvailable: boolean
   /** 「AI 推薦に戻る」リンク押下時の handler — drawer を閉じてから親側で Wizard を recall 起動 */
@@ -86,11 +86,18 @@ function isStationCurrentDestination(
 
 // デバイス ID は lib/device-id.ts に集約（非 Secure Context でも安全な fallback 付き）
 
-export default function StationDrawer({ destination, customStation, customCommutes, consensus, suumoMap, rentMap, governmentRent, lineStyles, areaFeatures, stationEntrances, aiRecallAvailable, onRecallAi, onSetAsDestination }: Props) {
+export default function StationDrawer({ destination, customStation, customCommutes, aiRecallAvailable, onRecallAi, onSetAsDestination }: Props) {
   const t = useTranslations('stationDrawer')
   const station = useAtomValue(selectedStationAtom)
   const setSelectedStation = useSetAtom(selectedStationAtom)
   const onClose = useCallback(() => setSelectedStation(null), [setSelectedStation])
+  const consensus = useAtomValue(consensusAtom)
+  const suumoMap = useAtomValue(suumoMapAtom)
+  const rentMap = useAtomValue(rentMapAtom)
+  const governmentRent = useAtomValue(governmentRentAtom)
+  const lineStyles = useAtomValue(lineStylesAtom)
+  const areaFeatures = useAtomValue(areaFeaturesAtom)
+  const stationEntrances = useAtomValue(stationEntrancesAtom)
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
   const [reviews,    setReviews]    = useState<any[]>([])
   const [form,       setForm]       = useState<ReviewForm>({

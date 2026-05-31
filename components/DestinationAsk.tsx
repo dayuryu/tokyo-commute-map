@@ -1,10 +1,12 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import type { CSSProperties } from 'react'
+import { useAtomValue } from 'jotai'
 import { useTranslations } from 'next-intl'
 import { useIsMobile } from '@/lib/useIsMobile'
 import type { Destination, CustomStation } from '@/lib/types'
 import { QUICK_DESTINATIONS, POPULAR_DESTINATIONS } from '@/lib/destinations'
+import { stationListAtom } from '@/lib/atoms/data'
 
 // editorial palette は Story と統一
 const ASK_BG  = '#f3ecdd'
@@ -13,7 +15,6 @@ const ASK_RED = '#a8332b'
 const ASK_DIM = '#7d7060'
 
 interface Props {
-  stationList: CustomStation[]
   onConfirm: (destination: Destination, customStation: CustomStation | null) => void
   /** AI 推薦パスを起動 — Wizard を開く（destination は Wizard 内 Q1 で選択） */
   onStartWizard: () => void
@@ -32,13 +33,13 @@ interface Props {
  * フェード完了後にこのコンポーネント自体を unmount する。
  */
 export default function DestinationAsk({
-  stationList,
   onConfirm,
   onStartWizard,
   onRecallWizard,
   aiCacheFresh,
 }: Props) {
   const t = useTranslations('destinationAsk')
+  const stationList = useAtomValue(stationListAtom)
   const isMobile = useIsMobile()
   const [mounted, setMounted] = useState(false)
   const [closing, setClosing] = useState(false)

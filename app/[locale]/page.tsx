@@ -18,26 +18,20 @@ import AiWizard, { type WizardDestination } from '@/components/AiWizard'
 import AiRecallButton from '@/components/AiRecallButton'
 import type { FixedDestination as FixedDestinationType } from '@/lib/destinations'
 import type { Recommendation } from '@/lib/ai-recommend/types'
-import { supabase } from '@/lib/supabase'
-import type { SuumoStationMap, SuumoStationEntry } from '@/lib/affiliate'
-import { loadManualRentData, type RentMap } from '@/lib/manual-rent'
-import { loadGovernmentRentData, type GovernmentRentMap } from '@/lib/government-rent'
-import { loadLineStyles, type LineStyleMap } from '@/lib/line-styles'
-import { loadAreaFeaturesData, type AreaFeatureMap } from '@/lib/area-features'
-import { loadStationEntrances, type EntranceMap } from '@/lib/station-entrances'
 import {
   type Destination,
   type FixedDestination,
   isFixedDestination,
 } from '@/lib/destinations'
-import { prepareGraph, computeCommutes, type GraphData, type PreparedGraph } from '@/lib/dijkstra'
+import { computeCommutes } from '@/lib/dijkstra'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
 import { ONE_DAY_MS, OVERLAY_FADE_MS } from '@/lib/constants'
 import { maxMinutesAtom, maxTransfersAtom, selectedStationAtom } from '@/lib/atoms/ui'
+import { stationByNameAtom, graphAtom } from '@/lib/atoms/data'
+import { useDataLoaders } from '@/hooks/useDataLoaders'
 import type {
   CustomCommutesMap,
   CustomStation,
-  ConsensusMap,
   Station,
 } from '@/lib/types'
 
@@ -69,27 +63,15 @@ export default function Home() {
   const selectedStation = useAtomValue(selectedStationAtom)
   const setSelectedStation = useSetAtom(selectedStationAtom)
   const [customStation, setCustomStation] = useState<CustomStation | null>(null)
-  const [stationList, setStationList] = useState<CustomStation[]>([])
-  // 駅名 → Station の lookup map。AI Wizard 結果カードクリック時に
-  // setSelectedStation(stationByName[name]) で drawer を開くために必要。
-  const [stationByName, setStationByName] = useState<Record<string, Station>>({})
-  const [consensus, setConsensus] = useState<ConsensusMap>({})
-  const [suumoMap, setSuumoMap] = useState<SuumoStationMap | null>(null)
-  // 手動収録家賃データ（101 駅、SUUMO 駅別相場ページから取得）
-  const [rentMap, setRentMap] = useState<RentMap>({})
-  // 政府住宅統計家賃データ（1940 駅、市区町村粒度の baseline）
-  const [governmentRent, setGovernmentRent] = useState<GovernmentRentMap>({})
-  // 路線スタイル map（線路名 → {color, symbol}）。主要路線 DetailRow の色条用。
-  const [lineStyles, setLineStyles] = useState<LineStyleMap>({})
-  // 駅周辺エリアの AI 要約 map（駅名 → 特徴文字列）。1843 駅、StationDrawer の
-  // 「周辺の特徴」DetailRow 用。未取得時は空 dict で「—」表示にフォールバック。
-  const [areaFeatures, setAreaFeatures] = useState<AreaFeatureMap>({})
-  // 駅出入口座標 map（駅 code → {lat, lon, ...}）。OSM 由来、~77% カバレッジ。
-  // StationDrawer の「ストリートビュー」リンクで月台 indoor pano を回避するため使う。
-  const [stationEntrances, setStationEntrances] = useState<EntranceMap>({})
-  // クライアント側 Dijkstra 用グラフ。カスタム目的地で haversine を置き換える。
-  // 未ロード中は null（MapView 側で fallback として haversine が動作）。
-  const [graph, setGraph] = useState<PreparedGraph | null>(null)
+
+  // データ加載層は lib/atoms/data.ts + hooks/useDataLoaders に移行。消費 component
+  // （StationDrawer / DestinationPicker / AiWizard / DestinationAsk）は各 atom を
+  // 直接購読する。page 側で読むのは派生 useMemo が依存する 2 つのみ：
+  // - stationByName: aiHighlightFeatures + handleWizardResolve の駅名 lookup
+  // - graph: customCommutes の Dijkstra 入力
+  useDataLoaders(locale)
+  const stationByName = useAtomValue(stationByNameAtom)
+  const graph = useAtomValue(graphAtom)
 
   // custom destination 時の 1843 駅 → custom 駅 通勤 map。
   // MapView の paint property と StationDrawer の通勤時間表示の両方で使う single source of truth。
@@ -211,114 +193,6 @@ export default function Home() {
         }
       } catch {}
     }
-  }, [])
-
-  useEffect(() => {
-    fetch('/data/stations.geojson')
-      .then(r => r.json())
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then((g: any) => {
-        const list: CustomStation[] = []
-        const byName: Record<string, Station> = {}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        for (const f of g.features as any[]) {
-          const p = f.properties
-          const lat = f.geometry.coordinates[1]
-          const lon = f.geometry.coordinates[0]
-          list.push({ code: p.code, name: p.name, lat, lon })
-          // Station 全 properties + 座標。AI Wizard 駅クリック時の drawer open 用。
-          // 同名駅が存在する場合は最初の 1 件を保持（実用上稀）。
-          if (!byName[p.name]) {
-            byName[p.name] = { ...p, lat, lon } as Station
-          }
-        }
-        setStationList(list)
-        setStationByName(byName)
-      })
-  }, [])
-
-  // graph.json （カスタム目的地用 adjacency graph）の遅延ロード。
-  // 失敗時は graph=null のまま、MapView は haversine fallback で動作する。
-  useEffect(() => {
-    fetch('/data/graph.json')
-      .then(r => r.ok ? r.json() as Promise<GraphData> : Promise.reject(new Error('graph not available')))
-      .then(raw => setGraph(prepareGraph(raw)))
-      .catch(() => {
-        // graph 未配信時は haversine fallback。あえてエラーログを出さない。
-      })
-  }, [])
-
-  // SUUMO 駅 deep link 用マップを scripts/build_suumo_station_map.py の出力から読み込む。
-  // ファイル未生成（クロール未実行）の場合は 404 で suumoMap が null のまま、
-  // affiliate.ts 側で SUUMO 賃貸トップへの fallback が走る（壊れない）。
-  useEffect(() => {
-    fetch('/data/suumo_stations.json')
-      .then(r => r.ok ? r.json() : Promise.reject(new Error('suumo map not available')))
-      .then((list: SuumoStationEntry[]) => {
-        const map: SuumoStationMap = {}
-        for (const e of list) {
-          if (!map[e.name]) map[e.name] = e
-        }
-        setSuumoMap(map)
-      })
-      .catch(() => {
-        // suumo map 未配信時は SUUMO トップへの fallback で動作するため何もしない
-      })
-  }, [])
-
-  // 手動収録家賃データ（101 駅）。未収録 station は空 dict にフォールバック。
-  useEffect(() => {
-    loadManualRentData().then(data => {
-      if (data?.stations) setRentMap(data.stations)
-    })
-  }, [])
-
-  // 政府住宅統計家賃データ（1940 駅 baseline）。SUUMO 未収録駅の fallback 用。
-  useEffect(() => {
-    loadGovernmentRentData().then(data => {
-      if (data?.stations) setGovernmentRent(data.stations)
-    })
-  }, [])
-
-  // 路線スタイル（color/symbol）map。未取得時は空 dict、StationDrawer 側で fallback 色。
-  useEffect(() => {
-    loadLineStyles().then(map => {
-      if (map) setLineStyles(map)
-    })
-  }, [])
-
-  // 駅周辺エリアの AI 要約データ（1843 駅）。locale ごとに分かれた JSON を取得、
-  // 未生成 locale は ja にフォールバック。未取得時は空 dict、Drawer 側で「—」fallback。
-  useEffect(() => {
-    loadAreaFeaturesData(locale).then(data => {
-      if (data?.stations) setAreaFeatures(data.stations)
-    })
-  }, [locale])
-
-  // 駅出入口座標 map。locale 非依存。未取得時は空 dict、Drawer 側で駅本体座標に fallback。
-  useEffect(() => {
-    loadStationEntrances().then(map => {
-      if (map) setStationEntrances(map)
-    })
-  }, [])
-
-  useEffect(() => {
-    supabase
-      .from('station_time_consensus')
-      .select('station_code, destination, consensus_min, report_count')
-      .then(({ data, error }) => {
-        if (error || !data) return
-        const map: ConsensusMap = {}
-        data.forEach((row: any) => {
-          const dest = row.destination as Exclude<Destination, 'custom'>
-          if (!map[row.station_code]) map[row.station_code] = {}
-          map[row.station_code]![dest] = {
-            min:   Number(row.consensus_min),
-            count: Number(row.report_count),
-          }
-        })
-        setConsensus(map)
-      })
   }, [])
 
   function handleDestinationChange(v: Destination) {
@@ -597,7 +471,6 @@ export default function Home() {
               <DestinationPicker
                 value={destination}
                 onChange={handleDestinationChange}
-                stationList={stationList}
                 customStation={customStation}
                 onCustomChange={handleCustomChange}
               />
@@ -625,13 +498,6 @@ export default function Home() {
               destination={destination}
               customStation={customStation}
               customCommutes={customCommutes}
-              consensus={consensus}
-              suumoMap={suumoMap}
-              rentMap={rentMap}
-              governmentRent={governmentRent}
-              lineStyles={lineStyles}
-              areaFeatures={areaFeatures}
-              stationEntrances={stationEntrances}
               aiRecallAvailable={
                 !!aiCache && !!selectedStation &&
                 aiCache.recs.some(r => r.station_name === selectedStation.name)
@@ -694,7 +560,6 @@ export default function Home() {
 
       {destinationAskOpen && (
         <DestinationAsk
-          stationList={stationList}
           onConfirm={handleConfirmDestination}
           onStartWizard={handleStartWizard}
           onRecallWizard={handleRecallWizard}
@@ -704,8 +569,6 @@ export default function Home() {
 
       {wizardOpen && (
         <AiWizard
-          stationList={stationList}
-          graph={graph}
           cachedResult={
             wizardOpen === 'recall' && aiCache
               ? {

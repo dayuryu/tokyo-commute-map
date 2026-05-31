@@ -1,9 +1,11 @@
 // components/DestinationPicker.tsx
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { useAtomValue } from 'jotai'
 import { useTranslations } from 'next-intl'
 import type { Destination, CustomStation } from '@/lib/types'
 import { QUICK_DESTINATIONS, DESTINATIONS_META } from '@/lib/destinations'
+import { stationListAtom } from '@/lib/atoms/data'
 
 const OPTIONS = QUICK_DESTINATIONS.map(d => ({
   value: d.slug as Destination,
@@ -24,13 +26,13 @@ const NAME_TO_FIXED_SLUG: Record<string, string> = (() => {
 interface Props {
   value: Destination
   onChange: (v: Destination) => void
-  stationList: CustomStation[]
   customStation: CustomStation | null
   onCustomChange: (s: CustomStation) => void
 }
 
-export default function DestinationPicker({ value, onChange, stationList, customStation, onCustomChange }: Props) {
+export default function DestinationPicker({ value, onChange, customStation, onCustomChange }: Props) {
   const t = useTranslations('destinationPicker')
+  const stationList = useAtomValue(stationListAtom)
   const [query, setQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [searchActive, setSearchActive] = useState(false)

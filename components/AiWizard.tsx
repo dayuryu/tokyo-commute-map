@@ -36,9 +36,11 @@ import type {
   SafetyPriority,
   WizardAnswers,
 } from '@/lib/ai-recommend/types'
-import { computeCommutes, type PreparedGraph } from '@/lib/dijkstra'
+import { computeCommutes } from '@/lib/dijkstra'
 import { getDeviceId } from '@/lib/device-id'
 import type { CustomStation } from '@/lib/types'
+import { useAtomValue } from 'jotai'
+import { stationListAtom, graphAtom } from '@/lib/atoms/data'
 import { useTranslations, useLocale } from 'next-intl'
 import AiResultGrid from './AiResultGrid'
 
@@ -173,10 +175,6 @@ interface Props {
     recs:        Recommendation[]
     destination: WizardDestination
   }
-  /** 1843 駅リスト — Q1 検索 autocomplete 用 */
-  stationList:         CustomStation[]
-  /** 客户端 Dijkstra 用グラフ — custom destination 選択時に通勤算出 */
-  graph:               PreparedGraph | null
   /**
    * Wizard を閉じる。
    * destination は Wizard 内で選択された通勤先（Q1 まで進んでいない場合は null）。
@@ -209,14 +207,14 @@ type WizardPartial =
 export default function AiWizard({
   initialDestination,
   cachedResult,
-  stationList,
-  graph,
   onClose,
   onResolve,
   onResultReady,
 }: Props) {
   const t = useTranslations('aiWizard')
   const locale = useLocale()
+  const stationList = useAtomValue(stationListAtom)
+  const graph = useAtomValue(graphAtom)
   const isMobile = useIsMobile()
   const [mounted, setMounted] = useState(false)
   const [closing, setClosing] = useState(false)
