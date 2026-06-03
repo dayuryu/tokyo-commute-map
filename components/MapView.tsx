@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import maplibregl from 'maplibre-gl'
-import type { Destination, Station, CustomStation } from '@/lib/types'
+import type { Destination, Station, CustomStation, CustomCommutesMap } from '@/lib/types'
 import { BUCKET_COLORS, getBucketThresholds, bucketize } from '@/lib/buckets'
 import { DESTINATIONS_META } from '@/lib/destinations'
-import { type CustomCommutesMap } from '@/lib/types'
 import { maxMinutesAtom, maxTransfersAtom, selectedStationAtom } from '@/lib/atoms/ui'
+import { destinationAtom, customStationAtom } from '@/lib/atoms/domain'
+import { customCommutesAtom, aiHighlightFeaturesAtom } from '@/lib/atoms/derived'
 
 // 30 個の fixed destination の coord / code / label は stations.geojson 読み込み時に
 // 動的検索する（旧 v3.4 の hardcode 3 件を完全廃止）。
@@ -38,7 +39,8 @@ function haversineMin(lat1: number, lon1: number, lat2: number, lon2: number): n
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.3 / 35 * 60
 }
 
-// CustomCommutesMap は page.tsx で定義 + useMemo 算出、props 経由で受取る。
+// destination / customStation / customCommutes / aiHighlightFeatures は atom 層から
+// 自取（ADR-0003 P4）。MapView の props は外部 callback (onReady) のみ。
 
 // 目的地ピンをインラインスタイルで生成（CSS クラス依存なし）
 // anchor='top-left' + offset=[-16,-44] で SVG bottom を station 座標に揃える設計
@@ -215,21 +217,16 @@ function getClusterColor(destination: Destination, maxMinutes: number): any {
 }
 
 interface Props {
-  destination: Destination
-  customStation: CustomStation | null
-  /** custom destination 用の通勤 map（page.tsx で useMemo 算出）。
-   *  null 時は haversine fallback。Map と StationDrawer の single source of truth。 */
-  customCommutes: CustomCommutesMap
-  /** AI 推薦 20 駅の地図 highlight features。aiCache が 24h 内 fresh の時のみ非空。
-   *  page.tsx の useMemo で `stationByName` lookup 済み、各 feature.properties に
-   *  code / name / rank を持つ。空配列時は highlight layer を非表示にする扱い。 */
-  aiHighlightFeatures: GeoJSON.Feature[]
   /** 初回 idle（タイル＋レイヤ描画完了）で 1 度だけ発火する任意 callback。
    *  LoadingOverlay のフェードアウト用。 */
   onReady?: () => void
 }
 
-export default function MapView({ destination, customStation, customCommutes, aiHighlightFeatures, onReady }: Props) {
+export default function MapView({ onReady }: Props) {
+  const destination = useAtomValue(destinationAtom)
+  const customStation = useAtomValue(customStationAtom)
+  const customCommutes = useAtomValue(customCommutesAtom)
+  const aiHighlightFeatures = useAtomValue(aiHighlightFeaturesAtom)
   const maxMinutes = useAtomValue(maxMinutesAtom)
   const maxTransfers = useAtomValue(maxTransfersAtom)
   const selectedStation = useAtomValue(selectedStationAtom)
@@ -245,6 +242,12 @@ export default function MapView({ destination, customStation, customCommutes, ai
   const destInfoRef = useRef<Record<string, DestInfo>>({})
   const [destInfoReady, setDestInfoReady] = useState(false)
   const isFirstRender = useRef(true)
+  // map.on('load') closure が capture する古い aiHighlightFeatures 値を回避するため ref を追従。
+  // addSource 時に ref.current を使うことで source 創建瞬間の最新値が確実に反映される
+  // （atomWithStorage hydrate と map load の race で「source は空のまま」になるバグの根治、
+  // ADR-0003 P4 諸動の verify で発覚）。
+  const aiHighlightFeaturesRef = useRef(aiHighlightFeatures)
+  useEffect(() => { aiHighlightFeaturesRef.current = aiHighlightFeatures }, [aiHighlightFeatures])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -496,9 +499,11 @@ export default function MapView({ destination, customStation, customCommutes, ai
       // zoom < 11 で cluster 圆が外環を覆ってしまう（計画核査 1）。
       // 最上層に置くと label が下にくるが、label は symbol + text-halo 1.5-1.8px で
       // 可読性確保、fill 10% は label をほぼ遮らない。
+      // ref から最新 features を取る — closure capture では map load 時に
+      // hydrate 直後の非空 features が反映されない race を回避する。
       map.addSource('stations-ai-highlight', {
         type: 'geojson',
-        data: { type: 'FeatureCollection', features: aiHighlightFeatures },
+        data: { type: 'FeatureCollection', features: aiHighlightFeaturesRef.current },
       })
       map.addLayer({
         id: 'stations-ai-highlight',
@@ -741,10 +746,10 @@ export default function MapView({ destination, customStation, customCommutes, ai
   }, [selectedStation, destination, customStation, destInfoReady])
 
   // ── AI highlight features 更新 ──
-  // aiCache が新しく確定 / 失効 / リコール時に親が aiHighlightFeatures を変える。
-  // race 対策: aiHighlightFeatures が map.on('load') 完了前に変わるケースもある
-  // （localStorage の aiCache 即時 read + stationByName 一拍遅れで fetch 完了）。
-  // source 未生成時は 'idle' イベントで 1 回 retry することで取りこぼしを防ぐ。
+  // aiCache が新しく確定 / 失効 / リコール時に aiHighlightFeaturesAtom が変わる。
+  // race 対策: source 未生成時 (map.on('load') 完了前) は addSource 後の 'sourcedata'
+  // イベントで retry する。'idle' イベントは tile / font の 404 等で発火タイミングが
+  // 不安定なため避ける（atomWithStorage hydrate と map load の race で発覚）。
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -757,10 +762,20 @@ export default function MapView({ destination, customStation, customCommutes, ai
     }
 
     if (apply()) return
-    // source 未生成 → 初回 load の idle 後に retry
-    const onIdle = () => { apply() }
-    map.once('idle', onIdle)
-    return () => { map.off('idle', onIdle) }
+    // source 未生成 → 後続の sourcedata / styledata イベントで retry
+    // （addSource は map.on('load') 内で実行されるため、いずれかが発火する）。
+    const onData = () => {
+      if (apply()) {
+        map.off('sourcedata', onData)
+        map.off('styledata', onData)
+      }
+    }
+    map.on('sourcedata', onData)
+    map.on('styledata', onData)
+    return () => {
+      map.off('sourcedata', onData)
+      map.off('styledata', onData)
+    }
   }, [aiHighlightFeatures])
 
   return <div ref={containerRef} className="w-full h-full" />

@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useState, useEffect } from 'react'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useLocale } from 'next-intl'
 import MapView from '@/components/MapView'
 import TimeSlider from '@/components/TimeSlider'
@@ -16,79 +16,51 @@ import CookieConsent from '@/components/CookieConsent'
 import DestinationAsk from '@/components/DestinationAsk'
 import AiWizard from '@/components/AiWizard'
 import AiRecallButton from '@/components/AiRecallButton'
-import type { FixedDestination as FixedDestinationType } from '@/lib/destinations'
 import type { Recommendation } from '@/lib/ai-recommend/types'
-import { computeCommutes } from '@/lib/dijkstra'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
-import { ONE_DAY_MS, OVERLAY_FADE_MS } from '@/lib/constants'
+import { OVERLAY_FADE_MS } from '@/lib/constants'
 import { selectedStationAtom } from '@/lib/atoms/ui'
-import { stationByNameAtom, graphAtom } from '@/lib/atoms/data'
+import { stationByNameAtom } from '@/lib/atoms/data'
+import { setDestinationAtom } from '@/lib/atoms/domain'
 import {
-  destinationAtom,
-  customStationAtom,
-  setDestinationAtom,
-} from '@/lib/atoms/domain'
+  aiCacheAtom,
+  aiCacheFreshAtom,
+  type AiCache,
+} from '@/lib/atoms/ai-cache'
 import { useDataLoaders } from '@/hooks/useDataLoaders'
-import { useBootstrapDestination } from '@/hooks/useBootstrap'
+import { useBootstrapDestination, useBootstrapAiCache } from '@/hooks/useBootstrap'
 import type {
-  CustomCommutesMap,
   CustomStation,
   Destination,
   Station,
   WizardDestination,
 } from '@/lib/types'
 
-interface AiCache {
-  /** 30 fixed slug、または 'custom' (custom destination 指定時) */
-  destination:   FixedDestinationType | 'custom'
-  /** destination === 'custom' の時に保持する station 情報。fixed 時は undefined。 */
-  customStation?: CustomStation
-  recs:          Recommendation[]
-  usedAt:        string  // ISO timestamp、真調用が完了した時刻
-}
-
-/** 24h 以内に新規推薦を行ったか判定（recall 制限の判定に使用） */
-function isAiCacheFresh(c: AiCache | null): boolean {
-  if (!c) return false
-  const ageMs = Date.now() - new Date(c.usedAt).getTime()
-  return ageMs < ONE_DAY_MS
-}
-
 /** Wizard の起動モード — false=閉、'new'=新規 6 問、'recall'=キャッシュから result phase 直起動 */
 type WizardOpenMode = false | 'new' | 'recall'
 
 export default function Home() {
   const locale = useLocale()
-  // destination / customStation は lib/atoms/domain.ts に移行。書き込みは setDestinationAtom
-  // を経由する 1 経路のみ — destination ⟺ customStation の不変量と localStorage 永続化
-  // は atom 層で構造的に保たれる（ADR-0003 P3）。
-  const destination = useAtomValue(destinationAtom)
-  const customStation = useAtomValue(customStationAtom)
+  // destination / customStation / customCommutes / aiHighlightFeatures は全て atom 層へ
+  // 移行済（ADR-0003 P3/P4）。消費 component が各 atom を直接購読するため、page では
+  // 「handler 内で書き込む / Wizard cachedResult 構築で読む」用途に限って setter / 値を
+  // 取得する。
   const setDestination = useSetAtom(setDestinationAtom)
-  // maxMinutes / maxTransfers は lib/atoms/ui.ts に移行（子 component が直接購読）。
-  // selectedStation は atom 化したが、page 側も aiRecallAvailable 算出と各 handler の
-  // 更新で参照するため、ここで読み取り + setter を取得する。
-  const selectedStation = useAtomValue(selectedStationAtom)
+  // selectedStation は handler で null クリアするためここで setter を取る。
   const setSelectedStation = useSetAtom(selectedStationAtom)
-  // 初回 mount で localStorage から destination を復元（atom 経路で persist:false）。
+  // AI 推薦 cache 本体（読み・書き双方ある）。localStorage 永続化は atomWithStorage が
+  // 裏で処理するため、handleAiResultReady の手動 localStorage.setItem は不要。
+  const [aiCache, setAiCache] = useAtom(aiCacheAtom)
+  const aiCacheFresh = useAtomValue(aiCacheFreshAtom)
+  // 初回 mount で localStorage から destination / aiCache を復元（atom 経路）。
   useBootstrapDestination()
+  useBootstrapAiCache()
 
   // データ加載層は lib/atoms/data.ts + hooks/useDataLoaders に移行。消費 component
-  // （StationDrawer / DestinationPicker / AiWizard / DestinationAsk）は各 atom を
-  // 直接購読する。page 側で読むのは派生 useMemo が依存する 2 つのみ：
-  // - stationByName: aiHighlightFeatures + handleWizardResolve の駅名 lookup
-  // - graph: customCommutes の Dijkstra 入力
+  // （StationDrawer / DestinationPicker / AiWizard / DestinationAsk / MapView）は
+  // 各 atom を直接購読する。page 側で読むのは handleWizardResolve の駅名 lookup のみ。
   useDataLoaders(locale)
   const stationByName = useAtomValue(stationByNameAtom)
-  const graph = useAtomValue(graphAtom)
-
-  // custom destination 時の 1843 駅 → custom 駅 通勤 map。
-  // MapView の paint property と StationDrawer の通勤時間表示の両方で使う single source of truth。
-  // customStation / graph が変化したときのみ再計算（maxMinutes スライダー操作では走らない）。
-  const customCommutes = useMemo<CustomCommutesMap>(() => {
-    if (!customStation || !graph) return null
-    return computeCommutes(graph, customStation.code)
-  }, [customStation, graph])
 
   // Welcome → Story → Map handshake (README §5)
   // - welcomeOpen : true 表示 Welcome 浮层
@@ -100,9 +72,6 @@ export default function Home() {
   const [destinationAskOpen, setDestinationAskOpen] = useState(false)
   // AI Wizard 表示制御。'new' = 新規 wizard、'recall' = キャッシュから result 直起動。
   const [wizardOpen, setWizardOpen] = useState<WizardOpenMode>(false)
-  // AI 推薦の最新キャッシュ（recs + destination + usedAt）。
-  // 真調用完了後に保存、 localStorage 同期。リコール経路で wizard に渡す。
-  const [aiCache, setAiCache] = useState<AiCache | null>(null)
   // DestinationAsk が fade in 中（Welcome/Story の fade out と重なる時間帯）。
   // この間は z=82 の curtain で地図を覆って、両 overlay の opacity が混じる
   // 瞬間に下層の地図が「闪现」するのを防ぐ。
@@ -115,44 +84,9 @@ export default function Home() {
   const [loaderVisible, setLoaderVisible] = useState(false)
   const [mapReady, setMapReady] = useState(false)
 
-  // AI 推薦 20 駅の地図 highlight 用 features。aiCache が 24h 内 fresh な時のみ非空。
-  // MapView の `stations-ai-highlight` source に setData される。
-  const aiHighlightFeatures = useMemo<GeoJSON.Feature[]>(() => {
-    if (!isAiCacheFresh(aiCache)) return []
-    // stationByName は geojson fetch 完了後に setState される。未 ready 時に
-    // lookup を走らせると 20 駅全 miss で console.warn が 20 件出るのを防ぐため、
-    // 空 dict の段階では空 features で待つ（後の re-render で正しく算出される）。
-    if (Object.keys(stationByName).length === 0) return []
-    // destination が aiCache 生成時と一致しない場合は highlight を表示しない。
-    // ユーザーが地図上で通勤先を切り替えた後、過去の AI 推薦に基づく赤外環が
-    // 残ったままだと「今の通勤先に対する推薦」と誤読される UX 問題があるため
-    // (2026-05-17 報告)。AiRecallButton は引き続き表示され、ユーザーが押すと
-    // Wizard recall 経由で destination が aiCache 対応値に戻り、highlight も復活する。
-    const cacheDestMatches = aiCache!.destination === 'custom'
-      ? (destination === 'custom' && customStation?.code === aiCache!.customStation?.code)
-      : destination === aiCache!.destination
-    if (!cacheDestMatches) return []
-    const features: GeoJSON.Feature[] = []
-    aiCache!.recs.forEach((r, idx) => {
-      const s = stationByName[r.station_name]
-      // backend `lib/ai-recommend/openai.ts:39-70` で validNames 厳格 filter 済み、
-      // geojson 内同名 5 駅は括弧後缀で消歧済み（田町(東京) 等）。理論 100% 命中。
-      // TODO v2.1: backend に station_code を返させて stationByCode lookup に切替、
-      //           未消歧同名駅の歧義を根絶。
-      if (!s) {
-        console.warn(`[ai-highlight] stationByName miss for "${r.station_name}"`)
-        return
-      }
-      features.push({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
-        properties: { code: s.code, name: s.name, rank: idx + 1 },
-      })
-    })
-    return features
-  }, [aiCache, stationByName, destination, customStation])
-
-  // localStorage 読み取り（初回のみ）
+  // localStorage 読み取り（初回のみ） — destination 復元は useBootstrapDestination、
+  // aiCache 復元は atomWithStorage が hydrate するため、ここでは visited 判定と
+  // forceWelcome の処理のみ。
   useEffect(() => {
     let visited = false
     try { visited = localStorage.getItem(STORAGE_KEYS.visited) === '1' } catch {}
@@ -165,22 +99,8 @@ export default function Home() {
       }
     } catch {}
     setWelcomeOpen(!visited || forceWelcome)
-    // AI cache 復元 — 古い・壊れたデータは silent ignore
-    // v1 形式 (custom 非対応) も互換: destination が fixed slug の旧 entry はそのまま読める。
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.aiCache)
-      if (raw) {
-        const parsed = JSON.parse(raw) as AiCache
-        const baseOk = parsed?.recs?.length && parsed.destination && parsed.usedAt
-        // custom destination は customStation 必須、無ければ壊れた entry として無視
-        const customOk = parsed?.destination !== 'custom' ||
-          (parsed.customStation && typeof parsed.customStation.code === 'number')
-        if (baseOk && customOk) {
-          setAiCache(parsed)
-        }
-      }
-    } catch {}
-    // 一度訪問済みのユーザーはマップを直接マウント（destination 復元は useBootstrapDestination が担当）。
+    // 一度訪問済みのユーザーはマップを直接マウント（destination 復元は useBootstrapDestination、
+    // aiCache 復元は aiCacheAtom の atomWithStorage が担当）。
     // ただし forceWelcome の時は Welcome を見せる優先度が上なので skip。
     if (visited && !forceWelcome) {
       setMapMounted(true)
@@ -255,7 +175,7 @@ export default function Home() {
   // DestinationAsk の AI hero CTA「新規 AI に提案してもらう」から呼ばれる。
   // 24h 以内に既に新規推薦を行っていれば silent ignore（DestinationAsk 側で disable してあるはず）。
   function handleStartWizard() {
-    if (isAiCacheFresh(aiCache)) {
+    if (aiCacheFresh) {
       // 防御 — 通常 DestinationAsk が disable しているのでここには来ない
       return
     }
@@ -289,15 +209,12 @@ export default function Home() {
   }
 
   // AiWizard から推薦結果が確定した瞬間に呼ばれる（真調用 / fallback / cache 命中いずれも）。
-  // 親側で aiCache 更新 + localStorage 永続化。リコール起動の場合は呼ばれない（既に持っているため）。
+  // aiCacheAtom の atomWithStorage が localStorage 永続化を担当するため、set 一回で完結。
   function handleAiResultReady(dest: WizardDestination, recs: Recommendation[]) {
     const next: AiCache = dest.kind === 'fixed'
       ? { destination: dest.slug, recs, usedAt: new Date().toISOString() }
       : { destination: 'custom', customStation: dest.station, recs, usedAt: new Date().toISOString() }
     setAiCache(next)
-    try {
-      localStorage.setItem(STORAGE_KEYS.aiCache, JSON.stringify(next))
-    } catch {}
   }
 
   // Wizard を閉じる（取消、または結果 CTA「地図で見比べる」押下）。
@@ -392,13 +309,7 @@ export default function Home() {
                 willChange: 'opacity, transform',
               }}
             >
-              <MapView
-                destination={destination}
-                customStation={customStation}
-                customCommutes={customCommutes}
-                aiHighlightFeatures={aiHighlightFeatures}
-                onReady={handleMapReady}
-              />
+              <MapView onReady={handleMapReady} />
             </div>
 
             {/* 顶部控制栏 — README §4.3 glass card
@@ -428,21 +339,15 @@ export default function Home() {
 
             <Legend />
 
-            {/* AI 推薦エントリ — 常時表示。hasCache=true で「20 駅再表示」、false で「初回 AI に聞く」(#6)
-                aiCache が無い user も地図上から後追いで AI Advisor を起動できるようにする死路 UX 対策。 */}
+            {/* AI 推薦エントリ — 常時表示。fresh cache の有無で「20 駅再表示」/「初回 AI に聞く」を切替 (#6)
+                aiCache が無い user も地図上から後追いで AI Advisor を起動できるようにする死路 UX 対策。
+                cache fresh 判定 + onClick 分流は AiRecallButton 内で aiCacheFreshAtom を自取して行う。 */}
             <AiRecallButton
-              hasCache={isAiCacheFresh(aiCache)}
-              onClick={isAiCacheFresh(aiCache) ? handleRecallWizard : handleStartWizard}
+              onStartWizard={handleStartWizard}
+              onRecallWizard={handleRecallWizard}
             />
 
             <StationDrawer
-              destination={destination}
-              customStation={customStation}
-              customCommutes={customCommutes}
-              aiRecallAvailable={
-                !!aiCache && !!selectedStation &&
-                aiCache.recs.some(r => r.station_name === selectedStation.name)
-              }
               onRecallAi={handleRecallAiFromDrawer}
               onSetAsDestination={handleSetAsDestination}
             />
@@ -504,7 +409,7 @@ export default function Home() {
           onConfirm={handleConfirmDestination}
           onStartWizard={handleStartWizard}
           onRecallWizard={handleRecallWizard}
-          aiCacheFresh={isAiCacheFresh(aiCache)}
+          aiCacheFresh={aiCacheFresh}
         />
       )}
 
@@ -516,7 +421,7 @@ export default function Home() {
                   recs: aiCache.recs,
                   destination: aiCache.destination === 'custom' && aiCache.customStation
                     ? { kind: 'custom', station: aiCache.customStation }
-                    : { kind: 'fixed', slug: aiCache.destination as FixedDestinationType },
+                    : { kind: 'fixed', slug: aiCache.destination },
                 }
               : undefined
           }

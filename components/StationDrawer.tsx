@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslations } from 'next-intl'
 import { supabase } from '@/lib/supabase'
-import type { CustomCommutesMap, CustomStation, Destination, Station } from '@/lib/types'
+import type { CustomStation, Destination, Station } from '@/lib/types'
 import { selectedStationAtom } from '@/lib/atoms/ui'
 import {
   consensusAtom,
@@ -14,6 +14,9 @@ import {
   lineStylesAtom,
   stationEntrancesAtom,
 } from '@/lib/atoms/data'
+import { destinationAtom, customStationAtom } from '@/lib/atoms/domain'
+import { customCommutesAtom } from '@/lib/atoms/derived'
+import { aiRecallAvailableAtom } from '@/lib/atoms/ai-cache'
 import { areaFeaturesAtom } from '@/lib/atoms/area-features'
 import CorrectionReporter from './CorrectionReporter'
 import { buildAffiliateLink, ALL_PROGRAMS, type AffiliateProgram } from '@/lib/affiliate'
@@ -57,12 +60,6 @@ interface ReviewForm {
 type ScoreKey = 'price_score' | 'safety_score' | 'crowd_score'
 
 interface Props {
-  destination:       Destination
-  customStation:     CustomStation | null
-  /** custom destination 時の駅 code → 通勤情報 Map（page.tsx で算出）。fixed 時は null。 */
-  customCommutes:    CustomCommutesMap
-  /** AI 推薦リストへの返戻リンクを表示するか — 親側で「現在の駅が aiCache.recs に含まれる」を判定して true を渡す */
-  aiRecallAvailable: boolean
   /** 「AI 推薦に戻る」リンク押下時の handler — drawer を閉じてから親側で Wizard を recall 起動 */
   onRecallAi:        () => void
   onSetAsDestination: (station: Station) => void
@@ -86,10 +83,16 @@ function isStationCurrentDestination(
 
 // デバイス ID は lib/device-id.ts に集約（非 Secure Context でも安全な fallback 付き）
 
-export default function StationDrawer({ destination, customStation, customCommutes, aiRecallAvailable, onRecallAi, onSetAsDestination }: Props) {
+export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props) {
   const t = useTranslations('stationDrawer')
   const station = useAtomValue(selectedStationAtom)
   const setSelectedStation = useSetAtom(selectedStationAtom)
+  // destination / customStation / customCommutes / aiRecallAvailable は atom 層から自取
+  // （ADR-0003 P4）。Props は外部 callback (onRecallAi / onSetAsDestination) のみに。
+  const destination = useAtomValue(destinationAtom)
+  const customStation = useAtomValue(customStationAtom)
+  const customCommutes = useAtomValue(customCommutesAtom)
+  const aiRecallAvailable = useAtomValue(aiRecallAvailableAtom)
   const onClose = useCallback(() => setSelectedStation(null), [setSelectedStation])
   const consensus = useAtomValue(consensusAtom)
   const suumoMap = useAtomValue(suumoMapAtom)

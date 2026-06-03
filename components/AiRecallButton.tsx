@@ -3,9 +3,9 @@
 /**
  * 地図左下の AI Advisor フロートボタン。
  *
- * hasCache (= isAiCacheFresh) に応じて 2 つの mode を持つ：
- *   - hasCache=false (初回発見):「AI に聞いてみる」CTA、押下で新規 wizard 起動
- *   - hasCache=true  (再表示):  「20 駅を再表示」CTA、押下で wizard を result phase 直起動
+ * aiCacheFreshAtom (= 24h 以内に新規推薦を行った) を自取して 2 mode を切替：
+ *   - fresh=false (初回発見):「AI に聞いてみる」CTA、押下で onStartWizard
+ *   - fresh=true  (再表示):  「20 駅を再表示」CTA、押下で onRecallWizard
  *
  * これにより、DestinationAsk で AI を選ばずに地図に来た user も
  * 後から「やっぱり AI に聞こう」と思った時に地図上から起動できる (#6)。
@@ -22,9 +22,11 @@
  */
 
 import { useEffect, useState } from 'react'
+import { useAtomValue } from 'jotai'
 import { useTranslations } from 'next-intl'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
+import { aiCacheFreshAtom } from '@/lib/atoms/ai-cache'
 
 const INK = '#1c1812'
 const RED = '#a8332b'
@@ -33,15 +35,17 @@ const HINT_DELAY_MS    = 500
 const HINT_DURATION_MS = 3500
 
 interface Props {
-  /** aiCache が 24h 以内に存在するか — true なら「再表示」mode、false なら「初回」mode */
-  hasCache: boolean
-  /** 押下時に呼ばれる。親側で hasCache に応じて handleRecallWizard / handleStartWizard を切替 */
-  onClick:  () => void
+  /** 押下時に呼ばれる（cache 無し時の新規 wizard 起動） */
+  onStartWizard:  () => void
+  /** 押下時に呼ばれる（cache fresh 時の result phase 直起動） */
+  onRecallWizard: () => void
 }
 
-export default function AiRecallButton({ hasCache, onClick }: Props) {
+export default function AiRecallButton({ onStartWizard, onRecallWizard }: Props) {
   const t = useTranslations('aiRecallButton')
   const isMobile = useIsMobile()
+  const hasCache = useAtomValue(aiCacheFreshAtom)
+  const onClick = hasCache ? onRecallWizard : onStartWizard
   const [showHint, setShowHint] = useState(false)
 
   // mount 時の attention sequence — session 内 1 回限り
