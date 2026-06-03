@@ -46,7 +46,11 @@
    - `WelcomeOverlay` の 3 動画ロジックを hook 抽出
 
 3. **「将来需要があれば」のレイヤーは現時点で作らない**（C 清单）：
-   - ❌ Zustand / Jotai（`useState` + props lift で当面足りる）
+   - ⚠️ ~~Zustand / Jotai（`useState` + props lift で当面足りる）~~
+     → **2026-05-31 [ADR-0003](./0003-jotai-state-management.md) で Jotai 採用に格上げ**。
+     `1c9a8a1`（destination/customStation 不変量のペア更新漏れ）という実バグが
+     発動条件を満たし、本 ADR の Just-In-Time 原則（C → B/A への昇格は真実の pain 駆動）の
+     正規発動例となった。2026-06-04 P0-P6 全段階実装完了、page.tsx は 726→341 行 (-53%)。
    - ❌ Design token 系統化（CSS var で十分、inline color 撲滅は過剰）
    - ❌ Storybook（1 人プロジェクトの ROI 低い）
    - ❌ 自動テスト framework（主人による手動 verify が現状の最適コスパ）
