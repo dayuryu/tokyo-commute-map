@@ -14,25 +14,28 @@ import Legend from '@/components/Legend'
 import HeaderMenu from '@/components/HeaderMenu'
 import CookieConsent from '@/components/CookieConsent'
 import DestinationAsk from '@/components/DestinationAsk'
-import AiWizard, { type WizardDestination } from '@/components/AiWizard'
+import AiWizard from '@/components/AiWizard'
 import AiRecallButton from '@/components/AiRecallButton'
 import type { FixedDestination as FixedDestinationType } from '@/lib/destinations'
 import type { Recommendation } from '@/lib/ai-recommend/types'
-import {
-  type Destination,
-  type FixedDestination,
-  isFixedDestination,
-} from '@/lib/destinations'
 import { computeCommutes } from '@/lib/dijkstra'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
 import { ONE_DAY_MS, OVERLAY_FADE_MS } from '@/lib/constants'
-import { maxMinutesAtom, maxTransfersAtom, selectedStationAtom } from '@/lib/atoms/ui'
+import { selectedStationAtom } from '@/lib/atoms/ui'
 import { stationByNameAtom, graphAtom } from '@/lib/atoms/data'
+import {
+  destinationAtom,
+  customStationAtom,
+  setDestinationAtom,
+} from '@/lib/atoms/domain'
 import { useDataLoaders } from '@/hooks/useDataLoaders'
+import { useBootstrapDestination } from '@/hooks/useBootstrap'
 import type {
   CustomCommutesMap,
   CustomStation,
+  Destination,
   Station,
+  WizardDestination,
 } from '@/lib/types'
 
 interface AiCache {
@@ -56,13 +59,19 @@ type WizardOpenMode = false | 'new' | 'recall'
 
 export default function Home() {
   const locale = useLocale()
-  const [destination, setDestination] = useState<Destination>('shinjuku')
+  // destination / customStation は lib/atoms/domain.ts に移行。書き込みは setDestinationAtom
+  // を経由する 1 経路のみ — destination ⟺ customStation の不変量と localStorage 永続化
+  // は atom 層で構造的に保たれる（ADR-0003 P3）。
+  const destination = useAtomValue(destinationAtom)
+  const customStation = useAtomValue(customStationAtom)
+  const setDestination = useSetAtom(setDestinationAtom)
   // maxMinutes / maxTransfers は lib/atoms/ui.ts に移行（子 component が直接購読）。
   // selectedStation は atom 化したが、page 側も aiRecallAvailable 算出と各 handler の
   // 更新で参照するため、ここで読み取り + setter を取得する。
   const selectedStation = useAtomValue(selectedStationAtom)
   const setSelectedStation = useSetAtom(selectedStationAtom)
-  const [customStation, setCustomStation] = useState<CustomStation | null>(null)
+  // 初回 mount で localStorage から destination を復元（atom 経路で persist:false）。
+  useBootstrapDestination()
 
   // データ加載層は lib/atoms/data.ts + hooks/useDataLoaders に移行。消費 component
   // （StationDrawer / DestinationPicker / AiWizard / DestinationAsk）は各 atom を
@@ -171,39 +180,15 @@ export default function Home() {
         }
       }
     } catch {}
-    // 一度訪問済みのユーザーはマップを直接マウント、かつ保存済みの通勤先を復元。
+    // 一度訪問済みのユーザーはマップを直接マウント（destination 復元は useBootstrapDestination が担当）。
     // ただし forceWelcome の時は Welcome を見せる優先度が上なので skip。
     if (visited && !forceWelcome) {
       setMapMounted(true)
       // 加载画面 — タイル取得中の白画面を覆う
       setLoaderMounted(true)
       setLoaderVisible(true)
-      try {
-        const stored = localStorage.getItem(STORAGE_KEYS.destination)
-        if (stored) {
-          const parsed = JSON.parse(stored) as
-            | { type: 'custom'; station: CustomStation }
-            | { type: 'default'; dest: Exclude<Destination, 'custom'> }
-          if (parsed.type === 'custom' && parsed.station) {
-            setDestination('custom')
-            setCustomStation(parsed.station)
-          } else if (parsed.type === 'default' && isFixedDestination(parsed.dest)) {
-            setDestination(parsed.dest)
-          }
-        }
-      } catch {}
     }
   }, [])
-
-  function handleDestinationChange(v: Destination) {
-    setDestination(v)
-    if (v !== 'custom') setCustomStation(null)
-  }
-
-  function handleCustomChange(station: CustomStation) {
-    setCustomStation(station)
-    setDestination('custom')
-  }
 
   function persistVisited() {
     try { localStorage.setItem(STORAGE_KEYS.visited, '1') } catch {}
@@ -229,8 +214,8 @@ export default function Home() {
   }
 
   // StationDrawer から「ここを通勤先にする」ボタン押下時の処理。
-  // 駅を custom destination として設定 + localStorage 保存 + drawer を閉じて
-  // 地図の再色付けに集中させる。比較フローでユーザが連続的に試せるよう設計。
+  // setDestinationAtom が atom 更新 + localStorage 保存をアトミックに行う。
+  // drawer を閉じて地図の再色付けに集中させる。比較フローでユーザが連続的に試せる設計。
   function handleSetAsDestination(station: Station) {
     const custom: CustomStation = {
       code: station.code,
@@ -238,30 +223,18 @@ export default function Home() {
       lat:  station.lat,
       lon:  station.lon,
     }
-    setCustomStation(custom)
-    setDestination('custom')
-    try {
-      localStorage.setItem(STORAGE_KEYS.destination, JSON.stringify({ type: 'custom', station: custom }))
-    } catch {}
+    setDestination({ kind: 'custom', station: custom })
     setSelectedStation(null)
   }
 
   // DestinationAsk から通勤先確定が返ってきた時の処理。
-  // destination / customStation を反映 + localStorage に保存 + map をマウント。
+  // setDestinationAtom が atom 更新 + localStorage 保存をアトミックに行う。map マウントは別途。
   function handleConfirmDestination(dest: Destination, custom: CustomStation | null) {
     if (dest === 'custom' && custom) {
-      setCustomStation(custom)
-      setDestination('custom')
-    } else {
-      setDestination(dest)
-      setCustomStation(null)
+      setDestination({ kind: 'custom', station: custom })
+    } else if (dest !== 'custom') {
+      setDestination({ kind: 'fixed', slug: dest })
     }
-    try {
-      const payload = dest === 'custom' && custom
-        ? { type: 'custom' as const, station: custom }
-        : { type: 'default' as const, dest }
-      localStorage.setItem(STORAGE_KEYS.destination, JSON.stringify(payload))
-    } catch {}
     setMapMounted(true)
     // 加载画面を表示して地図の初期タイル読み込みを覆う。
     setLoaderMounted(true)
@@ -327,38 +300,11 @@ export default function Home() {
     } catch {}
   }
 
-  // Wizard 内部状態を地図に反映する共通処理。
-  // dest が null（Q1 まで進まずに閉じた）の場合は現在の destination を維持する。
-  function applyWizardDestination(dest: WizardDestination | null) {
-    if (!dest) {
-      return
-    }
-    if (dest.kind === 'fixed') {
-      setDestination(dest.slug)
-      setCustomStation(null)
-      try {
-        localStorage.setItem(
-          STORAGE_KEYS.destination,
-          JSON.stringify({ type: 'default' as const, dest: dest.slug }),
-        )
-      } catch {}
-    } else {
-      // custom destination — 地図側も custom mode に切替える
-      setCustomStation(dest.station)
-      setDestination('custom')
-      try {
-        localStorage.setItem(
-          STORAGE_KEYS.destination,
-          JSON.stringify({ type: 'custom' as const, station: dest.station }),
-        )
-      } catch {}
-    }
-  }
-
   // Wizard を閉じる（取消、または結果 CTA「地図で見比べる」押下）。
   // 地図を mount + loader fade で表示し Wizard を fade out で外す。
+  // dest が null（Q1 まで進まずに閉じた）の場合は現在の destination を維持する。
   function handleWizardClose(dest: WizardDestination | null) {
-    applyWizardDestination(dest)
+    if (dest) setDestination(dest)
     if (!mapMounted) {
       setMapMounted(true)
       setLoaderMounted(true)
@@ -385,7 +331,7 @@ export default function Home() {
       handleWizardClose(dest)
       return
     }
-    applyWizardDestination(dest)
+    setDestination(dest)
     if (!mapMounted) {
       setMapMounted(true)
       setLoaderMounted(true)
@@ -468,12 +414,7 @@ export default function Home() {
                    backdropFilter: 'blur(20px) saturate(160%)',
                    WebkitBackdropFilter: 'blur(20px) saturate(160%)',
                  }}>
-              <DestinationPicker
-                value={destination}
-                onChange={handleDestinationChange}
-                customStation={customStation}
-                onCustomChange={handleCustomChange}
-              />
+              <DestinationPicker />
 
               <div className="hidden md:block w-px h-6 bg-ed-ink/15" />
               <div className="md:hidden h-px bg-ed-ink/10" />

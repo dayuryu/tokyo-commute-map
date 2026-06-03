@@ -1,38 +1,44 @@
 // components/DestinationPicker.tsx
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslations } from 'next-intl'
-import type { Destination, CustomStation } from '@/lib/types'
-import { QUICK_DESTINATIONS, DESTINATIONS_META } from '@/lib/destinations'
+import type { CustomStation } from '@/lib/types'
+import {
+  QUICK_DESTINATIONS,
+  DESTINATIONS_META,
+  type FixedDestination,
+} from '@/lib/destinations'
 import { stationListAtom } from '@/lib/atoms/data'
+import {
+  destinationAtom,
+  customStationAtom,
+  setDestinationAtom,
+} from '@/lib/atoms/domain'
 
 const OPTIONS = QUICK_DESTINATIONS.map(d => ({
-  value: d.slug as Destination,
+  value: d.slug as FixedDestination,
   label: d.displayName,
 }))
 
 // 駅名 → fixed destination slug の逆引きマップ。検索選択時に
 // 30 駅のいずれかに一致したら custom ではなく fixed として扱う。
-const NAME_TO_FIXED_SLUG: Record<string, string> = (() => {
-  const m: Record<string, string> = {}
+const NAME_TO_FIXED_SLUG: Record<string, FixedDestination> = (() => {
+  const m: Record<string, FixedDestination> = {}
   for (const d of DESTINATIONS_META) {
-    m[d.displayName] = d.slug
-    m[d.transitName] = d.slug
+    m[d.displayName] = d.slug as FixedDestination
+    m[d.transitName] = d.slug as FixedDestination
   }
   return m
 })()
 
-interface Props {
-  value: Destination
-  onChange: (v: Destination) => void
-  customStation: CustomStation | null
-  onCustomChange: (s: CustomStation) => void
-}
-
-export default function DestinationPicker({ value, onChange, customStation, onCustomChange }: Props) {
+export default function DestinationPicker() {
   const t = useTranslations('destinationPicker')
   const stationList = useAtomValue(stationListAtom)
+  // domain atom を自取 — props drilling を解消（ADR-0003 P3）。
+  const value = useAtomValue(destinationAtom)
+  const customStation = useAtomValue(customStationAtom)
+  const setDestination = useSetAtom(setDestinationAtom)
   const [query, setQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [searchActive, setSearchActive] = useState(false)
@@ -79,16 +85,16 @@ export default function DestinationPicker({ value, onChange, customStation, onCu
     // （min_to_<slug> がプリ計算済み）。それ以外は custom（距離推算 fallback）。
     const fixedSlug = NAME_TO_FIXED_SLUG[station.name]
     if (fixedSlug) {
-      onChange(fixedSlug as Destination)
+      setDestination({ kind: 'fixed', slug: fixedSlug })
     } else {
-      onCustomChange(station)
+      setDestination({ kind: 'custom', station })
     }
     setQuery('')
     setShowDropdown(false)
   }
 
   function clearCustom() {
-    onChange('shinjuku')
+    setDestination({ kind: 'fixed', slug: 'shinjuku' })
     setQuery('')
     setSearchActive(false)
   }
@@ -104,7 +110,7 @@ export default function DestinationPicker({ value, onChange, customStation, onCu
         {OPTIONS.map((opt) => (
           <button
             key={opt.value}
-            onClick={() => onChange(opt.value)}
+            onClick={() => setDestination({ kind: 'fixed', slug: opt.value })}
             className={`px-3 py-1 rounded text-sm transition-all whitespace-nowrap
               ${value === opt.value
                 ? 'shadow-sm'

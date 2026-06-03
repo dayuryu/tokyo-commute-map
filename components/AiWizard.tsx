@@ -38,7 +38,7 @@ import type {
 } from '@/lib/ai-recommend/types'
 import { computeCommutes } from '@/lib/dijkstra'
 import { getDeviceId } from '@/lib/device-id'
-import type { CustomStation } from '@/lib/types'
+import type { CustomStation, WizardDestination } from '@/lib/types'
 import { useAtomValue } from 'jotai'
 import { stationListAtom, graphAtom } from '@/lib/atoms/data'
 import { useTranslations, useLocale } from 'next-intl'
@@ -157,11 +157,6 @@ type WizardState =
   | { phase: 'loading' }
   | { phase: 'result'; recs: Recommendation[]; isFallback?: boolean; isCached?: boolean }
   | { phase: 'error'; message: string; canRetry: boolean }
-
-/** 30 fixed slug、または custom destination の station code/name を保持する union。 */
-export type WizardDestination =
-  | { kind: 'fixed';  slug: FixedDestination }
-  | { kind: 'custom'; station: CustomStation }
 
 interface Props {
   /** 任意 — DestinationAsk 等で既に通勤先が決まっていれば Q1 に予選択しておく */

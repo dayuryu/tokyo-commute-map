@@ -61,6 +61,14 @@ export interface Station extends CommuteFields {
  *  MapView と StationDrawer の共通入力。null は「未算出 / haversine fallback」を示す。 */
 export type CustomCommutesMap = Map<number, CommuteResult> | null
 
+/** 通勤先の指定意図を表す判別聯合（30 fixed slug or custom 駅）。
+ *  AiWizard / DestinationPicker が生成し、`setDestinationAtom` の唯一の入力形式となる。
+ *  判別聯合自体が「fixed なら slug のみ / custom なら station のみ」を型で保証するため、
+ *  destination ⟺ customStation の不変量がこの型を経由した時点で構造的に守られる。 */
+export type WizardDestination =
+  | { kind: 'fixed';  slug: FixedDestination }
+  | { kind: 'custom'; station: CustomStation }
+
 /** 評価ビュー (station_time_consensus) から取得する 1 件分の通勤時間合意値。
  *  ≥3 票の trimmed median とその票数。 */
 export type ConsensusEntry = { min: number; count: number }
