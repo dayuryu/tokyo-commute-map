@@ -2,7 +2,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { supabase } from '@/lib/supabase'
 import type { CustomStation, Destination, Station } from '@/lib/types'
 import { selectedStationAtom } from '@/lib/atoms/ui'
@@ -12,6 +12,7 @@ import {
   rentMapAtom,
   governmentRentAtom,
   lineStylesAtom,
+  lineNamesEnAtom,
   stationEntrancesAtom,
 } from '@/lib/atoms/data'
 import { destinationAtom, customStationAtom } from '@/lib/atoms/domain'
@@ -21,6 +22,7 @@ import { areaFeaturesAtom } from '@/lib/atoms/area-features'
 import CorrectionReporter from './CorrectionReporter'
 import { buildAffiliateLink, ALL_PROGRAMS, type AffiliateProgram } from '@/lib/affiliate'
 import { getDestinationDisplayName, getDestinationTransitName, DESTINATIONS_META } from '@/lib/destinations'
+import { stationHeading, stationLabel } from '@/lib/station-label'
 import { getSingleRentLabel, getCoupleRentLabel } from '@/lib/manual-rent'
 import { formatGovernmentRent } from '@/lib/government-rent'
 import { getLineColor, type LineStyleMap } from '@/lib/line-styles'
@@ -85,6 +87,7 @@ function isStationCurrentDestination(
 
 export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props) {
   const t = useTranslations('stationDrawer')
+  const locale = useLocale()
   const station = useAtomValue(selectedStationAtom)
   const setSelectedStation = useSetAtom(selectedStationAtom)
   // destination / customStation / customCommutes / aiRecallAvailable は atom 層から自取
@@ -99,6 +102,7 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
   const rentMap = useAtomValue(rentMapAtom)
   const governmentRent = useAtomValue(governmentRentAtom)
   const lineStyles = useAtomValue(lineStylesAtom)
+  const lineNamesEn = useAtomValue(lineNamesEnAtom)
   const areaFeatures = useAtomValue(areaFeaturesAtom)
   const stationEntrances = useAtomValue(stationEntrancesAtom)
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
@@ -286,8 +290,8 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
 
   // 表示用ラベル — custom destination の場合は実際の駅名を出す（「カスタム」固定文字を回避）
   const destLabel = destination === 'custom'
-    ? (customStation?.name ?? t('customDestFallback'))
-    : getDestinationDisplayName(destination)
+    ? (customStation ? stationLabel(customStation, locale) : t('customDestFallback'))
+    : getDestinationDisplayName(destination, locale)
 
   // 主要路線 — build_stations_geojson_v3.py が station_database/out/main/line/*.json
   // を反向走査して駅 code → 路線名リストとして注入する（MapView 側で Station に展開）。
@@ -409,7 +413,7 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
               {t('stationLabel')}
             </div>
 
-            {/* station name (大字 36px) + romaji */}
+            {/* station name (大字 36px) — en は「Romaji 漢字」併記 */}
             <h2
               style={{
                 margin: 0,
@@ -421,7 +425,7 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
                 color: 'var(--ink)',
               }}
             >
-              {station.name}
+              {stationHeading(station, locale)}
             </h2>
             <div
               style={{
@@ -527,6 +531,7 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
                   key={`${station.code}-${destination}`}
                   stationCode={station.code}
                   stationName={station.name}
+                  stationDisplayName={stationLabel(station, locale)}
                   destination={destination}
                   destLabel={destLabel}
                   algorithmMin={algorithmMin}
@@ -657,7 +662,7 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
                 label={t('linesLabel')}
                 value={
                   mainLines.length > 0
-                    ? <LineList lines={mainLines} styles={lineStyles} />
+                    ? <LineList lines={mainLines} styles={lineStyles} namesEn={locale === 'en' ? lineNamesEn : undefined} />
                     : '—'
                 }
                 hint={mainLines.length === 0 ? t('linesHintNoData') : undefined}
@@ -916,7 +921,10 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
 // 各路線を「3.5px の色条 + 路線名」のインライン span として並べる。
 // 1 駅あたり最大 14 路線なので、自然な flex-wrap で 2-4 行に折り返す想定。
 // whiteSpace: nowrap で各 item が内部で折れないようにし、コンテナ側で行替えする。
-function LineList({ lines, styles }: { lines: string[]; styles: LineStyleMap }) {
+// namesEn は en locale 用の路線名英訳 map（色 lookup は常に日本語名キー）。
+function LineList({ lines, styles, namesEn }: {
+  lines: string[]; styles: LineStyleMap; namesEn?: Record<string, string>
+}) {
   return (
     <span style={{ display: 'inline', lineHeight: 1.95 }}>
       {lines.map((name, i) => (
@@ -940,7 +948,7 @@ function LineList({ lines, styles }: { lines: string[]; styles: LineStyleMap }) 
               background: getLineColor(name, styles),
             }}
           />
-          <span>{name}</span>
+          <span>{namesEn?.[name] ?? name}</span>
         </span>
       ))}
     </span>

@@ -21,6 +21,7 @@ import { useIsMobile } from '@/lib/useIsMobile'
 import {
   QUICK_DESTINATIONS,
   POPULAR_DESTINATIONS,
+  destinationLabel,
   getDestinationDisplayName,
   type FixedDestination,
 } from '@/lib/destinations'
@@ -42,6 +43,7 @@ import type { CustomStation, WizardDestination } from '@/lib/types'
 import { useAtomValue } from 'jotai'
 import { stationListAtom, graphAtom } from '@/lib/atoms/data'
 import { useTranslations, useLocale } from 'next-intl'
+import { stationLabel, stationMatches } from '@/lib/station-label'
 import AiResultGrid from './AiResultGrid'
 
 const BG  = '#f3ecdd'
@@ -239,9 +241,10 @@ export default function AiWizard({
     const d = partialRef.current.destination
     if (!d) return ''
     if (d === 'custom') {
-      return partialRef.current.customStation?.name ?? ''
+      const cs = partialRef.current.customStation
+      return cs ? stationLabel(cs, locale) : ''
     }
-    return getDestinationDisplayName(d as FixedDestination)
+    return getDestinationDisplayName(d as FixedDestination, locale)
   }
 
   /** partialRef から WizardDestination object を再構築（partial が完備な前提）。 */
@@ -526,6 +529,7 @@ function DestinationView({
   onExit:         () => void
 }) {
   const t = useTranslations('aiWizard')
+  const locale = useLocale()
   const [showMore, setShowMore] = useState(false)
   const [query, setQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
@@ -544,8 +548,8 @@ function DestinationView({
     const qNorm = normalizeForSearch(query)
     const out: CustomStation[] = []
     for (const { station, keys } of searchIndex) {
-      // 主名 / 別名 / 正規化版 のどれかに query または normalized query が部分一致すればヒット
-      if (keys.some(k => k.includes(q) || (qNorm && k.includes(qNorm)))) {
+      // 主名 / 別名 / 正規化版 + ローマ字（あれば）のどれかに query が部分一致すればヒット
+      if (keys.some(k => k.includes(q) || (qNorm && k.includes(qNorm))) || stationMatches(station, q)) {
         out.push(station)
         if (out.length >= 8) break
       }
@@ -696,7 +700,7 @@ function DestinationView({
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(168,51,43,.08)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                 >
-                  {s.name}
+                  {stationLabel(s, locale)}
                 </button>
               ))}
             </div>
@@ -757,7 +761,7 @@ function DestinationView({
                 e.currentTarget.style.borderColor = INK
               }}
             >
-              {opt.displayName}
+              {destinationLabel(opt, locale)}
             </button>
           ))}
         </div>
@@ -823,7 +827,7 @@ function DestinationView({
                   e.currentTarget.style.borderColor = 'rgba(28,24,18,.25)'
                 }}
               >
-                {opt.displayName}
+                {destinationLabel(opt, locale)}
               </button>
             ))}
           </div>

@@ -29,6 +29,7 @@ import {
   rentMapAtom,
   governmentRentAtom,
   lineStylesAtom,
+  lineNamesEnAtom,
   stationEntrancesAtom,
   graphAtom,
 } from '@/lib/atoms/data'
@@ -42,6 +43,7 @@ export function useDataLoaders(locale: string) {
   const setRentMap = useSetAtom(rentMapAtom)
   const setGovernmentRent = useSetAtom(governmentRentAtom)
   const setLineStyles = useSetAtom(lineStylesAtom)
+  const setLineNamesEn = useSetAtom(lineNamesEnAtom)
   const setAreaFeatures = useSetAtom(areaFeaturesAtom)
   const setStationEntrances = useSetAtom(stationEntrancesAtom)
   const setGraph = useSetAtom(graphAtom)
@@ -59,7 +61,7 @@ export function useDataLoaders(locale: string) {
           const p = f.properties
           const lat = f.geometry.coordinates[1]
           const lon = f.geometry.coordinates[0]
-          list.push({ code: p.code, name: p.name, lat, lon })
+          list.push({ code: p.code, name: p.name, nameEn: p.name_en, lat, lon })
           // 同名駅が存在する場合は最初の 1 件を保持（実用上稀）。
           if (!byName[p.name]) {
             byName[p.name] = { ...p, lat, lon } as Station
@@ -116,6 +118,17 @@ export function useDataLoaders(locale: string) {
       if (map) setLineStyles(map)
     })
   }, [setLineStyles])
+
+  // 路線名 → 英語名 map（en locale の表示用）。en 以外では fetch しない。
+  useEffect(() => {
+    if (locale !== 'en') return
+    fetch('/data/line_names_en.json')
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('line names en not available')))
+      .then((map: Record<string, string>) => setLineNamesEn(map))
+      .catch(() => {
+        // 未配信時は日本語路線名のまま表示する
+      })
+  }, [locale, setLineNamesEn])
 
   // 駅周辺エリアの AI 要約データ（1843 駅）。locale ごとに分かれた JSON を取得。
   useEffect(() => {

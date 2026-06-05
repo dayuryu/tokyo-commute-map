@@ -30,6 +30,7 @@ export {
   rentMapAtom,
   governmentRentAtom,
   lineStylesAtom,
+  lineNamesEnAtom,
   stationEntrancesAtom,
   graphAtom,
 } from './data'

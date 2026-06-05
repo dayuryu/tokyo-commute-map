@@ -127,6 +127,7 @@ export default function Home() {
     const custom: CustomStation = {
       code: station.code,
       name: station.name,
+      nameEn: station.name_en,
       lat:  station.lat,
       lon:  station.lon,
     }

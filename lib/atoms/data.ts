@@ -36,6 +36,10 @@ export const governmentRentAtom = atom<GovernmentRentMap>({})
 /** 路線スタイル（color/symbol）。StationDrawer の主要路線色条。 */
 export const lineStylesAtom = atom<LineStyleMap>({})
 
+/** 路線名 → 英語名（154 路線）。en locale の StationDrawer 主要路線表示。
+ *  404 時は空のまま → 日本語名 fallback。 */
+export const lineNamesEnAtom = atom<Record<string, string>>({})
+
 /** OSM 由来の駅出入口座標（~77% カバレッジ）。StationDrawer の Street View link。 */
 export const stationEntrancesAtom = atom<EntranceMap>({})
 

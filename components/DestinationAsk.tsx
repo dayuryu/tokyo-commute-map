@@ -2,10 +2,11 @@
 import { useState, useRef, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { useAtomValue } from 'jotai'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { useIsMobile } from '@/lib/useIsMobile'
 import type { Destination, CustomStation } from '@/lib/types'
-import { QUICK_DESTINATIONS, POPULAR_DESTINATIONS } from '@/lib/destinations'
+import { QUICK_DESTINATIONS, POPULAR_DESTINATIONS, destinationLabel } from '@/lib/destinations'
+import { stationLabel, stationMatches } from '@/lib/station-label'
 import { stationListAtom } from '@/lib/atoms/data'
 
 // editorial palette は Story と統一
@@ -39,6 +40,7 @@ export default function DestinationAsk({
   aiCacheFresh,
 }: Props) {
   const t = useTranslations('destinationAsk')
+  const locale = useLocale()
   const stationList = useAtomValue(stationListAtom)
   const isMobile = useIsMobile()
   const [mounted, setMounted] = useState(false)
@@ -62,7 +64,7 @@ export default function DestinationAsk({
   }, [isMobile, mounted])
 
   const filtered = query.length >= 1
-    ? stationList.filter(s => s.name.includes(query)).slice(0, 6)
+    ? stationList.filter(s => stationMatches(s, query)).slice(0, 6)
     : []
 
   function close(dest: Destination, custom: CustomStation | null) {
@@ -327,7 +329,7 @@ export default function DestinationAsk({
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(168,51,43,.10)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                 >
-                  {s.name}
+                  {stationLabel(s, locale)}
                 </button>
               ))}
             </div>
@@ -379,7 +381,7 @@ export default function DestinationAsk({
                 e.currentTarget.style.color = ASK_INK
               }}
             >
-              {opt.displayName}
+              {destinationLabel(opt, locale)}
             </button>
           ))}
         </div>
@@ -444,7 +446,7 @@ export default function DestinationAsk({
                   e.currentTarget.style.borderColor = 'rgba(28,24,18,.25)'
                 }}
               >
-                {opt.displayName}
+                {destinationLabel(opt, locale)}
               </button>
             ))}
           </div>

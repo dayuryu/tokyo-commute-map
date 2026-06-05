@@ -11,8 +11,11 @@
  * 「20 駅を眺めて選ぶ」体験を引き締める。
  */
 
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
+import { useAtomValue } from 'jotai'
 import type { Recommendation } from '@/lib/ai-recommend/types'
+import { stationByNameAtom } from '@/lib/atoms/data'
+import { stationLabel } from '@/lib/station-label'
 
 const INK = '#1c1812'
 const DIM = '#7d7060'
@@ -39,6 +42,14 @@ export default function AiResultGrid({
   isFallback,
   isCached,
 }: Props) {
+  // en locale では station_name (日本語識別子) をローマ字表示に変換する。
+  // onStationClick へ渡す値は日本語名のまま（stationByName lookup の key）。
+  const locale = useLocale()
+  const stationByName = useAtomValue(stationByNameAtom)
+  const displayName = (name: string) => {
+    const st = stationByName[name]
+    return st ? stationLabel(st, locale) : name
+  }
   return (
     <div className="ai-result-print-root">
       <Header destinationLabel={destinationLabel} isFallback={isFallback} isCached={isCached} />
@@ -56,6 +67,7 @@ export default function AiResultGrid({
           <Card
             key={`${r.station_name}-${i}`}
             rec={r}
+            displayName={displayName(r.station_name)}
             rank={i + 1}
             onClick={() => onStationClick(r.station_name)}
           />
@@ -154,12 +166,15 @@ function Header({
 
 function Card({
   rec,
+  displayName,
   rank,
   onClick,
 }: {
-  rec:     Recommendation
-  rank:    number
-  onClick: () => void
+  rec:         Recommendation
+  /** locale 対応済みの表示名（en はローマ字、それ以外は station_name と同値） */
+  displayName: string
+  rank:        number
+  onClick:     () => void
 }) {
   return (
     <button
@@ -218,7 +233,7 @@ function Card({
           lineHeight: 1.25,
         }}
       >
-        {rec.station_name}
+        {displayName}
       </div>
 
       {/* reason */}

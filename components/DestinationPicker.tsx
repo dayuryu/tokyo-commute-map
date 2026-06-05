@@ -2,7 +2,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import type { CustomStation } from '@/lib/types'
 import {
   QUICK_DESTINATIONS,
@@ -10,15 +10,18 @@ import {
   type FixedDestination,
 } from '@/lib/destinations'
 import { stationListAtom } from '@/lib/atoms/data'
+import { stationLabel, stationMatches } from '@/lib/station-label'
+import { destinationLabel } from '@/lib/destinations'
 import {
   destinationAtom,
   customStationAtom,
   setDestinationAtom,
 } from '@/lib/atoms/domain'
 
+// label は locale 依存のため render 時に destinationLabel() で決める
 const OPTIONS = QUICK_DESTINATIONS.map(d => ({
   value: d.slug as FixedDestination,
-  label: d.displayName,
+  meta: d,
 }))
 
 // 駅名 → fixed destination slug の逆引きマップ。検索選択時に
@@ -34,6 +37,7 @@ const NAME_TO_FIXED_SLUG: Record<string, FixedDestination> = (() => {
 
 export default function DestinationPicker() {
   const t = useTranslations('destinationPicker')
+  const locale = useLocale()
   const stationList = useAtomValue(stationListAtom)
   // domain atom を自取 — props drilling を解消（ADR-0003 P3）。
   const value = useAtomValue(destinationAtom)
@@ -46,7 +50,7 @@ export default function DestinationPicker() {
   const containerRef = useRef<HTMLDivElement>(null)
 
   const filtered = query.length >= 1
-    ? stationList.filter(s => s.name.includes(query)).slice(0, 8)
+    ? stationList.filter(s => stationMatches(s, query)).slice(0, 8)
     : []
 
   // カスタム駅が選択されている状態
@@ -124,7 +128,7 @@ export default function DestinationPicker() {
               color: value === opt.value ? '#f5e7d2' : 'var(--ink-soft)',
             }}
           >
-            {opt.label}
+            {destinationLabel(opt.meta, locale)}
           </button>
         ))}
         {/* 検索アイコンボタン */}
@@ -161,7 +165,7 @@ export default function DestinationPicker() {
               letterSpacing: '.04em',
             }}
           >
-            <span>{customStation.name}</span>
+            <span>{stationLabel(customStation, locale)}</span>
             <button onClick={clearCustom} className="ml-1 hover:opacity-70 leading-none">×</button>
           </div>
         ) : (
@@ -209,7 +213,7 @@ export default function DestinationPicker() {
                       letterSpacing: '.02em',
                     }}
                   >
-                    {s.name}
+                    {stationLabel(s, locale)}
                   </button>
                 ))}
               </div>

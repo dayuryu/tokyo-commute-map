@@ -8,7 +8,10 @@ import type { Destination } from '@/lib/types'
 
 interface Props {
   stationCode:  number
+  /** 日本語駅名 — DB (station_time_corrections.station_name) の識別子。表示には使わない */
   stationName:  string
+  /** locale 対応済みの表示名（en はローマ字）。省略時は stationName を表示 */
+  stationDisplayName?: string
   destination:  Destination
   destLabel:    string
   algorithmMin: number
@@ -39,7 +42,7 @@ const linkBtnStyle: CSSProperties = {
 }
 
 export default function CorrectionReporter({
-  stationCode, stationName, destination, destLabel, algorithmMin,
+  stationCode, stationName, stationDisplayName, destination, destLabel, algorithmMin,
 }: Props) {
   const t = useTranslations('correctionReporter')
   const [open,       setOpen]       = useState(false)
@@ -156,7 +159,7 @@ export default function CorrectionReporter({
         letterSpacing: '.06em',
         marginBottom: 10,
       }}>
-        {t('inputLead', { stationName, destLabel })}
+        {t('inputLead', { stationName: stationDisplayName ?? stationName, destLabel })}
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>

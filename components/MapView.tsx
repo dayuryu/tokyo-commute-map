@@ -2,10 +2,12 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
+import { useLocale } from 'next-intl'
 import maplibregl from 'maplibre-gl'
 import type { Destination, Station, CustomStation, CustomCommutesMap } from '@/lib/types'
 import { BUCKET_COLORS, getBucketThresholds, bucketize } from '@/lib/buckets'
 import { DESTINATIONS_META } from '@/lib/destinations'
+import { stationLabel } from '@/lib/station-label'
 import { maxMinutesAtom, maxTransfersAtom, selectedStationAtom } from '@/lib/atoms/ui'
 import { destinationAtom, customStationAtom } from '@/lib/atoms/domain'
 import { customCommutesAtom, aiHighlightFeaturesAtom } from '@/lib/atoms/derived'
@@ -223,6 +225,9 @@ interface Props {
 }
 
 export default function MapView({ onReady }: Props) {
+  // locale 切替はフルナビゲーション（LocaleLink / LocaleButton が router.replace）
+  // なので、map 初期化時に閉じ込めた値で一貫する。
+  const locale = useLocale()
   const destination = useAtomValue(destinationAtom)
   const customStation = useAtomValue(customStationAtom)
   const customCommutes = useAtomValue(customCommutesAtom)
@@ -306,7 +311,7 @@ export default function MapView({ onReady }: Props) {
           destInfo[meta.slug] = {
             code:   matched.properties.code,
             coords: [lon, lat],
-            label:  meta.displayName,
+            label:  locale === 'en' ? meta.displayNameEn : meta.displayName,
           }
         }
       }
@@ -377,6 +382,11 @@ export default function MapView({ onReady }: Props) {
         filter: ['==', ['get', 'is_major'], false],
       })
 
+      // 駅名ラベルの text-field — en はローマ字（未生成駅は日本語に fallback）
+      const labelTextField: maplibregl.ExpressionSpecification | string = locale === 'en'
+        ? ['coalesce', ['get', 'name_en'], ['get', 'name']]
+        : ['get', 'name'] as maplibregl.ExpressionSpecification
+
       // 主要駅名ラベル（zoom >= 10、cluster 段階でも代表駅名は見える）
       map.addLayer({
         id: 'stations-label-major',
@@ -384,7 +394,7 @@ export default function MapView({ onReady }: Props) {
         source: 'stations',
         minzoom: 10,
         layout: {
-          'text-field': ['get', 'name'],
+          'text-field': labelTextField,
           'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 10, 11, 14, 13],
           'text-offset': [0, 1.2],
@@ -408,7 +418,7 @@ export default function MapView({ onReady }: Props) {
         source: 'stations',
         minzoom: 11,
         layout: {
-          'text-field': ['get', 'name'],
+          'text-field': labelTextField,
           'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 12],
           'text-offset': [0, 1.1],
@@ -554,6 +564,7 @@ export default function MapView({ onReady }: Props) {
           setSelectedStation({
             code: props.code,
             name: props.name,
+            name_en: props.name_en,
             lat: geo.coordinates[1],
             lon: geo.coordinates[0],
             bucket: props.bucket,
@@ -566,9 +577,10 @@ export default function MapView({ onReady }: Props) {
           const props = e.features?.[0]?.properties
           const geo = e.features?.[0]?.geometry as any
           if (!props || !geo) return
+          const popupName = locale === 'en' ? (props.name_en ?? props.name) : props.name
           popup
             .setLngLat(geo.coordinates)
-            .setHTML(`<span class="station-popup-name">${props.name}</span>`)
+            .setHTML(`<span class="station-popup-name">${popupName}</span>`)
             .addTo(map)
         })
         map.on('mouseleave', layerId, () => {
@@ -645,7 +657,7 @@ export default function MapView({ onReady }: Props) {
 
     if (destination === 'custom' && customStation) {
       coords = [customStation.lon, customStation.lat]
-      label = customStation.name
+      label = stationLabel(customStation, locale)
     } else if (destination !== 'custom') {
       const info = destInfoRef.current[destination]
       if (info) {
@@ -672,7 +684,7 @@ export default function MapView({ onReady }: Props) {
       isFirstRender.current = false
     }
 
-  }, [destination, customStation, destInfoReady])
+  }, [destination, customStation, destInfoReady, locale])
 
   // ── 選択中駅 → 黒ピン更新 + 該当駅の散点/label 隠す + flyTo ──────────
   // 通勤先（赤ピン）と同一駅の場合はマーカー出さない（赤ピンが既にあるため）。
@@ -722,7 +734,7 @@ export default function MapView({ onReady }: Props) {
 
     const coords: [number, number] = [selectedStation.lon, selectedStation.lat]
     selectedMarkerRef.current = new maplibregl.Marker({
-      element: createSelectedPinElement(selectedStation.name),
+      element: createSelectedPinElement(stationLabel(selectedStation, locale)),
       anchor:  'top-left',
       offset:  [-16, -44],
     })
@@ -743,7 +755,7 @@ export default function MapView({ onReady }: Props) {
       essential: true,
       offset:   isDesktop ? [-190, 0] : [0, 0],
     })
-  }, [selectedStation, destination, customStation, destInfoReady])
+  }, [selectedStation, destination, customStation, destInfoReady, locale])
 
   // ── AI highlight features 更新 ──
   // aiCache が新しく確定 / 失効 / リコール時に aiHighlightFeaturesAtom が変わる。

@@ -26,6 +26,9 @@ export type { Destination, FixedDestination } from '@/lib/destinations'
 export interface CustomStation {
   code: number
   name: string
+  /** 駅名標準式ローマ字（en locale 表示用）。generate_station_names_en.py が
+   *  stations.geojson の properties.name_en として注入する。 */
+  nameEn?: string
   lat: number
   lon: number
 }
@@ -49,6 +52,8 @@ export type CommuteFields = {
 export interface Station extends CommuteFields {
   code: number
   name: string
+  /** 駅名標準式ローマ字（en locale 表示用） */
+  name_en?: string
   lat: number
   lon: number
   /** shinjuku ベースのデフォルト bucket（5 分刻みの分類値） */
