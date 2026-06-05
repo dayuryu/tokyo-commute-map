@@ -160,7 +160,7 @@ export default function HeaderMenu({ onHelp }: Props) {
             <div className="flex gap-1.5" style={{ paddingLeft: 28 }}>
               <LocaleButton target="ja" active={locale === 'ja'} label="JA" pathname={pathname} onClose={() => setOpen(false)} />
               <LocaleButton target="zh" active={locale === 'zh'} label="ZH" pathname={pathname} onClose={() => setOpen(false)} />
-              {/* TODO(i18n-en): locales に 'en' を戻したらここに <LocaleButton target="en" label="EN" .../> を追加。 */}
+              <LocaleButton target="en" active={locale === 'en'} label="EN" pathname={pathname} onClose={() => setOpen(false)} />
             </div>
           </div>
         </div>
@@ -172,8 +172,7 @@ export default function HeaderMenu({ onHelp }: Props) {
 function LocaleButton({
   target, active, label, pathname, onClose,
 }: {
-  // TODO(i18n-en): locales に 'en' 再投入時に 'ja' | 'zh' | 'en' へ拡張。
-  target: 'ja' | 'zh'
+  target: 'ja' | 'zh' | 'en'
   active: boolean
   label: string
   pathname: string

@@ -42,11 +42,14 @@ export function bucketize(minutes: number, thresholds: number[]): number {
  * Legend で表示する bucket 範囲ラベル。
  * 例: thresholds=[5,10] → ["< 5分","5–10","10+"]
  *     thresholds=[15,30,45,60,75] → ["< 15分","15–30","30–45","45–60","60–75","> 75"]
+ *
+ * unit は locale 依存（ja/zh: "分"、en: " min"）。呼び出し側が
+ * legend.minuteUnit の翻訳値を渡す。既定は従来挙動の "分"。
  */
-export function getBucketLabels(thresholds: number[]): string[] {
+export function getBucketLabels(thresholds: number[], unit: string = '分'): string[] {
   if (thresholds.length === 0) return ['全範囲']
   const labels: string[] = []
-  labels.push(`< ${thresholds[0]}分`)
+  labels.push(`< ${thresholds[0]}${unit}`)
   for (let i = 1; i < thresholds.length; i++) {
     labels.push(`${thresholds[i - 1]}–${thresholds[i]}`)
   }

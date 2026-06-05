@@ -13,6 +13,7 @@
     "commuteTime": "通勤时间",
     "near": "近",
     "far": "远",
+    "minuteUnit": "分",
     "rangeUnit": "{max} 分钟"
   },
   "welcome": {

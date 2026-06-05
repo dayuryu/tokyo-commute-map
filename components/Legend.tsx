@@ -8,7 +8,7 @@ export default function Legend() {
   const t = useTranslations('legend')
   const maxMinutes = useAtomValue(maxMinutesAtom)
   const thresholds = getBucketThresholds(maxMinutes)
-  const labels = getBucketLabels(thresholds)
+  const labels = getBucketLabels(thresholds, t('minuteUnit'))
 
   return (
     <>

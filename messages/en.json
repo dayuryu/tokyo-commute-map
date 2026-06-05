@@ -13,6 +13,7 @@
     "commuteTime": "Commute time",
     "near": "Near",
     "far": "Far",
+    "minuteUnit": " min",
     "rangeUnit": "{max} min"
   },
   "welcome": {
@@ -25,6 +26,40 @@
     "footerStory": "Story",
     "footerRoutes": "Routes",
     "footerReviews": "Reviews"
+  },
+  "story": {
+    "page1": {
+      "n": "一",
+      "en": "I · A Sea of Names",
+      "title": "Names You Don't Know",
+      "p1": "In and around Tokyo, there are 1,843 stations.",
+      "p2": "At night, their lights spread out like a sea of names.",
+      "p3Italic": "You search online for a place to move——",
+      "p4Quote": "\"30 minutes to Shibuya, rent ¥70,000\"",
+      "p5": "The screen fills with rows of station names you have never heard of.",
+      "p6Red": "But what light the morning begins with,<br></br>when your life lands at that station —<br></br>a name alone will never tell you."
+    },
+    "page2": {
+      "n": "二",
+      "en": "II · The Other Map",
+      "title": "Another Map",
+      "p1": "Measured in commute time, the map begins to change its colors.",
+      "p2": "1,843 stations start telling you how many minutes away they stand.",
+      "p3Dim": "Near stations in green, distant ones in vermilion."
+    },
+    "page3": {
+      "n": "終",
+      "en": "Coda · Your Turn",
+      "title": "Your Turn",
+      "p1Lead": "From here on,",
+      "p1Red": "it's your turn.",
+      "h2Line1": "Set out on foot,",
+      "h2Line2": "and find the town",
+      "h2Line3": "that's yours alone.",
+      "dimP": "Somewhere in Tokyo, surely,<br></br>one station you don't know yet is waiting — yours alone.<br></br>AI and reviews are only signposts.<br></br>With every scroll of the screen,<br></br>what sets out is your own curiosity.",
+      "button": "Open the map →",
+      "footer": "1843 stations · waiting"
+    }
   },
   "language": {
     "switcher": "Language",
@@ -40,7 +75,7 @@
     "subtitleLine2": "speak around your center.",
     "heroBadgeNew": "✦ AI Advisor · New",
     "heroBadgeUsed": "✦ AI Advisor · Used",
-    "heroCtaNew": "Answer 6 questions, let ChatGPT suggest →",
+    "heroCtaNew": "Answer 6 questions, let ChatGPT suggest →",
     "heroCtaUsed": "View your past 20 recommendations →",
     "heroLimitNote": "New recommendations limited to once every 24 hours.",
     "searchPlaceholder": "Enter station name (e.g. Kichijoji)",
@@ -129,6 +164,8 @@
     "rentSourceNone": "No data (population under 15k)",
     "linesLabel": "Main lines",
     "linesHintNoData": "(data unavailable)",
+    "streetViewLabel": "Street View",
+    "streetViewLink": "See the area on Google",
     "areaFeaturesLabel": "Neighborhood features",
     "areaFeaturesDisclaimer": "ChatGPT summary · for reference. Verify locally for current conditions.",
     "areaFeaturesNoData": "(no data)",
@@ -151,6 +188,39 @@
     "hint1": "Drawing routes",
     "hint2": "Arranging stations",
     "hint3": "Mapping the commute"
+  },
+  "timeSlider": {
+    "label": "Max commute",
+    "valueSuffix": "min"
+  },
+  "transferFilter": {
+    "trigger": "Transfers",
+    "dropdownHeader": "Number of transfers",
+    "noLimitLabel": "No limit",
+    "noLimitSub": "Show all routes",
+    "directLabel": "Direct only",
+    "directSub": "Arrive without transfers",
+    "oneLabel": "Up to 1 transfer",
+    "oneSub": "Arrive with at most one transfer"
+  },
+  "destinationPicker": {
+    "searchTitle": "Search stations",
+    "searchPlaceholder": "Search stations..."
+  },
+  "correctionReporter": {
+    "triggerNormal": "Is this time off? Report the correct one →",
+    "triggerCustom": "About this time →",
+    "submitError": "Submission failed. Please try again later.",
+    "submitted": "✓ Thanks for reporting (applied after 3+ reports)",
+    "customInfoBody": "Correction reports for custom destinations ({destLabel}) are coming soon.",
+    "customInfoNote": "Currently, community corrections cover commute times to the 30 major destinations (Shinjuku, Shibuya, Tokyo, Ikebukuro, Shinagawa, etc.).",
+    "close": "← Close",
+    "inputLead": "Actual commute time from {stationName} to {destLabel} (min)",
+    "inputPlaceholder": "e.g. 35",
+    "submitting": "…",
+    "submit": "Report",
+    "rangeHint": "* Enter within ±{tolerance} min of the {algorithm} min estimate",
+    "consensusNote": "* Displayed time updates after 3+ reports"
   },
   "cookieConsent": {
     "ariaLabel": "Cookie consent",

@@ -80,7 +80,7 @@ export async function generateMetadata({
   // self-canonical (e.g. /zh → /zh) ではなく x-default に集約する戦略を採る。
   // 言語別ターゲティングは alternates.languages の hreflang で Google に伝える。
   const canonicalUrl = SITE_URL
-  const ogLocale = locale === 'zh' ? 'zh_CN' : 'ja_JP'
+  const ogLocale = locale === 'zh' ? 'zh_CN' : locale === 'en' ? 'en_US' : 'ja_JP'
 
   return {
     metadataBase: new URL(SITE_URL),
@@ -97,6 +97,7 @@ export async function generateMetadata({
       languages: {
         ja: `${SITE_URL}/`,
         zh: `${SITE_URL}/zh`,
+        en: `${SITE_URL}/en`,
         'x-default': `${SITE_URL}/`,
       },
     },

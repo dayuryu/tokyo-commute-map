@@ -61,7 +61,9 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
     rafId = requestAnimationFrame(tick)
 
     const TITLE_START = 600
-    const TITLE_STEP = 75
+    // ラテン文字 locale (en) は文字数が CJK の約 3 倍になるため、1 文字あたりの
+    // step を縮めて合計タイピング時間を CJK と同程度（~0.9-1.4s）に揃える。
+    const TITLE_STEP = TITLE_TEXT.length > 20 ? 40 : 75
     const SUB_FADE = 1400 // subtitle fade-in after title done
 
     const titleTimers: number[] = []
@@ -339,11 +341,7 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
       >
         <LocaleLink locale="ja" active={locale === 'ja'} label="JA" inkActive={INK_S} inkIdle={INK_M} />
         <LocaleLink locale="zh" active={locale === 'zh'} label="ZH" inkActive={INK_S} inkIdle={INK_M} />
-        {/* TODO(i18n-en): 英語版は次フェーズで再開。i18n/routing.ts の locales に 'en' を
-            戻し、messages/en.json のレイアウト調整 (button label / tagline 行高 / Legend
-            ラベル幅) を済ませてからアンコメント。
         <LocaleLink locale="en" active={locale === 'en'} label="EN" inkActive={INK_S} inkIdle={INK_M} />
-        */}
       </div>
 
       {/* ── brand mark (top-left): Kayoha + 通葉 ────────── */}
@@ -588,6 +586,9 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
                     borderRadius: 0,
                     whiteSpace: 'nowrap',
                     flex: isMobile ? '1 1 0' : 'none',
+                    // en など長いラベルが等分幅 (basis 0) を超える場合は flexWrap で
+                    // 縦積みに退避させる（nowrap のままはみ出させない）。
+                    minWidth: isMobile ? 'fit-content' : undefined,
                     transition: 'all .25s',
                   }}
                   onMouseEnter={(e) => {
@@ -619,6 +620,7 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
                     borderRadius: 0,
                     whiteSpace: 'nowrap',
                     flex: isMobile ? '1 1 0' : 'none',
+                    minWidth: isMobile ? 'fit-content' : undefined,
                     transition: 'all .25s',
                   }}
                   onMouseEnter={(e) => {
@@ -694,8 +696,7 @@ function LocaleLink({
   inkActive,
   inkIdle,
 }: {
-  // TODO(i18n-en): locales に 'en' 再投入時にここも 'ja' | 'zh' | 'en' に拡張。
-  locale: 'ja' | 'zh'
+  locale: 'ja' | 'zh' | 'en'
   active: boolean
   label: string
   inkActive: string
