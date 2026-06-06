@@ -11,12 +11,19 @@
 ## ⭐ 次に着手する候補（優先度別）
 
 ### 🥇 最優先（次 session の起点）
-1. **Perf 深掘り session（LCP 11.7s → 3s 目標）** — Lighthouse Mobile/Desktop Perf 65 から動かない最大の根因が LCP。culprit 候補:
-   - i18n routing による `/` → `/ja` redirect 385ms（middleware optimize / rewrite 化検討）
-   - 未使用 JavaScript 280ms（chunk splitting / dynamic import / Tree shake）
-   - welcome-bg.mp4 (2.27MB) を WebM/AV1 圧縮で半減
-   - フォント chunk ~120 個 / ~7MB を self-host + subset 強化
-   - MapLibre dynamic import で初回 chunk 軽量化
+1. **Perf 深掘り 第 2 弾（LCP 11.0s → 3s 目標）** — 第 1 弾 (2026-06-06、commit `ac9fc6c`) でフォント preload 暴走を根治:
+   next/font は CJK フォントに latin subset が無いため preload が全 unicode-range 切片に退化、
+   Shippori Mincho 364 切片 ~11MB を `<link rel=preload>` していた → `preload: false` で解消。
+   併せて未使用 weight 700 削除 (render-blocking CSS -25%)、welcome 動画 VP9 化 (2.2MB → 896KB)。
+   ローカル計測 (mobile 模擬): フォント転送 11.97MB → 1.02MB、ja 路線 Perf 65 / FCP 3.6s / LCP 11.0s。
+   **残る candidates**:
+   - デプロイ後 PSI 実測で効果確認（運営側 5 分）
+   - Noto SC ×2 の render-blocking CSS 195KB (gzip) は ja/en ページに純損 — next/font は per-locale 分割不可、
+     手書き @font-face + locale 条件 link 等のアーキテクチャ変更が必要（中工事）
+   - MapLibre 含む 346KB chunk の dynamic import 化
+   - welcome 動画の遅延ロード（LCP 確定後に source 注入する案、Welcome 第一印象との trade-off 要検討）
+   - 計測注意: PSI は Accept-Language: en-US のため `/` → 302 `/en` を踏む（en 上線の副作用）。
+     localeDetection は現状維持と決定 (2026-06-06)。ローカル計測時は `--extra-headers` で ja 固定すること
 2. **Rich Results Test で FAQPage 検証**（運営側 5 分） — push 済の commit `afcba79` の Schema.org JSON-LD が Google に認識されるか
    `search.google.com/test/rich-results` で `https://kayoha.com/to/shinjuku` を測定
 
@@ -401,3 +408,4 @@ React Native / フル native 書き換えは **永続的に非推奨**。
 | 2026-06-04 | **ADR-0003 Jotai 全面 atom 化 P0-P6 完了**（commits `bcd988f` 〜 `b31060a`）。page.tsx 726 → 341 行 (-53%)、destination ⟺ customStation 不変量を atom 構造で錠掛け |
 | 2026-06-05 | **英語版 (en) 上線**（commits `4fa3197` `e3bd913` `95f8fb8`）。en.json 完訳 + 全 1831 駅名・154 路線名の標準式ローマ字化（`generate_station_names_en.py` → `name_en` 注入 + `station_names_en.json` / `line_names_en.json`）+ `lib/station-label.ts` 新設で UI 全面接線（Drawer 併記 / romaji 検索 / EN 目的地名） |
 | 2026-06-06 | ドキュメント全体整理（README / todo の駅数 1831 反映、英語版上線状態の同期、i18n section 再構成） |
+| 2026-06-06 (夜) | **Perf 深掘り第 1 弾**（commits `ac9fc6c` `93b511b`）。next/font の CJK preload 退化 (Shippori 364 切片 ~11MB を preload) を `preload: false` で根治 + 未使用 weight 700 削除 + welcome 動画 VP9 化 (-60%)。フォント転送 11.97MB → 1.02MB。併せて user-facing copy の駅数 1843 → 1831 全同期（messages 三語 / manifest / landing 30 頁 / credits / 注釈）。PSI の `/` → `/en` 302 問題を特定、localeDetection 現状維持と決定 |
