@@ -11,19 +11,18 @@
 ## ⭐ 次に着手する候補（優先度別）
 
 ### 🥇 最優先（次 session の起点）
-1. **Perf 深掘り 第 2 弾（LCP 11.0s → 3s 目標）** — 第 1 弾 (2026-06-06、commit `ac9fc6c`) でフォント preload 暴走を根治:
-   next/font は CJK フォントに latin subset が無いため preload が全 unicode-range 切片に退化、
-   Shippori Mincho 364 切片 ~11MB を `<link rel=preload>` していた → `preload: false` で解消。
-   併せて未使用 weight 700 削除 (render-blocking CSS -25%)、welcome 動画 VP9 化 (2.2MB → 896KB)。
-   ローカル計測 (mobile 模擬): フォント転送 11.97MB → 1.02MB、ja 路線 Perf 65 / FCP 3.6s / LCP 11.0s。
-   **残る candidates**:
-   - デプロイ後 PSI 実測で効果確認（運営側 5 分）
-   - Noto SC ×2 の render-blocking CSS 195KB (gzip) は ja/en ページに純損 — next/font は per-locale 分割不可、
-     手書き @font-face + locale 条件 link 等のアーキテクチャ変更が必要（中工事）
-   - MapLibre 含む 346KB chunk の dynamic import 化
-   - welcome 動画の遅延ロード（LCP 確定後に source 注入する案、Welcome 第一印象との trade-off 要検討）
-   - 計測注意: PSI は Accept-Language: en-US のため `/` → 302 `/en` を踏む（en 上線の副作用）。
-     localeDetection は現状維持と決定 (2026-06-06)。ローカル計測時は `--extra-headers` で ja 固定すること
+1. **Perf 深掘り — 第 1+2 弾完了 (2026-06-06)、現状は「演出優先」方針の均衡点**
+   - 第 1 弾 (`ac9fc6c`): next/font CJK preload 退化 (Shippori 364 切片 ~11MB を preload) を `preload: false` で根治
+     + 未使用 weight 700 削除 + welcome 動画 VP9 化 (2.2MB → 896KB)
+   - 第 2 弾 (`1fc16d7`): MapView (MapLibre ~350KB) を next/dynamic 化。冷訪問は Welcome 中 MapLibre を一切取得せず、
+     回訪は LoadingOverlay 背後で chunk 取得 (CDP で canvas 描画検証済)
+   - **線上実測 (ja/mobile 模擬)**: LCP 11.7s → **8.2s** / FCP 2.7s / TBT 60ms / CLS 0 / 初回 JS 242KB / Perf 66
+   - **残 LCP の主因は Welcome 演出**: LCP 要素 = tagline の渐入 (render delay ~2.5s)。
+     「演出優先・跑分は犠牲」とプロダクト決定 (2026-06-06) のため、これ以上は追わない
+   - 将来の小ネタ (任意): Noto SC ×2 render-blocking CSS は ja/en に純損 (Brotli 後 ~66KB、next/font の
+     per-locale 分割不可で中工事) / geojson 等 fetch の priority hint / welcome 動画遅延ロード (演出 trade-off)
+   - 計測注意: PSI は Accept-Language: en-US のため `/` → 302 `/en` を踏む（en 上線の副作用、現状維持と決定）。
+     ローカル / 線上計測時は `--extra-headers` で `{"Accept-Language":"ja"}` 固定すること
 2. **Rich Results Test で FAQPage 検証**（運営側 5 分） — push 済の commit `afcba79` の Schema.org JSON-LD が Google に認識されるか
    `search.google.com/test/rich-results` で `https://kayoha.com/to/shinjuku` を測定
 
@@ -409,3 +408,4 @@ React Native / フル native 書き換えは **永続的に非推奨**。
 | 2026-06-05 | **英語版 (en) 上線**（commits `4fa3197` `e3bd913` `95f8fb8`）。en.json 完訳 + 全 1831 駅名・154 路線名の標準式ローマ字化（`generate_station_names_en.py` → `name_en` 注入 + `station_names_en.json` / `line_names_en.json`）+ `lib/station-label.ts` 新設で UI 全面接線（Drawer 併記 / romaji 検索 / EN 目的地名） |
 | 2026-06-06 | ドキュメント全体整理（README / todo の駅数 1831 反映、英語版上線状態の同期、i18n section 再構成） |
 | 2026-06-06 (夜) | **Perf 深掘り第 1 弾**（commits `ac9fc6c` `93b511b`）。next/font の CJK preload 退化 (Shippori 364 切片 ~11MB を preload) を `preload: false` で根治 + 未使用 weight 700 削除 + welcome 動画 VP9 化 (-60%)。フォント転送 11.97MB → 1.02MB。併せて user-facing copy の駅数 1843 → 1831 全同期（messages 三語 / manifest / landing 30 頁 / credits / 注釈）。PSI の `/` → `/en` 302 問題を特定、localeDetection 現状維持と決定 |
+| 2026-06-06 (深夜) | **Perf 第 2 弾: MapView dynamic import**（commit `1fc16d7`）。MapLibre ~350KB を初回バンドルから分離、冷訪問は Welcome 中取得ゼロ・回訪は LoadingOverlay 背後で取得 (CDP 検証済)。線上実測 LCP 11.7 → **8.2s** / TBT 60ms / CLS 0 / 初回 JS 242KB。残 LCP は Welcome 演出由来 (render delay 2.5s) — 「演出優先」方針でここを均衡点とする |
