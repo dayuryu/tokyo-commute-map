@@ -130,7 +130,7 @@ export function useDataLoaders(locale: string) {
       })
   }, [locale, setLineNamesEn])
 
-  // 駅周辺エリアの AI 要約データ（1843 駅）。locale ごとに分かれた JSON を取得。
+  // 駅周辺エリアの AI 要約データ（全駅分）。locale ごとに分かれた JSON を取得。
   useEffect(() => {
     loadAreaFeaturesData(locale).then(data => {
       if (data?.stations) setAreaFeatures(data.stations)

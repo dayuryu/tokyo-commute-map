@@ -15,7 +15,7 @@ import type { LineStyleMap } from '@/lib/line-styles'
 import type { EntranceMap } from '@/lib/station-entrances'
 import type { PreparedGraph } from '@/lib/dijkstra'
 
-/** 1843 駅の {code,name,lat,lon}。DestinationPicker / AiWizard / DestinationAsk の検索源。 */
+/** 全 1831 駅の {code,name,lat,lon}。DestinationPicker / AiWizard / DestinationAsk の検索源。 */
 export const stationListAtom = atom<CustomStation[]>([])
 
 /** 駅名 → Station の lookup。AI highlight / wizard resolve で駅名から駅情報を引く。 */

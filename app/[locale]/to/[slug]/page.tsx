@@ -90,7 +90,7 @@ export async function generateMetadata({
   if (!isFixedDestination(slug)) return {}
   const meta = DESTINATIONS_META.find(m => m.slug === slug)!
   const title = `${meta.displayName}への通勤時間地図`
-  const description = `${meta.displayName} を通勤先とした東京圏 1843 駅の通勤時間地図。AI 推薦・家賃目安・周辺の特徴・コミュニティ評価で、${meta.displayName} 通勤に合う街を探す。`
+  const description = `${meta.displayName} を通勤先とした東京圏 1831 駅の通勤時間地図。AI 推薦・家賃目安・周辺の特徴・コミュニティ評価で、${meta.displayName} 通勤に合う街を探す。`
   return {
     title,
     description,
@@ -136,7 +136,7 @@ export default async function ToDestinationPage({
   const others = DESTINATIONS_META.filter(m => m.slug !== slug)
 
   const fallbackDescription =
-    `${meta.displayName} を通勤先として街選びをする人のための地図ページです。Kayoha では東京圏 1843 駅それぞれから ${meta.displayName} までの通勤時間を実際の GTFS 時刻表で算出し、5 分刻みのカラーリングで一目で読める形に整理しています。家賃の目安、周辺エリアの特徴、コミュニティの評価をあわせて確認しながら、自分に合う街を地図上で探してください。`
+    `${meta.displayName} を通勤先として街選びをする人のための地図ページです。Kayoha では東京圏 1831 駅それぞれから ${meta.displayName} までの通勤時間を実際の GTFS 時刻表で算出し、5 分刻みのカラーリングで一目で読める形に整理しています。家賃の目安、周辺エリアの特徴、コミュニティの評価をあわせて確認しながら、自分に合う街を地図上で探してください。`
 
   const webPageJsonLd = {
     '@context': 'https://schema.org',

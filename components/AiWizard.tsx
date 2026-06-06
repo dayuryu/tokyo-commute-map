@@ -309,7 +309,7 @@ export default function AiWizard({
   function handleCustomDestination(station: CustomStation) {
     if (state.phase !== 'q' || state.index !== 0) return
     if (!graph) return
-    // client Dijkstra で 1843 駅 → custom 駅 の通勤を算出
+    // client Dijkstra で全駅 → custom 駅 の通勤を算出
     // computeCommutes は Map<code, {mins, transfers}> を返す
     const map = computeCommutes(graph, station.code)
     const commuteByCode: CommuteByCode = {}
@@ -502,7 +502,7 @@ export default function AiWizard({
 }
 
 // ── Q1: 通勤先選択ビュー ──────────────────────────────────────────
-// 検索 input + autocomplete dropdown（任意の 1843 駅）+ QUICK 3 駅 大ボタン
+// 検索 input + autocomplete dropdown（任意の駅）+ QUICK 3 駅 大ボタン
 // + 「他から選ぶ」展開で POPULAR 27 駅 chip。
 // DestinationAsk と視覚的に統一。
 function DestinationView({
@@ -518,7 +518,7 @@ function DestinationView({
   index:          number
   total:          number
   isMobile:       boolean
-  /** 1843 駅 list — 検索 autocomplete 用 */
+  /** 全 1831 駅 list — 検索 autocomplete 用 */
   stationList:    CustomStation[]
   /** graph.json がロード済みか — false の時は検索結果クリックを silently disable */
   graphReady:     boolean
@@ -535,7 +535,7 @@ function DestinationView({
   const [showDropdown, setShowDropdown] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // 駅名検索の事前計算 — 1843 駅に対して「主名・別名・軽量化版」の組合せキーを作る。
+  // 駅名検索の事前計算 — 全駅に対して「主名・別名・軽量化版」の組合せキーを作る。
   // station_database は「四ツ谷(四ッ谷)」「霞ケ関」のような表記揺れを含むため、
   // 「四谷」入力で「四ツ谷」にヒットさせるには小カナ削除等の正規化が必須。
   const searchIndex = useMemo(() => {
@@ -623,7 +623,7 @@ function DestinationView({
           {t('q1Title')}
         </h1>
 
-        {/* 検索 input + autocomplete — 任意の 1843 駅
+        {/* 検索 input + autocomplete — 任意の駅
             graph 未ロード時は input 自体は使えるが、結果クリック時は selectStation 内で silent ignore */}
         <div style={{ position: 'relative', maxWidth: 360, margin: '0 auto 24px' }}>
           <input

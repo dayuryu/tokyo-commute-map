@@ -17,7 +17,7 @@ import { graphAtom, stationByNameAtom } from '@/lib/atoms/data'
 import { aiCacheAtom, isAiCacheFresh } from '@/lib/atoms/ai-cache'
 
 /**
- * custom destination 時の 1843 駅 → custom 駅 通勤 map。
+ * custom destination 時の全駅 → custom 駅 通勤 map。
  * MapView の paint property と StationDrawer の通勤時間表示の single source of truth。
  * customStation / graph が変化したときのみ再計算（jotai が依存追跡）。
  */

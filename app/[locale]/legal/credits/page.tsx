@@ -66,7 +66,7 @@ export default function CreditsPage() {
               ライセンス: <span className="font-mono-num">CC BY 4.0</span>
             </div>
             <div className="text-sm text-sp-txt mt-2 leading-relaxed">
-              本サイトに掲載されている 1843 駅の座標・路線属性・乗換情報。
+              本サイトに掲載されている 1831 駅の座標・路線属性・乗換情報。
             </div>
           </li>
         </ul>

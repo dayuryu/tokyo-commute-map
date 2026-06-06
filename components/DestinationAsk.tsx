@@ -478,7 +478,7 @@ export default function DestinationAsk({
           fontSize: isMobile ? 9 : 10,
           letterSpacing: '.32em', color: '#a89c82',
         }}>
-          1843 stations · waiting
+          1831 stations · waiting
         </div>
       </div>
     </div>

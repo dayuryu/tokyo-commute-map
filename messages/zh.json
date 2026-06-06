@@ -32,7 +32,7 @@
       "n": "一",
       "en": "I · A Sea of Names",
       "title": "陌生的名字",
-      "p1": "东京和周边，有 1843 座车站。",
+      "p1": "东京和周边，有 1831 座车站。",
       "p2": "入了夜，她的灯火便铺展开来，像一片名字的海。",
       "p3Italic": "在网上查找新住处——",
       "p4Quote": "\"到涩谷 30 分钟，房租 7 万日元\"",
@@ -58,7 +58,7 @@
       "h2Line3": "却已经适合你。",
       "dimP": "AI 也好，口碑也好，都是路标。<br></br>一座车站会不会成为生活，<br></br>终究要等你亲自走近。",
       "button": "翻开地图 →",
-      "footer": "1843 座车站，等你出发。"
+      "footer": "1831 座车站，等你出发。"
     }
   },
   "language": {
@@ -71,7 +71,7 @@
     "marker": "Where · 通勤目的地",
     "h1Line1": "请告诉我们",
     "h1Line2": "您的通勤目的地。",
-    "subtitleLine1": "从这里开始，1843 个车站",
+    "subtitleLine1": "从这里开始，1831 个车站",
     "subtitleLine2": "将围绕您的中心展开。",
     "heroBadgeNew": "✦ AI Advisor · 新功能",
     "heroBadgeUsed": "✦ AI Advisor · 已使用",
@@ -89,7 +89,7 @@
     "q1SearchPlaceholderReady": "搜索车站名...",
     "q1SearchPlaceholderLoading": "加载中...",
     "q1PopularToggle": "其他热门通勤目的地（27 站）▼",
-    "q1FallbackNote": "AI 推荐支持全部 1843 个车站作为通勤目的地。请搜索或从下方热门车站选择。",
+    "q1FallbackNote": "AI 推荐支持全部 1831 个车站作为通勤目的地。请搜索或从下方热门车站选择。",
     "q1BackToMap": "← 想自己探索？返回地图",
     "q2Title": "通勤时间上限是？",
     "q2Opt30": "30 分钟以内",
@@ -117,7 +117,7 @@
     "destinationContext": "以通勤至 {name} 为前提",
     "destinationToHeading": "前往 {name}",
     "back": "← 返回上一题",
-    "loadingHeading1": "正在从 1843 个车站中，",
+    "loadingHeading1": "正在从 1831 个车站中，",
     "loadingHeading2": "为您挑选最合适的 20 个。",
     "loadingSubtitle": "通常需要 5 ～ 10 秒",
     "errorTitle": "无法获取推荐",

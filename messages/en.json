@@ -58,7 +58,7 @@
       "h2Line3": "that's yours alone.",
       "dimP": "Somewhere in Tokyo, surely,<br></br>one station you don't know yet is waiting — yours alone.<br></br>AI and reviews are only signposts.<br></br>With every scroll of the screen,<br></br>what sets out is your own curiosity.",
       "button": "Open the map →",
-      "footer": "1843 stations · waiting"
+      "footer": "1831 stations · waiting"
     }
   },
   "language": {
@@ -71,7 +71,7 @@
     "marker": "Where · Destination",
     "h1Line1": "Tell us your",
     "h1Line2": "commute destination.",
-    "subtitleLine1": "From here, 1843 stations begin to",
+    "subtitleLine1": "From here, 1831 stations begin to",
     "subtitleLine2": "speak around your center.",
     "heroBadgeNew": "✦ AI Advisor · New",
     "heroBadgeUsed": "✦ AI Advisor · Used",
@@ -89,7 +89,7 @@
     "q1SearchPlaceholderReady": "Search station...",
     "q1SearchPlaceholderLoading": "Loading...",
     "q1PopularToggle": "27 more popular destinations ▼",
-    "q1FallbackNote": "AI advisor supports all 1843 stations as destinations. Search above or pick from popular below.",
+    "q1FallbackNote": "AI advisor supports all 1831 stations as destinations. Search above or pick from popular below.",
     "q1BackToMap": "← Prefer to explore yourself? Back to map",
     "q2Title": "Max commute time?",
     "q2Opt30": "Within 30 min",

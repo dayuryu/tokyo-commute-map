@@ -46,7 +46,7 @@ export interface CustomDestinationInfo {
 }
 
 /**
- * クライアント側 Dijkstra で算出した 1843 駅 → custom destination の通勤情報。
+ * クライアント側 Dijkstra で算出した全駅 → custom destination の通勤情報。
  * destination === 'custom' の時に POST body に同梱、server は geojson の
  * 預計算 min_to_<slug> の代わりにこの map を引いて候補選別する。
  *
