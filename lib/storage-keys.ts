@@ -21,6 +21,9 @@ export const STORAGE_KEYS = {
   /** AI 推薦 24h cache (localStorage)。recall は cache hit で OpenAI 呼ばずに再表示 */
   aiCache: 'tcm.ai_cache.v1',
 
+  /** お気に入り駅 code の配列 (localStorage)。上限 MAX_FAVORITES 駅 */
+  favorites: 'tcm.favorites.v1',
+
   /** Cookie 同意ステータス (localStorage)。'all' | 'rejected' */
   cookieConsent: 'tcm.cookie_consent.v1',
 

@@ -1,7 +1,9 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { useSetAtom } from 'jotai'
 import { useTranslations, useLocale } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
+import { favoritesPanelOpenAtom } from '@/lib/atoms/favorites'
 
 interface Props {
   onHelp: () => void
@@ -24,6 +26,7 @@ export default function HeaderMenu({ onHelp }: Props) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const setFavoritesPanelOpen = useSetAtom(favoritesPanelOpenAtom)
 
   useEffect(() => {
     function onOutside(e: MouseEvent | TouchEvent) {
@@ -92,6 +95,22 @@ export default function HeaderMenu({ onHelp }: Props) {
         }}
       >
         <div className="py-1.5">
+          <MenuItem
+            onClick={() => { setOpen(false); setFavoritesPanelOpen(true) }}
+            icon={
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M8 2l1.8 3.7 4.2.6-3 2.9.7 4.1L8 11.4l-3.7 1.9.7-4.1-3-2.9 4.2-.6L8 2z"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            }
+            label={t('favorites')}
+            sub={t('favoritesSub')}
+          />
+
           <MenuItem
             onClick={() => { setOpen(false); onHelp() }}
             icon={

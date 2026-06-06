@@ -20,3 +20,12 @@ export const ONE_DAY_MS = 24 * 60 * 60 * 1000
  *  子コンポーネントの transition: opacity .9s と同期。
  *  変更時は globals.css の対応する transition 値も併せて修正。 */
 export const OVERLAY_FADE_MS = 900
+
+// ──────────────────────────────────────────────────────────────
+// お気に入り駅
+// ──────────────────────────────────────────────────────────────
+
+/** お気に入り登録の上限駅数。地図 ★ 描画とリスト UX が破綻しない範囲 +
+ *  「比較候補」という機能趣旨に十分な数。lib/atoms/favorites.ts の toggle と
+ *  StationDrawer の上限メッセージが共有する。 */
+export const MAX_FAVORITES = 30

@@ -11,6 +11,7 @@ import { stationLabel } from '@/lib/station-label'
 import { maxMinutesAtom, maxTransfersAtom, selectedStationAtom } from '@/lib/atoms/ui'
 import { destinationAtom, customStationAtom } from '@/lib/atoms/domain'
 import { customCommutesAtom, aiHighlightFeaturesAtom } from '@/lib/atoms/derived'
+import { favoriteFeaturesAtom } from '@/lib/atoms/favorites'
 
 // 30 個の fixed destination の coord / code / label は stations.geojson 読み込み時に
 // 動的検索する（旧 v3.4 の hardcode 3 件を完全廃止）。
@@ -253,6 +254,10 @@ export default function MapView({ onReady }: Props) {
   // ADR-0003 P4 諸動の verify で発覚）。
   const aiHighlightFeaturesRef = useRef(aiHighlightFeatures)
   useEffect(() => { aiHighlightFeaturesRef.current = aiHighlightFeatures }, [aiHighlightFeatures])
+  // お気に入り ★ も同じ race 対策（localStorage hydrate と map load の競合）。
+  const favoriteFeatures = useAtomValue(favoriteFeaturesAtom)
+  const favoriteFeaturesRef = useRef(favoriteFeatures)
+  useEffect(() => { favoriteFeaturesRef.current = favoriteFeatures }, [favoriteFeatures])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -530,6 +535,38 @@ export default function MapView({ onReady }: Props) {
         },
       })
 
+      // ── お気に入り駅 ★（常駐標記） ──
+      // 駅点の真上に accent 藏青の ★ を symbol で描く。slider / cluster と解耦
+      // （独立 source）— filter で散点が消えてもお気に入りの位置は見失わない。
+      // ★ U+2605 は OpenFreeMap の 'Noto Sans Bold' glyph range (9728-9983.pbf)
+      // に存在することを確認済（'Open Sans Bold' には無いので注意）。
+      // text-offset は em 単位: -1.05em ≈ 散点 (r8-9px) の上縁に乗る。
+      // 站名 label は下方 offset (+1.1) なので衝突しない。
+      map.addSource('stations-favorites', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: favoriteFeaturesRef.current },
+      })
+      map.addLayer({
+        id: 'stations-favorites',
+        type: 'symbol',
+        source: 'stations-favorites',
+        layout: {
+          'text-field': '★',
+          'text-font': ['Noto Sans Bold'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 8, 13, 11, 16, 16, 20],
+          'text-offset': [0, -1.05],
+          'text-anchor': 'center',
+          // collision 計算から完全に外す — お気に入りは常に見える + 他 label を押し退けない
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+        },
+        paint: {
+          'text-color': '#14365b', // --accent（globals.css palette 内、新色ではない）
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1.6,
+        },
+      })
+
       // ── 駅クリック・ホバー（major/minor/unclustered 共通） ──
       const stationLayers = ['stations-major', 'stations-minor', 'clusters-unclustered']
       stationLayers.forEach(layerId => {
@@ -789,6 +826,35 @@ export default function MapView({ onReady }: Props) {
       map.off('styledata', onData)
     }
   }, [aiHighlightFeatures])
+
+  // ── お気に入り ★ features 更新 ──
+  // toggle / bootstrap 復元で favoriteFeaturesAtom が変わる度に source を更新。
+  // race 対策は AI highlight と同一パターン（sourcedata / styledata retry）。
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    const apply = (): boolean => {
+      const src = map.getSource('stations-favorites') as maplibregl.GeoJSONSource | undefined
+      if (!src) return false
+      src.setData({ type: 'FeatureCollection', features: favoriteFeatures })
+      return true
+    }
+
+    if (apply()) return
+    const onData = () => {
+      if (apply()) {
+        map.off('sourcedata', onData)
+        map.off('styledata', onData)
+      }
+    }
+    map.on('sourcedata', onData)
+    map.on('styledata', onData)
+    return () => {
+      map.off('sourcedata', onData)
+      map.off('styledata', onData)
+    }
+  }, [favoriteFeatures])
 
   return <div ref={containerRef} className="w-full h-full" />
 }

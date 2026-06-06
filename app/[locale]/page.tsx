@@ -12,6 +12,7 @@ import LoadingOverlay from '@/components/LoadingOverlay'
 import Story from '@/components/Story'
 import Legend from '@/components/Legend'
 import HeaderMenu from '@/components/HeaderMenu'
+import FavoritesPanel from '@/components/FavoritesPanel'
 import CookieConsent from '@/components/CookieConsent'
 import DestinationAsk from '@/components/DestinationAsk'
 import AiWizard from '@/components/AiWizard'
@@ -41,7 +42,11 @@ import {
   onMapReadyOverlayAtom,
 } from '@/lib/atoms/overlay'
 import { useDataLoaders } from '@/hooks/useDataLoaders'
-import { useBootstrapDestination, useBootstrapAiCache } from '@/hooks/useBootstrap'
+import {
+  useBootstrapDestination,
+  useBootstrapAiCache,
+  useBootstrapFavorites,
+} from '@/hooks/useBootstrap'
 
 // MapLibre (~350KB transfer) を初回 JS バンドルから分離する。地図は Welcome /
 // LoadingOverlay の背後で初期化されるため、chunk の遅延到着はユーザーに見えない
@@ -68,9 +73,10 @@ export default function Home() {
   // 裏で処理するため、handleAiResultReady の手動 localStorage.setItem は不要。
   const [aiCache, setAiCache] = useAtom(aiCacheAtom)
   const aiCacheFresh = useAtomValue(aiCacheFreshAtom)
-  // 初回 mount で localStorage から destination / aiCache を復元（atom 経路）。
+  // 初回 mount で localStorage から destination / aiCache / お気に入りを復元（atom 経路）。
   useBootstrapDestination()
   useBootstrapAiCache()
+  useBootstrapFavorites()
 
   // データ加載層は lib/atoms/data.ts + hooks/useDataLoaders に移行。消費 component
   // （StationDrawer / DestinationPicker / AiWizard / DestinationAsk / MapView）は
@@ -263,6 +269,7 @@ export default function Home() {
             />
 
             <HeaderMenu onHelp={handleHelpClick} />
+            <FavoritesPanel />
             <CookieConsent />
           </>
         )}

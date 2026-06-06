@@ -2,6 +2,8 @@
   "header": {
     "openMenu": "打开菜单",
     "closeMenu": "关闭菜单",
+    "favorites": "我的收藏",
+    "favoritesSub": "查看收藏的车站",
     "howToUse": "使用说明",
     "howToUseSub": "进入故事与地图",
     "legal": "法律信息",
@@ -182,7 +184,19 @@
     "submitDo": "提交",
     "submitNeedAllThree": "请完成 3 项评价",
     "submittedThanks": "✓ 感谢您的评价",
-    "latestComments": "最新评论"
+    "latestComments": "最新评论",
+    "favAdd": "加入收藏",
+    "favRemove": "取消收藏",
+    "favLimit": "收藏上限为 {max} 个车站"
+  },
+  "favorites": {
+    "title": "我的收藏",
+    "close": "关闭",
+    "commuteTo": "到 {dest} 的通勤时间",
+    "minutes": "{min}分钟",
+    "remove": "将 {station} 移出收藏",
+    "emptyTitle": "还没有收藏的车站",
+    "emptyHint": "点开任意车站，按 ☆ 即可收藏到这里"
   },
   "loading": {
     "hint1": "正在绘制路线",

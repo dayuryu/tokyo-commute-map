@@ -15,6 +15,7 @@ import { useSetAtom } from 'jotai'
 import { setDestinationAtom } from '@/lib/atoms/domain'
 import { parseStoredDestination } from '@/lib/atoms/destination-storage'
 import { aiCacheAtom, readStoredAiCache } from '@/lib/atoms/ai-cache'
+import { favoritesAtom, readStoredFavorites } from '@/lib/atoms/favorites'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
 
 export function useBootstrapDestination() {
@@ -45,6 +46,19 @@ export function useBootstrapAiCache() {
   useEffect(() => {
     const stored = readStoredAiCache()
     if (stored) setAiCache(stored)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+}
+
+/**
+ * 初回マウント時に localStorage からお気に入り駅を復元する hook。
+ * 設計方針は useBootstrapAiCache と同一 — 公開 atom の write 経由で一本化する。
+ */
+export function useBootstrapFavorites() {
+  const setFavorites = useSetAtom(favoritesAtom)
+  useEffect(() => {
+    const stored = readStoredFavorites()
+    if (stored.length > 0) setFavorites(stored)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 }

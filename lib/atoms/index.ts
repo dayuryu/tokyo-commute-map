@@ -65,6 +65,16 @@ export {
   aiHighlightFeaturesAtom,
 } from './derived'
 
+// ── お気に入り駅 ──
+export {
+  favoritesAtom,
+  toggleFavoriteAtom,
+  favoriteStationsAtom,
+  favoriteFeaturesAtom,
+  favoritesPanelOpenAtom,
+  readStoredFavorites,
+} from './favorites'
+
 // ── Overlay 状態機 ──
 export {
   overlayAtom,

@@ -2,6 +2,8 @@
   "header": {
     "openMenu": "メニューを開く",
     "closeMenu": "メニューを閉じる",
+    "favorites": "お気に入り",
+    "favoritesSub": "保存した駅の一覧",
     "howToUse": "使い方・はじめに",
     "howToUseSub": "物語と地図の入口へ",
     "legal": "法的情報",
@@ -182,7 +184,19 @@
     "submitDo": "投稿する",
     "submitNeedAllThree": "3 項目を評価してください",
     "submittedThanks": "✓ 投稿ありがとうございます",
-    "latestComments": "最新コメント"
+    "latestComments": "最新コメント",
+    "favAdd": "お気に入りに追加",
+    "favRemove": "お気に入りを解除",
+    "favLimit": "お気に入りは {max} 駅までです"
+  },
+  "favorites": {
+    "title": "お気に入り",
+    "close": "閉じる",
+    "commuteTo": "{dest} への通勤時間",
+    "minutes": "{min}分",
+    "remove": "{station} をお気に入りから外す",
+    "emptyTitle": "お気に入りはまだありません",
+    "emptyHint": "駅をタップして ☆ を押すと、ここに保存されます"
   },
   "loading": {
     "hint1": "路線をひいています",

@@ -18,10 +18,13 @@ import {
 import { destinationAtom, customStationAtom } from '@/lib/atoms/domain'
 import { customCommutesAtom } from '@/lib/atoms/derived'
 import { aiRecallAvailableAtom } from '@/lib/atoms/ai-cache'
+import { favoritesAtom, toggleFavoriteAtom } from '@/lib/atoms/favorites'
 import { areaFeaturesAtom } from '@/lib/atoms/area-features'
+import { MAX_FAVORITES } from '@/lib/constants'
 import CorrectionReporter from './CorrectionReporter'
 import { buildAffiliateLink, ALL_PROGRAMS, type AffiliateProgram } from '@/lib/affiliate'
 import { getDestinationDisplayName, getDestinationTransitName, DESTINATIONS_META } from '@/lib/destinations'
+import { round5 } from '@/lib/buckets'
 import { stationHeading, stationLabel } from '@/lib/station-label'
 import { getSingleRentLabel, getCoupleRentLabel } from '@/lib/manual-rent'
 import { formatGovernmentRent } from '@/lib/government-rent'
@@ -37,13 +40,7 @@ const AFFILIATE_SHORT_LABELS: Record<AffiliateProgram, string> = {
   chintai: 'CHINTAI',
 }
 
-function round5(n: number): number {
-  // n <= 0 は destination 自身（自分への通勤時間）。0 のまま表示。
-  if (n <= 0) return 0
-  // 0 より大きい場合は「ほぼ着いてる距離」も最低 5 分として表示する。
-  // 神泉 → 渋谷 (raw 1-2 分) が「0 分」と表示される bug を回避。
-  return Math.max(5, Math.round(n / 5) * 5)
-}
+// round5（5 分刻み模糊化）は lib/buckets.ts に集約 — FavoritesPanel と共有。
 
 interface AvgScore {
   review_count: number
@@ -96,6 +93,15 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
   const customStation = useAtomValue(customStationAtom)
   const customCommutes = useAtomValue(customCommutesAtom)
   const aiRecallAvailable = useAtomValue(aiRecallAvailableAtom)
+  const favorites = useAtomValue(favoritesAtom)
+  const toggleFavorite = useSetAtom(toggleFavoriteAtom)
+  // お気に入り上限到達時の inline 警告。2.5s で自動消滅（cleanup 付き）。
+  const [favLimitHit, setFavLimitHit] = useState(false)
+  useEffect(() => {
+    if (!favLimitHit) return
+    const timer = setTimeout(() => setFavLimitHit(false), 2500)
+    return () => clearTimeout(timer)
+  }, [favLimitHit])
   const onClose = useCallback(() => setSelectedStation(null), [setSelectedStation])
   const consensus = useAtomValue(consensusAtom)
   const suumoMap = useAtomValue(suumoMapAtom)
@@ -413,20 +419,67 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
               {t('stationLabel')}
             </div>
 
-            {/* station name (大字 36px) — en は「Romaji 漢字」併記 */}
-            <h2
-              style={{
-                margin: 0,
-                fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
-                fontWeight: 600,
-                fontSize: 36,
-                lineHeight: 1.15,
-                letterSpacing: '.01em',
-                color: 'var(--ink)',
-              }}
-            >
-              {stationHeading(station, locale)}
-            </h2>
+            {/* station name (大字 36px) — en は「Romaji 漢字」併記。
+                右側にお気に入り ★ toggle（accent 藏青 = palette 内、地図 ★ と同色） */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <h2
+                style={{
+                  margin: 0,
+                  flex: 1,
+                  minWidth: 0,
+                  fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                  fontWeight: 600,
+                  fontSize: 36,
+                  lineHeight: 1.15,
+                  letterSpacing: '.01em',
+                  color: 'var(--ink)',
+                }}
+              >
+                {stationHeading(station, locale)}
+              </h2>
+              {(() => {
+                const isFav = favorites.includes(station.code)
+                return (
+                  <button
+                    onClick={() => {
+                      const ok = toggleFavorite(station.code)
+                      if (!ok) setFavLimitHit(true)
+                    }}
+                    aria-label={isFav ? t('favRemove') : t('favAdd')}
+                    aria-pressed={isFav}
+                    className="transition-transform duration-150 hover:scale-110 active:scale-95"
+                    style={{
+                      flexShrink: 0,
+                      width: 44,
+                      height: 44,
+                      marginTop: -2,
+                      marginRight: -8,
+                      fontSize: 26,
+                      lineHeight: 1,
+                      color: isFav ? 'var(--accent)' : 'var(--ink-mute)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {isFav ? '★' : '☆'}
+                  </button>
+                )
+              })()}
+            </div>
+            {favLimitHit && (
+              <div
+                role="status"
+                style={{
+                  marginTop: 4,
+                  fontSize: 12,
+                  color: 'var(--pin)',
+                  letterSpacing: '.02em',
+                }}
+              >
+                {t('favLimit', { max: MAX_FAVORITES })}
+              </div>
+            )}
             <div
               style={{
                 marginTop: 4,

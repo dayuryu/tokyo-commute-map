@@ -17,6 +17,7 @@
 - 💰 **家賃目安** — SUUMO 101 駅の駅別相場 + 政府統計 1940 駅の区平均家賃（二層 fallback）
 - 🏘️ **周辺の特徴** — 全駅に AI 生成の街紹介テキスト（日本語 + 中文）
 - 👥 **コミュニティ評価** — 物価・治安・電車混雑の 10 点スコア投稿 + 通勤時間訂正報告
+- ⭐ **お気に入り駅** — 駅を ★ で保存（最大 30 駅、localStorage）。地図に常駐表示 + 通勤時間つきリストで比較
 - 🏠 **物件検索連携** — SUUMO / HOME'S / CHINTAI 駅単位 deep link で迅速な物件探しへ
 - 🌐 **多言語対応** — 日本語 / English / 中文、next-intl による `[locale]` ルーティング + 全駅名・路線名のローマ字表記（EN）
 - 📄 **目的地ページ** — 30 駅の長文 SEO/AEO コンテンツ + FAQ 構造化データ
@@ -137,9 +138,10 @@ tokyo-commute-map/
 │       ├── page.tsx            — メインマップページ（orchestrator、状態は lib/atoms/）
 │       ├── legal/              — 法務 5 ページ (commerce / privacy / ads / contact / credits)
 │       └── to/[slug]/          — 30 駅 SEO ランディングページ + FAQ Schema.org
-├── components/                 — 16 コンポーネント
-│   ├── MapView.tsx             — MapLibre 地図 + cluster + Dijkstra + AI highlight
-│   ├── StationDrawer.tsx       — 駅ドロワー（通勤 + 家賃 + 周辺特徴 + 評価 + 物件検索）
+├── components/                 — 17 コンポーネント
+│   ├── MapView.tsx             — MapLibre 地図 + cluster + Dijkstra + AI highlight + お気に入り ★
+│   ├── StationDrawer.tsx       — 駅ドロワー（通勤 + 家賃 + 周辺特徴 + 評価 + 物件検索 + ★ toggle）
+│   ├── FavoritesPanel.tsx      — お気に入り駅リスト（通勤時間つき、HeaderMenu から開く）
 │   ├── AiWizard.tsx            — AI 推薦 6 問 Wizard
 │   ├── AiResultGrid.tsx        — AI 推薦 20 駅カード grid
 │   ├── AiRecallButton.tsx      — AI 推薦結果の再表示フロートボタン

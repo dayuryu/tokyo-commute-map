@@ -14,6 +14,17 @@ export const BUCKET_COLORS = [
 ] as const
 
 /**
+ * 通勤分数の 5 分刻み模糊化（v3.4 の表示方針）。
+ * StationDrawer / FavoritesPanel が同じ丸めを共有する。
+ * - n <= 0 は destination 自身（自分への通勤時間）→ 0 のまま
+ * - 0 < n は最低 5 分に切り上げ（神泉 → 渋谷 raw 1-2 分が「0 分」になる bug 回避）
+ */
+export function round5(n: number): number {
+  if (n <= 0) return 0
+  return Math.max(5, Math.round(n / 5) * 5)
+}
+
+/**
  * maxMinutes に応じて、0..maxMinutes をいくつかの bucket に分割する閾値配列を返す。
  * - maxMinutes <= 15: 3 bucket（5 分刻み）→ thresholds = [5, 10]
  * - maxMinutes > 15:  6 bucket（均等割り）→ thresholds = [m/6, 2m/6, ..., 5m/6]

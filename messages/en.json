@@ -2,6 +2,8 @@
   "header": {
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
+    "favorites": "Favorites",
+    "favoritesSub": "Your saved stations",
     "howToUse": "How to use",
     "howToUseSub": "Story & map entry",
     "legal": "Legal",
@@ -182,7 +184,19 @@
     "submitDo": "Submit",
     "submitNeedAllThree": "Rate all 3 items",
     "submittedThanks": "✓ Thanks for your review",
-    "latestComments": "Latest comments"
+    "latestComments": "Latest comments",
+    "favAdd": "Add to favorites",
+    "favRemove": "Remove from favorites",
+    "favLimit": "Favorites are limited to {max} stations"
+  },
+  "favorites": {
+    "title": "Favorites",
+    "close": "Close",
+    "commuteTo": "Commute to {dest}",
+    "minutes": "{min} min",
+    "remove": "Remove {station} from favorites",
+    "emptyTitle": "No favorites yet",
+    "emptyHint": "Tap any station and press ☆ to save it here"
   },
   "loading": {
     "hint1": "Drawing routes",
