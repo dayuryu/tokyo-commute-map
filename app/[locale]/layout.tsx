@@ -15,9 +15,18 @@ import { Analytics } from '@vercel/analytics/next'
 import { routing } from '@/i18n/routing'
 import Providers from '@/app/providers'
 
+// preload: false が必須 — CJK フォントは latin-only subset を持たないため、
+// next/font が preload を「全 unicode-range 切片」(364 file / ~11MB) に退化させ、
+// モバイル帯域を食い尽くして LCP を破壊する (font swap の再描画が LCP 計上される)。
+// false なら @font-face + unicode-range の遅延読込が働き、実際に描画する
+// 文字の切片 (数十 file) だけが fetch される。
+// weight 700 はプロジェクト全体で未使用 (700 を使うのは Inter / mono のみ) のため
+// 宣言しない — CJK フォントは 1 weight = 約 100 個の unicode-range 切片宣言になり、
+// render-blocking CSS をその分肥大させる。
 const shippori = Shippori_Mincho({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600'],
+  preload: false,
   variable: '--font-shippori',
   display: 'swap',
 })
@@ -51,7 +60,7 @@ const jetbrains = JetBrains_Mono({
 // preload: false で Latin ページの初期 fetch を節約 (zh ロケール時のみ load)。
 const notoSerifSC = Noto_Serif_SC({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600'],
   preload: false,
   variable: '--font-noto-serif-sc',
   display: 'swap',
@@ -59,14 +68,14 @@ const notoSerifSC = Noto_Serif_SC({
 
 const notoSansSC = Noto_Sans_SC({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600'],
   preload: false,
   variable: '--font-noto-sans-sc',
   display: 'swap',
 })
 
 const SITE_URL = 'https://kayoha.com'
-const SITE_DESCRIPTION = '東京圏 1843 駅を通勤時間でカラーリング。AI 推薦・家賃目安・周辺の特徴・コミュニティ評価で、次に住む街を探す地図。'
+const SITE_DESCRIPTION = '東京圏 1831 駅を通勤時間でカラーリング。AI 推薦・家賃目安・周辺の特徴・コミュニティ評価で、次に住む街を探す地図。'
 const SITE_TITLE_DEFAULT = 'Kayoha — 次の駅で、暮らしをめくる。'
 
 export async function generateMetadata({
@@ -162,7 +171,7 @@ const jsonLd = {
       name: 'Kayoha',
       alternateName: '通葉',
       url: 'https://kayoha.com',
-      description: '東京圏 1843 駅を通勤時間でカラーリング。AI 推薦・家賃目安・周辺の特徴・コミュニティ評価で、次に住む街を探す地図。',
+      description: '東京圏 1831 駅を通勤時間でカラーリング。AI 推薦・家賃目安・周辺の特徴・コミュニティ評価で、次に住む街を探す地図。',
       inLanguage: 'ja-JP',
       publisher: { '@id': 'https://kayoha.com/#organization' },
     },

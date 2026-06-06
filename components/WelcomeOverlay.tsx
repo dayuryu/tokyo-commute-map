@@ -250,7 +250,6 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video
           ref={setVideoEl}
-          src="/welcome-bg.mp4"
           poster="/welcome-poster.jpg"
           muted
           playsInline
@@ -273,7 +272,11 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
             opacity: mounted && !videoFrozen ? 1 : 0,
             willChange: 'transform',
           }}
-        />
+        >
+          {/* VP9 (-60%、896KB) を優先、未対応ブラウザは H.264 に fallback */}
+          <source src="/welcome-bg.webm" type="video/webm" />
+          <source src="/welcome-bg.mp4" type="video/mp4" />
+        </video>
 
         {/* parallax floating particles */}
         <div
