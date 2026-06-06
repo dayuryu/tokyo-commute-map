@@ -5,20 +5,20 @@
 **Live**: https://kayoha.com/
 
 通勤時間ベースで「どこに住むか」を直感的に決められる地図ツールです。
-東京圏 1843 駅を通勤所要時間で色分けし、駅をクリックすると通勤詳細・AI 推薦・家賃目安・周辺の特徴・コミュニティ評価・物件検索リンクが表示されます。
+東京圏 1831 駅を通勤所要時間で色分けし、駅をクリックすると通勤詳細・AI 推薦・家賃目安・周辺の特徴・コミュニティ評価・物件検索リンクが表示されます。
 
 ---
 
 ## 特長
 
-- 🗺️ **等時圏マップ** — 30 の主要目的地 + 任意のカスタム目的地への通勤時間で 1843 駅を 6 段階にカラーリング
+- 🗺️ **等時圏マップ** — 30 の主要目的地 + 任意のカスタム目的地への通勤時間で 1831 駅を 6 段階にカラーリング
 - 📊 **GTFS 真実時刻表** — 22 運営事業者の公開時刻表データから算出（rush-hour プールメディアン方式）
 - 🤖 **AI 駅推薦** — 6 問の偏好 Wizard → OpenAI が 20 駅を提案、地図上に一括ハイライト表示
 - 💰 **家賃目安** — SUUMO 101 駅の駅別相場 + 政府統計 1940 駅の区平均家賃（二層 fallback）
-- 🏘️ **周辺の特徴** — 1843 駅すべてに AI 生成の街紹介テキスト
+- 🏘️ **周辺の特徴** — 全駅に AI 生成の街紹介テキスト（日本語 + 中文）
 - 👥 **コミュニティ評価** — 物価・治安・電車混雑の 10 点スコア投稿 + 通勤時間訂正報告
 - 🏠 **物件検索連携** — SUUMO / HOME'S / CHINTAI 駅単位 deep link で迅速な物件探しへ
-- 🌐 **多言語対応** — 日本語（デフォルト）+ 中文（進行中）、next-intl による `[locale]` ルーティング
+- 🌐 **多言語対応** — 日本語 / English / 中文、next-intl による `[locale]` ルーティング + 全駅名・路線名のローマ字表記（EN）
 - 📄 **目的地ページ** — 30 駅の長文 SEO/AEO コンテンツ + FAQ 構造化データ
 - 📱 **モバイル最適化** — dvh viewport + responsive layout + タッチジェスチャー + safe area 対応
 
@@ -30,7 +30,7 @@
 |---|---|
 | Framework | Next.js 16 (App Router) + React 19 |
 | Language | TypeScript |
-| i18n | next-intl（`[locale]` ルーティング / ja・zh） |
+| i18n | next-intl（`[locale]` ルーティング / ja・en・zh） |
 | Styling | Tailwind CSS v4 + Springs editorial palette |
 | Map | MapLibre GL JS + OpenFreeMap liberty style |
 | AI | OpenAI API (gpt-5.4-nano) + react-markdown |
@@ -94,7 +94,7 @@ cp stations.geojson graph.json public/data/
 ```
 
 出力:
-- `public/data/stations.geojson` (1843 駅 + 30 destinations の通勤時間)
+- `public/data/stations.geojson` (1831 駅 + 30 destinations の通勤時間)
 - `public/data/graph.json` (隣接グラフ、カスタム目的地の client-side Dijkstra 用)
 
 ### SUUMO 駅 deep link — `suumo_stations.json`
@@ -119,6 +119,7 @@ PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python scripts/build_suumo_station_map.py
 | `build_station_entrances.py` | `station_entrances.json` | OSM 駅出入口座標 |
 | `build_line_styles.py` | `line_styles.json` | 路線カラー・スタイル |
 | `generate_area_features.py` | `area_features.json` | AI 生成の周辺特徴テキスト |
+| `generate_station_names_en.py` | `station_names_en.json` / `line_names_en.json` | 駅名・路線名の標準式ローマ字（EN 表示用、`stations.geojson` に `name_en` を注入） |
 
 ---
 
@@ -131,9 +132,9 @@ tokyo-commute-map/
 │   ├── globals.css             — MapLibre + Springs editorial palette tokens
 │   ├── sitemap.ts / robots.ts  — SEO
 │   ├── api/recommend/          — AI 推薦 API endpoint (OpenAI + Supabase)
-│   └── [locale]/               — next-intl i18n routing (ja / zh)
+│   └── [locale]/               — next-intl i18n routing (ja / en / zh)
 │       ├── layout.tsx          — html/body + fonts + metadata + JSON-LD
-│       ├── page.tsx            — メインマップページ（状態管理ルート）
+│       ├── page.tsx            — メインマップページ（orchestrator、状態は lib/atoms/）
 │       ├── legal/              — 法務 5 ページ (commerce / privacy / ads / contact / credits)
 │       └── to/[slug]/          — 30 駅 SEO ランディングページ + FAQ Schema.org
 ├── components/                 — 16 コンポーネント
@@ -154,20 +155,26 @@ tokyo-commute-map/
 │   ├── CookieConsent.tsx       — Cookie 同意バナー
 │   └── LoadingOverlay.tsx      — ローディング画面
 ├── i18n/                       — next-intl 設定
-│   ├── routing.ts              — locales / defaultLocale / localePrefix
+│   ├── routing.ts              — locales (ja / en / zh) / defaultLocale / localePrefix
 │   ├── request.ts              — getRequestConfig
 │   └── navigation.ts           — locale-aware Link / useRouter
 ├── proxy.ts                    — next-intl middleware（言語検出 + cookie）
 ├── messages/                   — i18n 翻訳ファイル
-│   ├── ja.json                 — 日本語（デフォルト、完全）
-│   └── zh.json                 — 中文（進行中）
+│   ├── ja.json                 — 日本語（デフォルト）
+│   ├── en.json                 — English
+│   └── zh.json                 — 中文
+├── hooks/
+│   ├── useDataLoaders.ts       — 静的データ fetch の集約（geojson / graph / 家賃 / EN 名等）
+│   └── useBootstrap.ts         — localStorage からの状態復元（destination / AI cache）
 ├── lib/
 │   ├── ai-recommend/           — AI 推薦 backend モジュール（7 ファイル）
+│   ├── atoms/                  — Jotai atom 層（UI / data / domain / overlay 状態管理）
 │   ├── dijkstra.ts             — client-side Dijkstra（カスタム目的地用）
-│   ├── destinations.ts         — 30 fixed destination メタデータ
+│   ├── destinations.ts         — 30 fixed destination メタデータ（ja / en 表示名）
+│   ├── station-label.ts        — 駅名の locale 別表示・検索マッチヘルパ（EN ローマ字対応）
 │   ├── buckets.ts              — 通勤時間バケット + 配色
 │   ├── affiliate.ts            — アフィリエイト link 生成（A8 wrap + fallback）
-│   ├── area-features.ts        — 1843 駅周辺特徴 loader
+│   ├── area-features.ts        — 駅周辺特徴 loader（locale-aware）
 │   ├── manual-rent.ts          — SUUMO 101 駅家賃
 │   ├── government-rent.ts      — 政府統計 1940 駅家賃
 │   ├── supabase.ts             — Supabase クライアント
@@ -177,10 +184,12 @@ tokyo-commute-map/
 │   ├── types/                  — 共有型定義
 │   └── ...                     — device-id / line-styles / yahoo-url / useIsMobile 等
 ├── public/data/
-│   ├── stations.geojson        — 1843 駅 + 30 destinations 通勤時間（スクリプト生成物）
+│   ├── stations.geojson        — 1831 駅 + 30 destinations 通勤時間（スクリプト生成物）
 │   ├── graph.json              — 隣接グラフ（スクリプト生成物）
-│   ├── area_features.json      — 1843 駅 周辺特徴（日本語）
-│   ├── area_features_zh.json   — 1843 駅 周辺特徴（中文）
+│   ├── area_features.json      — 駅周辺特徴（日本語）
+│   ├── area_features_zh.json   — 駅周辺特徴（中文）
+│   ├── station_names_en.json   — 駅名ローマ字マップ（スクリプト生成物）
+│   ├── line_names_en.json      — 路線名英語マップ（スクリプト生成物）
 │   ├── destinations_v2/        — 30 駅 SEO ランディングページ用長文 JSON
 │   ├── suumo_stations.json     — SUUMO 駅 deep link マップ
 │   ├── manual_rent_data.json   — SUUMO 101 駅家賃データ
@@ -193,6 +202,7 @@ tokyo-commute-map/
 │   ├── build_stations_geojson_v3.py  — GTFS 通勤時間 + graph.json 生成
 │   ├── build_suumo_station_map.py    — SUUMO 駅 deep link クロール
 │   ├── generate_area_features.py     — 周辺特徴 batch 生成
+│   ├── generate_station_names_en.py  — 駅名・路線名ローマ字生成 + geojson 注入
 │   ├── build_station_government_rent.py — 政府家賃データ生成
 │   └── ...                           — diagnose / lookup / merge 等
 └── docs/
