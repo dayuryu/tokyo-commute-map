@@ -1,8 +1,8 @@
 'use client'
 import { useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useLocale } from 'next-intl'
-import MapView from '@/components/MapView'
 import TimeSlider from '@/components/TimeSlider'
 import DestinationPicker from '@/components/DestinationPicker'
 import StationDrawer from '@/components/StationDrawer'
@@ -42,6 +42,12 @@ import {
 } from '@/lib/atoms/overlay'
 import { useDataLoaders } from '@/hooks/useDataLoaders'
 import { useBootstrapDestination, useBootstrapAiCache } from '@/hooks/useBootstrap'
+
+// MapLibre (~350KB transfer) を初回 JS バンドルから分離する。地図は Welcome /
+// LoadingOverlay の背後で初期化されるため、chunk の遅延到着はユーザーに見えない
+// (ローディング表示は既存の onReady 連動 LoadingOverlay がそのまま担う)。
+// canvas 前提の client-only コンポーネントなので ssr: false が自然。
+const MapView = dynamic(() => import('@/components/MapView'), { ssr: false })
 import type {
   CustomStation,
   Destination,
