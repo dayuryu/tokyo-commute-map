@@ -77,6 +77,7 @@ export default function PrivacyPage() {
         <ul className="list-disc pl-6 text-sm leading-relaxed space-y-1 text-sp-txt">
           <li>Supabase（米国 / Supabase Inc.）— 駅評価・通勤時間訂正データの保管</li>
           <li>Vercel（米国 / Vercel Inc.）— サイトホスティングおよびアクセスログ</li>
+          <li>Google LLC（米国）— アクセス解析（Google Analytics）。Cookie 同意で「すべて承認」を選択した場合のみ有効化されます</li>
           <li>各アフィリエイトプロバイダ — 詳細は{' '}
             <Link href="/legal/ads" className="underline">広告表示について</Link>
             {' '}をご確認ください

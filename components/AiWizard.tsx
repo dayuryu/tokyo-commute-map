@@ -44,6 +44,7 @@ import { useAtomValue } from 'jotai'
 import { stationListAtom, graphAtom } from '@/lib/atoms/data'
 import { useTranslations, useLocale } from 'next-intl'
 import { stationLabel, stationMatches } from '@/lib/station-label'
+import { trackEvent } from '@/lib/analytics'
 import AiResultGrid from './AiResultGrid'
 
 const BG  = '#f3ecdd'
@@ -275,6 +276,7 @@ export default function AiWizard({
       window.setTimeout(() => onClose(null), 700)
       return
     }
+    trackEvent('ai_result_station_click', { station: stationName })
     window.setTimeout(() => onResolve(dest, stationName), 700)
   }
 
@@ -291,6 +293,8 @@ export default function AiWizard({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       partialRef.current[q.key] = value as any
     }
+    // funnel 計測: 各設問の通過（step 1-6）。離脱点は step 間の落差で読む。
+    trackEvent('ai_wizard_step', { step: state.index + 1 })
 
     const next = state.index + 1
     // index 0 = destination, 1..5 = QUESTIONS[0..4] → 全 6 step
@@ -319,6 +323,8 @@ export default function AiWizard({
     partialRef.current.destination = 'custom'
     partialRef.current.customStation = station
     partialRef.current.commuteByCode = commuteByCode
+    // funnel 計測: custom destination 経由の Q1 通過も同じ step 1 として数える
+    trackEvent('ai_wizard_step', { step: 1 })
     setState({ phase: 'q', index: 1 })
   }
 
@@ -372,6 +378,7 @@ export default function AiWizard({
 
       if (!data.ok) {
         const canRetry = res.status !== 429  // rate limit は再試行不可
+        trackEvent('ai_error', { reason: res.status === 429 ? 'rate_limit' : 'api' })
         setState({
           phase: 'error',
           message: data.error || t('errorDefault'),
@@ -379,6 +386,10 @@ export default function AiWizard({
         })
         return
       }
+      trackEvent('ai_result_shown', {
+        cached: data.cached === true,
+        fallback: data.fallback === true,
+      })
       setState({
         phase: 'result',
         recs: data.recommendations,
@@ -395,6 +406,7 @@ export default function AiWizard({
       window.clearTimeout(timeoutId)
       const isAbort = e instanceof DOMException && e.name === 'AbortError'
       console.error('[AiWizard] /api/recommend failed:', e)
+      trackEvent('ai_error', { reason: isAbort ? 'timeout' : 'network' })
       setState({
         phase: 'error',
         message: isAbort ? t('errorTimeout') : t('errorNetwork'),

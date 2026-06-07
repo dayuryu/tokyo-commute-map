@@ -75,6 +75,14 @@ export {
   readStoredFavorites,
 } from './favorites'
 
+// ── Cookie 同意 ──
+export {
+  cookieConsentAtom,
+  hydrateConsentAtom,
+  readStoredConsent,
+  type CookieConsentValue,
+} from './consent'
+
 // ── Overlay 状態機 ──
 export {
   overlayAtom,

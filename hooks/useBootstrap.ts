@@ -16,6 +16,7 @@ import { setDestinationAtom } from '@/lib/atoms/domain'
 import { parseStoredDestination } from '@/lib/atoms/destination-storage'
 import { aiCacheAtom, readStoredAiCache } from '@/lib/atoms/ai-cache'
 import { favoritesAtom, readStoredFavorites } from '@/lib/atoms/favorites'
+import { hydrateConsentAtom } from '@/lib/atoms/consent'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
 
 export function useBootstrapDestination() {
@@ -59,6 +60,19 @@ export function useBootstrapFavorites() {
   useEffect(() => {
     const stored = readStoredFavorites()
     if (stored.length > 0) setFavorites(stored)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+}
+
+/**
+ * 初回マウント時に localStorage から Cookie 同意ステータスを復元する hook。
+ * hydrate 本体は `hydrateConsentAtom`（冪等）— AnalyticsGate / CookieConsent の
+ * 双方から呼ばれても localStorage を読むのは最初の 1 回だけ。
+ */
+export function useBootstrapConsent() {
+  const hydrate = useSetAtom(hydrateConsentAtom)
+  useEffect(() => {
+    hydrate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 }

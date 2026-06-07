@@ -27,6 +27,7 @@ import { useTranslations } from 'next-intl'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
 import { aiCacheFreshAtom } from '@/lib/atoms/ai-cache'
+import { trackEvent } from '@/lib/analytics'
 
 const INK = '#1c1812'
 const RED = '#a8332b'
@@ -45,7 +46,13 @@ export default function AiRecallButton({ onStartWizard, onRecallWizard }: Props)
   const t = useTranslations('aiRecallButton')
   const isMobile = useIsMobile()
   const hasCache = useAtomValue(aiCacheFreshAtom)
-  const onClick = hasCache ? onRecallWizard : onStartWizard
+  const onClick = () => {
+    trackEvent('ai_entry_click', {
+      entry: 'recall_button',
+      mode: hasCache ? 'recall' : 'new',
+    })
+    ;(hasCache ? onRecallWizard : onStartWizard)()
+  }
   const [showHint, setShowHint] = useState(false)
 
   // mount 時の attention sequence — session 内 1 回限り

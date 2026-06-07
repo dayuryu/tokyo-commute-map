@@ -8,6 +8,7 @@ import type { Destination, CustomStation } from '@/lib/types'
 import { QUICK_DESTINATIONS, POPULAR_DESTINATIONS, destinationLabel } from '@/lib/destinations'
 import { stationLabel, stationMatches } from '@/lib/station-label'
 import { stationListAtom } from '@/lib/atoms/data'
+import { trackEvent } from '@/lib/analytics'
 
 // editorial palette は Story と統一
 const ASK_BG  = '#f3ecdd'
@@ -76,12 +77,14 @@ export default function DestinationAsk({
   function startWizard() {
     if (closing) return
     setClosing(true)
+    trackEvent('ai_entry_click', { entry: 'ask_hero', mode: 'new' })
     onStartWizard()
   }
 
   function recallWizard() {
     if (closing) return
     setClosing(true)
+    trackEvent('ai_entry_click', { entry: 'ask_hero', mode: 'recall' })
     onRecallWizard()
   }
 

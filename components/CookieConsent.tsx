@@ -1,12 +1,10 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { useAtomValue } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import { useTranslations } from 'next-intl'
 import Link from 'next/link'
-import { STORAGE_KEYS } from '@/lib/storage-keys'
+import { cookieConsentAtom, type CookieConsentValue } from '@/lib/atoms/consent'
 import { selectedStationAtom } from '@/lib/atoms/ui'
-
-type Consent = 'all' | 'necessary'
+import { useBootstrapConsent } from '@/hooks/useBootstrap'
 
 /**
  * Cookie 同意横幅。
@@ -15,9 +13,10 @@ type Consent = 'all' | 'necessary'
  * 必要 Cookie 以外（解析・広告）はユーザーの明示的な同意があるまで送信しない方針。
  *
  * 動作：
- * - 初回マウント時に localStorage を読む
+ * - 状態は lib/atoms/consent.ts に集約（AnalyticsGate と共有 — 「すべて承認」を
+ *   押した瞬間に GA4 が連動で活性化する）
  * - 未選択（null）の場合のみ横幅を表示
- * - 「必要のみ」「すべて承認」のいずれかで localStorage に保存して非表示化
+ * - 「必要のみ」「すべて承認」のいずれかで atom write（localStorage 永続化込み）
  * - 親コンポーネント側で mapMounted 等で出すタイミングを制御する
  *   （WelcomeOverlay 表示中は本コンポーネント自体が mount されない設計）
  */
@@ -27,25 +26,11 @@ export default function CookieConsent() {
   // 左寄せ、モバイルでは非表示にして drawer に隠れたまま選択を強要されないように
   // する。drawer を閉じれば再表示。
   const drawerOpen = useAtomValue(selectedStationAtom) !== null
-  // undefined = まだ localStorage を読んでいない（hydration 待ち）
-  // null = 読み終わったが未選択 → 横幅を表示
-  // 'all' / 'necessary' = 既に選択済み → 表示しない
-  const [consent, setConsent] = useState<Consent | null | undefined>(undefined)
+  // undefined = まだ hydrate 前 / null = 未選択（横幅を表示）/ 'all' | 'necessary' = 選択済み
+  useBootstrapConsent()
+  const [consent, setConsent] = useAtom(cookieConsentAtom)
 
-  useEffect(() => {
-    // setState を effect の同期パスで呼ぶと React 19+ の set-state-in-effect 警告が
-    // 出るため rAF で次フレームに逃がす。視覚的にはユーザは差を感じない。
-    const id = requestAnimationFrame(() => {
-      let v: string | null = null
-      try { v = localStorage.getItem(STORAGE_KEYS.cookieConsent) } catch {}
-      if (v === 'all' || v === 'necessary') setConsent(v)
-      else setConsent(null)
-    })
-    return () => cancelAnimationFrame(id)
-  }, [])
-
-  function save(value: Consent) {
-    try { localStorage.setItem(STORAGE_KEYS.cookieConsent, value) } catch {}
+  function save(value: CookieConsentValue) {
     setConsent(value)
   }
 

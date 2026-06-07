@@ -14,6 +14,7 @@ import {
 import { Analytics } from '@vercel/analytics/next'
 import { routing } from '@/i18n/routing'
 import Providers from '@/app/providers'
+import AnalyticsGate from '@/components/AnalyticsGate'
 
 // preload: false が必須 — CJK フォントは latin-only subset を持たないため、
 // next/font が preload を「全 unicode-range 切片」(364 file / ~11MB) に退化させ、
@@ -222,7 +223,12 @@ export default async function LocaleLayout({ children, params }: Props) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <NextIntlClientProvider>
-          <Providers>{children}</Providers>
+          <Providers>
+            {/* GA4 gate は CookieConsent と同じ Jotai store を購読する必要が
+                あるため、必ず Providers の内側に置く */}
+            <AnalyticsGate />
+            {children}
+          </Providers>
         </NextIntlClientProvider>
         <Analytics />
       </body>

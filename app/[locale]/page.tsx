@@ -19,6 +19,7 @@ import AiWizard from '@/components/AiWizard'
 import AiRecallButton from '@/components/AiRecallButton'
 import type { Recommendation } from '@/lib/ai-recommend/types'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
+import { trackEvent } from '@/lib/analytics'
 import { selectedStationAtom } from '@/lib/atoms/ui'
 import { stationByNameAtom } from '@/lib/atoms/data'
 import { setDestinationAtom } from '@/lib/atoms/domain'
@@ -174,6 +175,7 @@ export default function Home() {
 
   function handleRecallAiFromDrawer() {
     if (!aiCache) return
+    trackEvent('ai_entry_click', { entry: 'drawer_link', mode: 'recall' })
     setSelectedStation(null)
     handleRecallWizard()
   }

@@ -24,7 +24,7 @@ export const STORAGE_KEYS = {
   /** お気に入り駅 code の配列 (localStorage)。上限 MAX_FAVORITES 駅 */
   favorites: 'tcm.favorites.v1',
 
-  /** Cookie 同意ステータス (localStorage)。'all' | 'rejected' */
+  /** Cookie 同意ステータス (localStorage)。'all' | 'necessary' */
   cookieConsent: 'tcm.cookie_consent.v1',
 
   /** デバイス UUID — 評価 / 通勤校正の重複防止用 (localStorage)。

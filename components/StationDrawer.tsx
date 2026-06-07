@@ -23,6 +23,7 @@ import { areaFeaturesAtom } from '@/lib/atoms/area-features'
 import { MAX_FAVORITES } from '@/lib/constants'
 import CorrectionReporter from './CorrectionReporter'
 import { buildAffiliateLink, ALL_PROGRAMS, type AffiliateProgram } from '@/lib/affiliate'
+import { trackEvent } from '@/lib/analytics'
 import { getDestinationDisplayName, getDestinationTransitName, DESTINATIONS_META } from '@/lib/destinations'
 import { round5 } from '@/lib/buckets'
 import { stationHeading, stationLabel } from '@/lib/station-label'
@@ -640,6 +641,7 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
                     href={buildAffiliateLink(station.name, id, suumoMap ?? undefined)}
                     target="_blank"
                     rel="noopener noreferrer sponsored"
+                    onClick={() => trackEvent('affiliate_click', { provider: id, station: station.name })}
                     className="text-center transition-opacity hover:opacity-70"
                     style={{
                       padding: '10px 6px',
