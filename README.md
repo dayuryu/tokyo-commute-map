@@ -66,6 +66,9 @@ NEXT_PUBLIC_A8_MAT_SUUMO=
 NEXT_PUBLIC_A8_MAT_HOMES=
 NEXT_PUBLIC_A8_MAT_CHINTAI=
 
+# 任意 — Google Analytics 4（未設定時は何も送信されない）
+NEXT_PUBLIC_GA4_ID=
+
 # 任意 — 法務ページ運営者情報
 OWNER_NAME=
 OWNER_ADDRESS=
@@ -77,6 +80,7 @@ NEXT_PUBLIC_SITE_URL=
 > AI 推薦機能は `OPENAI_API_KEY` 未設定時にエラーを返します。
 > アフィリエイト系・運営者情報系は未設定でもアプリは動作します。
 > アフィリエイト未設定時は各 ASP の通常 URL に遷移し、運営者情報は法務ページで安全な fallback が表示されます。
+> GA4 は `NEXT_PUBLIC_GA4_ID` 設定済み **かつ** Cookie 同意で「すべて承認」が選ばれた場合のみ有効化されます。
 
 ---
 
@@ -138,7 +142,7 @@ tokyo-commute-map/
 │       ├── page.tsx            — メインマップページ（orchestrator、状態は lib/atoms/）
 │       ├── legal/              — 法務 5 ページ (commerce / privacy / ads / contact / credits)
 │       └── to/[slug]/          — 30 駅 SEO ランディングページ + FAQ Schema.org
-├── components/                 — 17 コンポーネント
+├── components/                 — 18 コンポーネント
 │   ├── MapView.tsx             — MapLibre 地図 + cluster + Dijkstra + AI highlight + お気に入り ★
 │   ├── StationDrawer.tsx       — 駅ドロワー（通勤 + 家賃 + 周辺特徴 + 評価 + 物件検索 + ★ toggle）
 │   ├── FavoritesPanel.tsx      — お気に入り駅リスト（通勤時間つき、HeaderMenu から開く）
@@ -155,6 +159,7 @@ tokyo-commute-map/
 │   ├── TransferFilter.tsx      — 乗換回数絞り込み
 │   ├── CorrectionReporter.tsx  — 通勤時間訂正報告 UI
 │   ├── CookieConsent.tsx       — Cookie 同意バナー
+│   ├── AnalyticsGate.tsx       — GA4 script 注入（Cookie 同意「すべて承認」時のみ）
 │   └── LoadingOverlay.tsx      — ローディング画面
 ├── i18n/                       — next-intl 設定
 │   ├── routing.ts              — locales (ja / en / zh) / defaultLocale / localePrefix
@@ -167,7 +172,7 @@ tokyo-commute-map/
 │   └── zh.json                 — 中文
 ├── hooks/
 │   ├── useDataLoaders.ts       — 静的データ fetch の集約（geojson / graph / 家賃 / EN 名等）
-│   └── useBootstrap.ts         — localStorage からの状態復元（destination / AI cache）
+│   └── useBootstrap.ts         — localStorage からの状態復元（destination / AI cache / お気に入り / Cookie 同意）
 ├── lib/
 │   ├── ai-recommend/           — AI 推薦 backend モジュール（7 ファイル）
 │   ├── atoms/                  — Jotai atom 層（UI / data / domain / overlay 状態管理）
@@ -176,6 +181,7 @@ tokyo-commute-map/
 │   ├── station-label.ts        — 駅名の locale 別表示・検索マッチヘルパ（EN ローマ字対応）
 │   ├── buckets.ts              — 通勤時間バケット + 配色
 │   ├── affiliate.ts            — アフィリエイト link 生成（A8 wrap + fallback）
+│   ├── analytics.ts            — GA4 イベント送信ラッパー（未同意時は no-op）
 │   ├── area-features.ts        — 駅周辺特徴 loader（locale-aware）
 │   ├── manual-rent.ts          — SUUMO 101 駅家賃
 │   ├── government-rent.ts      — 政府統計 1940 駅家賃
