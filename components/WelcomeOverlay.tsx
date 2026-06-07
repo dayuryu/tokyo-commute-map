@@ -273,8 +273,6 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
             willChange: 'transform',
           }}
         >
-          {/* VP9 (-60%、896KB) を優先、未対応ブラウザは H.264 に fallback */}
-          <source src="/welcome-bg.webm" type="video/webm" />
           <source src="/welcome-bg.mp4" type="video/mp4" />
         </video>
 
