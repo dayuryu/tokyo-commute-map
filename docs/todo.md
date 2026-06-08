@@ -32,7 +32,7 @@
 - **C: i18n P2 残**（sitemap.ts に /zh・/en URL 追加 + hreflang annotation、Legal 中文版/英文版、`/to/[slug]` の中文版/英文版 generation）
 - **D: ~~AI 推薦 funnel 計測（GA4 統合）~~ 完了（2026-06-08）** — コード実装 + property 設定 + 線上 E2E 検証まで全部済（下記「計測・解析」参照）。カスタムイベントが標準レポートに出るのは 24-48h 後
 - **E: PWA 化** — manifest + service worker、ホーム画面追加体験（1-2 日）
-- **F: `/to/[slug]` 4.3MB 調査** — response が異常に大きい原因不明、stations.geojson inline 疑い（30-60 分）
+- **F: ~~`/to/[slug]` 4.3MB 調査~~ 解消確認済（2026-06-08）** — 線上実測で再現せず：HTML 65KB / RSC 39KB / JS 合計 0.6MB / ページ総転送 0.44MB（headless 実ブラウザ計測、stations.geojson への fetch ゼロ）、ビルド産物の prerendered HTML も最大 67KB。stations.geojson は server-side `fs.readFile` のみで response に inline されない設計を確認。記録当時（2026-05-24）は next/font CJK preload 退化（`ac9fc6c` で 2026-06-06 根治）の時期で、font 切片の一括 preload を document の重さと誤認した可能性が高い
 - **G: A8 申請進める（運営側タスク）** — ドメイン + 住所 + 銀行口座揃ったら申請
 
 ### 🥉 余裕がある時の polish
