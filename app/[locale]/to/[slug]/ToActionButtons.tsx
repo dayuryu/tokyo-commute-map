@@ -3,10 +3,14 @@ import { STORAGE_KEYS } from '@/lib/storage-keys'
 
 interface Props {
   slug: string
-  displayName: string
+  /** locale prefix 込みのトップページ URL（ja: '/'、zh: '/zh' 等）。 */
+  homeHref: string
+  /** server 側で locale 解決済みのボタン文言（client へ messages を持ち込まない）。 */
+  labelMap: string
+  labelAi: string
 }
 
-export default function ToActionButtons({ slug, displayName }: Props) {
+export default function ToActionButtons({ slug, homeHref, labelMap, labelAi }: Props) {
   function persistAndGo() {
     try {
       localStorage.setItem(STORAGE_KEYS.visited, '1')
@@ -15,9 +19,9 @@ export default function ToActionButtons({ slug, displayName }: Props) {
         JSON.stringify({ type: 'default', dest: slug }),
       )
     } catch {
-      // localStorage 失効時は単純に / へ遷移、地図側で再度通勤先を問う UX に戻る
+      // localStorage 失効時は単純にトップへ遷移、地図側で再度通勤先を問う UX に戻る
     }
-    window.location.href = '/'
+    window.location.href = homeHref
   }
 
   return (
@@ -30,7 +34,7 @@ export default function ToActionButtons({ slug, displayName }: Props) {
                    hover:bg-ed-ink/85 transition-colors
                    shadow-[0_2px_8px_rgba(0,0,0,.12)]"
       >
-        地図で見る
+        {labelMap}
       </button>
       <button
         type="button"
@@ -39,7 +43,7 @@ export default function ToActionButtons({ slug, displayName }: Props) {
                    border border-ed-ink/30 text-ed-ink/85 font-shippori text-sm
                    hover:bg-ed-ink/5 hover:border-ed-ink/50 transition-colors"
       >
-        AIで{displayName}に合う街を提案
+        {labelAi}
       </button>
     </div>
   )

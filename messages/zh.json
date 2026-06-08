@@ -246,5 +246,24 @@
   },
   "legal": {
     "jaPrevailsNotice": "本站的法律信息（基于特定商取引法的标示、隐私政策等）依据日本法律以日语提供。如有歧义，以日语版本为准。"
+  },
+  "toLanding": {
+    "title": "{name} 通勤时间地图",
+    "metaDescription": "以{name}为通勤目的地的东京圈 1831 个车站通勤时间地图。通过 AI 推荐、房租参考、周边特征与社区评价，找到适合通勤{name}的街区。",
+    "fallbackDescription": "这是为以{name}为通勤目的地挑选居住街区的人准备的地图页面。Kayoha 基于真实的 GTFS 时刻表，计算东京圈 1831 个车站到{name}的通勤时间，并以 5 分钟为单位着色呈现，一目了然。结合房租参考、周边区域特征和社区评价，在地图上找到适合自己的街区。",
+    "stat30": "30 分钟以内",
+    "stat45": "45 分钟以内",
+    "statRent": "平均房租参考",
+    "unitStations": "站",
+    "unitRent": "万日元",
+    "faqTitle": "常见问题",
+    "lastUpdated": "最后更新",
+    "othersTitle": "从其他主要车站探索",
+    "footerTop": "首页",
+    "footerLegal": "运营信息",
+    "footerPrivacy": "隐私政策",
+    "footerAds": "关于广告",
+    "ctaMap": "在地图上查看",
+    "ctaAi": "让 AI 推荐适合通勤{name}的街区"
   }
 }

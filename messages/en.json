@@ -246,5 +246,24 @@
   },
   "legal": {
     "jaPrevailsNotice": "Legal information on this site (Specified Commercial Transactions Act disclosure, privacy policy, etc.) is provided in Japanese, as required under Japanese law. The Japanese text is authoritative."
+  },
+  "toLanding": {
+    "title": "Commute Time Map to {name}",
+    "metaDescription": "A commute-time map of 1,831 stations across Greater Tokyo with {name} as the destination. Find your neighborhood with AI picks, rent estimates, area profiles, and community reviews.",
+    "fallbackDescription": "This map page is for people choosing where to live based on their commute to {name}. Kayoha computes the commute time from each of 1,831 stations in Greater Tokyo to {name} using real GTFS timetables, colored in 5-minute steps for instant reading. Explore the map alongside rent estimates, area profiles, and community reviews to find a neighborhood that fits you.",
+    "stat30": "Within 30 min",
+    "stat45": "Within 45 min",
+    "statRent": "Avg. rent estimate",
+    "unitStations": "stations",
+    "unitRent": "",
+    "faqTitle": "Frequently Asked Questions",
+    "lastUpdated": "Last updated",
+    "othersTitle": "Explore other major stations",
+    "footerTop": "Top",
+    "footerLegal": "Site Info",
+    "footerPrivacy": "Privacy",
+    "footerAds": "Advertising",
+    "ctaMap": "View on the map",
+    "ctaAi": "Let AI suggest neighborhoods for {name}"
   }
 }

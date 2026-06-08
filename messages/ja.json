@@ -246,5 +246,24 @@
   },
   "legal": {
     "jaPrevailsNotice": "法的情報（特定商取引法に基づく表記・プライバシーポリシー等）は日本の法令に基づき日本語で提供しています。日本語版が正文です。"
+  },
+  "toLanding": {
+    "title": "{name}への通勤時間地図",
+    "metaDescription": "{name} を通勤先とした東京圏 1831 駅の通勤時間地図。AI 推薦・家賃目安・周辺の特徴・コミュニティ評価で、{name} 通勤に合う街を探す。",
+    "fallbackDescription": "{name} を通勤先として街選びをする人のための地図ページです。Kayoha では東京圏 1831 駅それぞれから {name} までの通勤時間を実際の GTFS 時刻表で算出し、5 分刻みのカラーリングで一目で読める形に整理しています。家賃の目安、周辺エリアの特徴、コミュニティの評価をあわせて確認しながら、自分に合う街を地図上で探してください。",
+    "stat30": "30 分以内",
+    "stat45": "45 分以内",
+    "statRent": "平均家賃目安",
+    "unitStations": "駅",
+    "unitRent": "万円",
+    "faqTitle": "よくある質問",
+    "lastUpdated": "最終更新",
+    "othersTitle": "他の主要駅から探す",
+    "footerTop": "Top",
+    "footerLegal": "運営情報",
+    "footerPrivacy": "プライバシー",
+    "footerAds": "広告について",
+    "ctaMap": "地図で見る",
+    "ctaAi": "AIで{name}に合う街を提案"
   }
 }

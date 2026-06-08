@@ -1,14 +1,6 @@
 import Link from 'next/link'
 import { getSiteInfo, LAST_UPDATED } from '@/lib/site-info'
-import ja from '@/messages/ja.json'
-import zh from '@/messages/zh.json'
-import en from '@/messages/en.json'
-
-// next-intl の getLocale()/getTranslations() は legal ページを dynamic rendering に
-// 退化させる（setRequestLocale 全面接線が必要）ため、params + 静的 import で済ませる。
-// 文言の SSOT は messages/*.json のまま。
-const MESSAGES = { ja, zh, en } as const
-type AppLocale = keyof typeof MESSAGES
+import { staticMessages } from '@/lib/static-messages'
 
 const NAV = [
   { href: '/legal/commerce', label: '特定商取引法に基づく表記' },
@@ -27,7 +19,9 @@ export default async function LegalLayout({
 }) {
   const site = getSiteInfo()
   const { locale } = await params
-  const messages = MESSAGES[(locale in MESSAGES ? locale : 'ja') as AppLocale]
+  // SSG 維持のため next-intl server API ではなく静的 messages を使う
+  // （詳細は lib/static-messages.ts のコメント参照）。
+  const messages = staticMessages(locale)
 
   return (
     // root layout の <body> が overflow-hidden h-[100dvh] w-screen を保持しているため、

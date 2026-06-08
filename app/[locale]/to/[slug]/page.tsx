@@ -11,7 +11,13 @@ import {
   isFixedDestination,
   type FixedDestination,
 } from '@/lib/destinations'
+import { staticMessages, fillMessage, localeHref } from '@/lib/static-messages'
 import ToActionButtons from './ToActionButtons'
+
+/** locale 別の目的地表示名（en はローマ字、ja / zh は漢字のまま）。 */
+function destDisplayName(meta: (typeof DESTINATIONS_META)[number], locale: string) {
+  return locale === 'en' ? meta.displayNameEn : meta.displayName
+}
 
 type DestStats = {
   within30: number
@@ -27,19 +33,28 @@ type V2Content = {
   faq: { q: string; a: string }[]
 }
 
-const loadDestinationV2 = cache(async (slug: string): Promise<V2Content | null> => {
-  const filePath = path.join(
-    process.cwd(),
-    'public/data/destinations_v2',
-    `${slug}.json`,
-  )
-  try {
-    const raw = await fs.readFile(filePath, 'utf-8')
-    return JSON.parse(raw) as V2Content
-  } catch {
+// zh / en は public/data/destinations_v2/{locale}/{slug}.json を先に探し、
+// 未翻訳の駅は ja 原文（root 直下）に graceful fallback する。
+const loadDestinationV2 = cache(
+  async (slug: string, locale: string): Promise<V2Content | null> => {
+    const candidates =
+      locale === 'ja'
+        ? [`${slug}.json`]
+        : [`${locale}/${slug}.json`, `${slug}.json`]
+    for (const rel of candidates) {
+      try {
+        const raw = await fs.readFile(
+          path.join(process.cwd(), 'public/data/destinations_v2', rel),
+          'utf-8',
+        )
+        return JSON.parse(raw) as V2Content
+      } catch {
+        // 次の候補へ
+      }
+    }
     return null
-  }
-})
+  },
+)
 
 const loadStats = cache(async (): Promise<Record<FixedDestination, DestStats>> => {
   const geojsonPath = path.join(process.cwd(), 'public/data/stations.geojson')
@@ -84,24 +99,37 @@ export const dynamicParams = false
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>
+  params: Promise<{ locale: string; slug: string }>
 }): Promise<Metadata> {
-  const { slug } = await params
+  const { locale, slug } = await params
   if (!isFixedDestination(slug)) return {}
   const meta = DESTINATIONS_META.find(m => m.slug === slug)!
-  const title = `${meta.displayName}への通勤時間地図`
-  const description = `${meta.displayName} を通勤先とした東京圏 1831 駅の通勤時間地図。AI 推薦・家賃目安・周辺の特徴・コミュニティ評価で、${meta.displayName} 通勤に合う街を探す。`
+  const t = staticMessages(locale).toLanding
+  const name = destDisplayName(meta, locale)
+  const title = fillMessage(t.title, { name })
+  const description = fillMessage(t.metaDescription, { name })
+  const ogLocale = locale === 'zh' ? 'zh_CN' : locale === 'en' ? 'en_US' : 'ja_JP'
   return {
     title,
     description,
-    alternates: { canonical: `/to/${slug}` },
+    alternates: {
+      // x-default (ja URL) に canonical を統一（layout の戦略と同一）。
+      // 言語別ターゲティングは hreflang alternates で伝える。
+      canonical: `/to/${slug}`,
+      languages: {
+        ja: `/to/${slug}`,
+        zh: `/zh/to/${slug}`,
+        en: `/en/to/${slug}`,
+        'x-default': `/to/${slug}`,
+      },
+    },
     openGraph: {
       title: `${title} | Kayoha`,
       description,
-      url: `/to/${slug}`,
+      url: localeHref(locale, `/to/${slug}`),
       type: 'website',
       siteName: 'Kayoha',
-      locale: 'ja_JP',
+      locale: ogLocale,
       images: [
         {
           url: '/opengraph-image.png',
@@ -123,27 +151,40 @@ export async function generateMetadata({
 export default async function ToDestinationPage({
   params,
 }: {
-  params: Promise<{ slug: string }>
+  params: Promise<{ locale: string; slug: string }>
 }) {
-  const { slug } = await params
+  const { locale, slug } = await params
   if (!isFixedDestination(slug)) notFound()
   const meta = DESTINATIONS_META.find(m => m.slug === slug)!
   const [allStats, content] = await Promise.all([
     loadStats(),
-    loadDestinationV2(slug),
+    loadDestinationV2(slug, locale),
   ])
   const stats = allStats[slug]
   const others = DESTINATIONS_META.filter(m => m.slug !== slug)
 
-  const fallbackDescription =
-    `${meta.displayName} を通勤先として街選びをする人のための地図ページです。Kayoha では東京圏 1831 駅それぞれから ${meta.displayName} までの通勤時間を実際の GTFS 時刻表で算出し、5 分刻みのカラーリングで一目で読める形に整理しています。家賃の目安、周辺エリアの特徴、コミュニティの評価をあわせて確認しながら、自分に合う街を地図上で探してください。`
+  const messages = staticMessages(locale)
+  const t = messages.toLanding
+  const name = destDisplayName(meta, locale)
+  const pageTitle = fillMessage(t.title, { name })
+  const fallbackDescription = fillMessage(t.fallbackDescription, { name })
 
+  // 家賃目安: ja / zh は「9.2 万円 / 万日元」、en は「¥92k」表記。
+  const rentValue =
+    stats.avgRent > 0
+      ? locale === 'en'
+        ? `¥${Math.round(stats.avgRent * 10)}k`
+        : stats.avgRent.toFixed(1)
+      : '—'
+  const rentUnit = stats.avgRent > 0 ? t.unitRent : ''
+
+  const jsonLdLang = locale === 'zh' ? 'zh-CN' : locale === 'en' ? 'en-US' : 'ja-JP'
   const webPageJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
-    name: `${meta.displayName}への通勤時間地図 | Kayoha`,
-    url: `https://kayoha.com/to/${slug}`,
-    inLanguage: 'ja-JP',
+    name: `${pageTitle} | Kayoha`,
+    url: `https://kayoha.com${localeHref(locale, `/to/${slug}`)}`,
+    inLanguage: jsonLdLang,
     isPartOf: { '@id': 'https://kayoha.com/#website' },
     about: {
       '@type': 'Place',
@@ -182,21 +223,17 @@ export default async function ToDestinationPage({
             Commute Map
           </p>
           <h1 className="font-shippori text-3xl md:text-5xl font-medium text-ed-ink mb-4 leading-tight">
-            {meta.displayName}への通勤時間地図
+            {pageTitle}
           </h1>
           <p className="font-shippori text-base md:text-lg text-ed-ink/70 italic">
-            次の駅で、暮らしをめくる。
+            {messages.welcome.tagline}
           </p>
         </header>
 
         <section className="mb-12 md:mb-16 grid grid-cols-3 gap-4 md:gap-8 border-y border-ed-ink/10 py-8">
-          <StatBlock label="30 分以内" value={String(stats.within30)} unit="駅" />
-          <StatBlock label="45 分以内" value={String(stats.within45)} unit="駅" />
-          <StatBlock
-            label="平均家賃目安"
-            value={stats.avgRent > 0 ? stats.avgRent.toFixed(1) : '—'}
-            unit={stats.avgRent > 0 ? '万円' : ''}
-          />
+          <StatBlock label={t.stat30} value={String(stats.within30)} unit={t.unitStations} />
+          <StatBlock label={t.stat45} value={String(stats.within45)} unit={t.unitStations} />
+          <StatBlock label={t.statRent} value={rentValue} unit={rentUnit} />
         </section>
 
         <section className="mb-16 md:mb-20">
@@ -222,13 +259,18 @@ export default async function ToDestinationPage({
         </section>
 
         <section className="mb-16 md:mb-24">
-          <ToActionButtons slug={meta.slug} displayName={meta.displayName} />
+          <ToActionButtons
+            slug={meta.slug}
+            homeHref={localeHref(locale, '/')}
+            labelMap={t.ctaMap}
+            labelAi={fillMessage(t.ctaAi, { name })}
+          />
         </section>
 
         {content?.faq && content.faq.length > 0 && (
           <section className="mb-16 md:mb-20 border-t border-ed-ink/10 pt-12 md:pt-16">
             <h2 className="font-cormorant text-sm uppercase tracking-[0.3em] text-ed-ink/60 mb-8 md:mb-10 text-center">
-              よくある質問
+              {t.faqTitle}
             </h2>
             <dl className="space-y-8 md:space-y-10">
               {content.faq.map((item, i) => (
@@ -247,22 +289,22 @@ export default async function ToDestinationPage({
 
         {content?.last_updated && (
           <p className="text-center font-cormorant text-xs uppercase tracking-[0.25em] text-ed-ink/45 mb-12">
-            最終更新 · {content.last_updated}
+            {t.lastUpdated} · {content.last_updated}
           </p>
         )}
 
         <section className="border-t border-ed-ink/10 pt-12">
           <h2 className="font-cormorant text-sm uppercase tracking-[0.3em] text-ed-ink/60 mb-6 text-center">
-            他の主要駅から探す
+            {t.othersTitle}
           </h2>
           <ul className="grid grid-cols-3 md:grid-cols-5 gap-x-4 gap-y-3 font-shippori text-sm md:text-base text-center">
             {others.map(m => (
               <li key={m.slug}>
                 <Link
-                  href={`/to/${m.slug}`}
+                  href={localeHref(locale, `/to/${m.slug}`)}
                   className="text-ed-ink/75 hover:text-ed-accent transition-colors"
                 >
-                  {m.displayName}
+                  {destDisplayName(m, locale)}
                 </Link>
               </li>
             ))}
@@ -270,17 +312,17 @@ export default async function ToDestinationPage({
         </section>
 
         <footer className="mt-20 md:mt-32 pt-8 border-t border-ed-ink/10 text-center text-xs text-ed-ink/50 space-x-4">
-          <Link href="/" className="hover:text-ed-ink/80 transition-colors">
-            Top
+          <Link href={localeHref(locale, '/')} className="hover:text-ed-ink/80 transition-colors">
+            {t.footerTop}
           </Link>
-          <Link href="/legal" className="hover:text-ed-ink/80 transition-colors">
-            運営情報
+          <Link href={localeHref(locale, '/legal')} className="hover:text-ed-ink/80 transition-colors">
+            {t.footerLegal}
           </Link>
-          <Link href="/legal/privacy" className="hover:text-ed-ink/80 transition-colors">
-            プライバシー
+          <Link href={localeHref(locale, '/legal/privacy')} className="hover:text-ed-ink/80 transition-colors">
+            {t.footerPrivacy}
           </Link>
-          <Link href="/legal/ads" className="hover:text-ed-ink/80 transition-colors">
-            広告について
+          <Link href={localeHref(locale, '/legal/ads')} className="hover:text-ed-ink/80 transition-colors">
+            {t.footerAds}
           </Link>
         </footer>
       </article>
