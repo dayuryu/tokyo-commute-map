@@ -1,5 +1,14 @@
 import Link from 'next/link'
 import { getSiteInfo, LAST_UPDATED } from '@/lib/site-info'
+import ja from '@/messages/ja.json'
+import zh from '@/messages/zh.json'
+import en from '@/messages/en.json'
+
+// next-intl の getLocale()/getTranslations() は legal ページを dynamic rendering に
+// 退化させる（setRequestLocale 全面接線が必要）ため、params + 静的 import で済ませる。
+// 文言の SSOT は messages/*.json のまま。
+const MESSAGES = { ja, zh, en } as const
+type AppLocale = keyof typeof MESSAGES
 
 const NAV = [
   { href: '/legal/commerce', label: '特定商取引法に基づく表記' },
@@ -9,8 +18,16 @@ const NAV = [
   { href: '/legal/contact',  label: 'お問い合わせ' },
 ]
 
-export default function LegalLayout({ children }: { children: React.ReactNode }) {
+export default async function LegalLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode
+  params: Promise<{ locale: string }>
+}) {
   const site = getSiteInfo()
+  const { locale } = await params
+  const messages = MESSAGES[(locale in MESSAGES ? locale : 'ja') as AppLocale]
 
   return (
     // root layout の <body> が overflow-hidden h-[100dvh] w-screen を保持しているため、
@@ -29,6 +46,13 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-10 md:py-14">
+        {/* 法務文書は日本の法令に基づく日本語が正文。zh / en locale では
+            「日本語版が正文」の告知を冒頭に出し、本文は ja のまま提供する。 */}
+        {locale !== 'ja' && (
+          <p className="mb-8 rounded border border-sp-ink-soft/20 bg-sp-ink-soft/5 px-4 py-3 text-xs leading-relaxed text-sp-ink-soft">
+            {messages.legal.jaPrevailsNotice}
+          </p>
+        )}
         {children}
       </main>
 

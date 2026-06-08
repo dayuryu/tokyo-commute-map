@@ -243,5 +243,8 @@
     "messageTail": "。",
     "acceptNecessary": "仅必要",
     "acceptAll": "全部接受"
+  },
+  "legal": {
+    "jaPrevailsNotice": "本站的法律信息（基于特定商取引法的标示、隐私政策等）依据日本法律以日语提供。如有歧义，以日语版本为准。"
   }
 }

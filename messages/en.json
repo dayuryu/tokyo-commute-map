@@ -243,5 +243,8 @@
     "messageTail": "for details.",
     "acceptNecessary": "Necessary only",
     "acceptAll": "Accept all"
+  },
+  "legal": {
+    "jaPrevailsNotice": "Legal information on this site (Specified Commercial Transactions Act disclosure, privacy policy, etc.) is provided in Japanese, as required under Japanese law. The Japanese text is authoritative."
   }
 }

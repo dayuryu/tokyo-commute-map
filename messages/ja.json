@@ -243,5 +243,8 @@
     "messageTail": "をご確認ください。",
     "acceptNecessary": "必要のみ",
     "acceptAll": "すべて承認"
+  },
+  "legal": {
+    "jaPrevailsNotice": "法的情報（特定商取引法に基づく表記・プライバシーポリシー等）は日本の法令に基づき日本語で提供しています。日本語版が正文です。"
   }
 }
