@@ -9,6 +9,14 @@
 //   ⇒ 環境変数を埋めるだけで affiliate 計測が ON になる。
 // - process.env.NEXT_PUBLIC_* は Next.js 編集時に静的置換されるため、
 //   動的 key アクセスは使えない。各広告主ごとにリテラル文字列で参照する。
+//
+// ⚠️ 収益前提の注意（2026-06-08 検証 / docs/affiliate-setup.md「現実チェック」参照）:
+//   本 facade は「SUUMO / HOME'S / CHINTAI を A8 でラップ」する前提（a8mat_* 環境変数）で
+//   組まれているが、公開情報の検証では **主要賃貸広告主（SUUMO / HOME'S / DOOR賃貸）は
+//   A8 でなくバリューコマース経由が主**で、SUUMO 賃貸の A8 提携可否は非公開。
+//   実際に ASP を接続する前に、各広告主が「どの ASP・どの link 形式・どの成果条件」かを
+//   管理画面で確認し、wrapWithA8 / fallbackUrl の設計を見直すこと（現状は env 未設定で
+//   通常 URL に fallback するため無害だが、A8 一本前提のままでは正しく計測されない）。
 
 export type AffiliateProgram = 'suumo' | 'homes' | 'chintai'
 

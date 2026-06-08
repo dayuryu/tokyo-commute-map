@@ -48,7 +48,7 @@
 | UI / body text | Inter | 400-700 | `var(--ui-font)` |
 | 数値 / monospace | JetBrains Mono | 400-500 | `var(--mono)` |
 
-全て Google Fonts、`app/layout.tsx` 内の `next/font/google` で読み込み済み。
+全て Google Fonts、`app/[locale]/layout.tsx` 内の `next/font/google` で読み込み済み。
 
 ### 2.2 カラーパレット (Springs editorial palette、`app/globals.css`)
 
