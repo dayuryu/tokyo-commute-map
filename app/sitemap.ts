@@ -59,11 +59,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.3,
   }))
 
+  // /to/[slug] は 30 駅すべて ja / zh / en 完訳済み（destinations_v2/{zh,en}/）。
+  // ja URL を代表 entry とし、各駅で 3 言語の相互 hreflang を出力する。
   const destinations: MetadataRoute.Sitemap = DESTINATIONS_META.map(m => ({
     url: `${base}/to/${m.slug}`,
     lastModified: now,
     changeFrequency: 'monthly',
     priority: 0.8,
+    alternates: {
+      languages: {
+        ja: `${base}/to/${m.slug}`,
+        zh: `${base}/zh/to/${m.slug}`,
+        en: `${base}/en/to/${m.slug}`,
+        'x-default': `${base}/to/${m.slug}`,
+      },
+    },
   }))
 
   return [...main, ...legal, ...destinations]
