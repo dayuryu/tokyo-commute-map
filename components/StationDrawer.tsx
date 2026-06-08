@@ -32,7 +32,7 @@ import { formatGovernmentRent } from '@/lib/government-rent'
 import { getLineColor, type LineStyleMap } from '@/lib/line-styles'
 import { getStreetViewCoords } from '@/lib/station-entrances'
 import { getDeviceId } from '@/lib/device-id'
-import { buildYahooTransitUrl } from '@/lib/yahoo-url'
+import { buildYahooRedirectPath } from '@/lib/yahoo-url'
 
 // 住居検索アフィリエイトボタン用の短縮ラベル（3 等分カード幅に収まるよう調整）
 const AFFILIATE_SHORT_LABELS: Record<AffiliateProgram, string> = {
@@ -290,9 +290,11 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
     ? customStation?.name ?? ''
     : getDestinationTransitName(destination)
   // 「次の平日 08:30 JST 出発」を固定 — 網站の通勤時間基準 (GTFS 平日 rush-hour) と
-  // 一致させ、深夜/休日クリック時の Yahoo 結果との大きな乖離 (終電後 → 数時間 等) を防ぐ
+  // 一致させ、深夜/休日クリック時の Yahoo 結果との大きな乖離 (終電後 → 数時間 等) を防ぐ。
+  // 自サイトの /api/yahoo-redirect 経由 — iOS Universal Link による Yahoo アプリ起動
+  // (時刻 parameter を無視し現在時刻検索になる) を回避し、モバイル Safari で開かせる。
   const yahooTransitUrl = (station && commuteMin != null && destStationName)
-    ? buildYahooTransitUrl(station.name, destStationName)
+    ? buildYahooRedirectPath(station.name, destStationName)
     : null
 
   // 表示用ラベル — custom destination の場合は実際の駅名を出す（「カスタム」固定文字を回避）

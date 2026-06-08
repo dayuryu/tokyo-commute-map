@@ -79,6 +79,12 @@ export function nextWeekdayMorningJst(now: Date = new Date()): YahooTimeParams {
  * Yahoo!乗換案内の検索 URL を組み立てる。
  * 「次の平日 08:30 JST 出発」を時刻 parameter として固定。
  *
+ * 注意: これは transit.yahoo.co.jp を直接指す「最終 URL」。クライアントの
+ * <a href> から直接使うと iOS Universal Link が Yahoo!乗換案内 アプリを起動し、
+ * アプリは時刻 parameter を解釈せず「現在時刻」検索になる。クライアント側は
+ * buildYahooRedirectPath() を使い、この最終 URL は /api/yahoo-redirect の
+ * server 側でのみ組み立てること。
+ *
  * @param from 出発駅名 (例: 「新宿」)
  * @param to   到着駅名 (例: 「東京」)
  */
@@ -96,4 +102,24 @@ export function buildYahooTransitUrl(from: string, to: string): string {
     type: '1', // 1 = 出発時刻指定
   })
   return `https://transit.yahoo.co.jp/search/result?${params.toString()}`
+}
+
+/**
+ * クライアント側リンク用の「自サイト経由」パスを返す。
+ *
+ * 直接 transit.yahoo.co.jp を <a href> にすると、iOS の Universal Link が
+ * Yahoo!乗換案内 アプリを起動し、アプリは web URL の時刻 parameter (hh/m1/m2) を
+ * 読まないため検索が「現在時刻」になってしまう (当サイトの平日 08:30 基準と乖離)。
+ *
+ * iOS は「redirect で到達した Universal Link」をアプリに渡さない (直接タップのみ
+ * 起動) 仕様のため、自サイトの /api/yahoo-redirect を一段挟むとモバイル Safari で
+ * 開き、時刻 parameter が有効になる。最終 URL (時刻確定) は redirect 先の server で
+ * buildYahooTransitUrl が組み立てる。
+ *
+ * @param from 出発駅名 (例: 「新宿」)
+ * @param to   到着駅名 (例: 「東京」)
+ */
+export function buildYahooRedirectPath(from: string, to: string): string {
+  const params = new URLSearchParams({ from, to })
+  return `/api/yahoo-redirect?${params.toString()}`
 }
