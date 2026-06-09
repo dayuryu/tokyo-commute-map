@@ -76,5 +76,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   }))
 
-  return [...main, ...legal, ...destinations]
+  // 留学居住人格测试（独立引流入口 /ryugaku、canonical 统一到此）
+  const ryugaku: MetadataRoute.Sitemap = [
+    {
+      url: `${base}/ryugaku`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+  ]
+
+  return [...main, ...ryugaku, ...legal, ...destinations]
 }
