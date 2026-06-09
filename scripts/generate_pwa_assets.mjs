@@ -62,10 +62,14 @@ function sealSvg(size, { round = true, frame = true, glyphRatio = 0.72 } = {}) {
 // any: ブランド通りの角丸+枠。maskable: OS が円/角丸でクロップするので
 //   全面ブリード（角丸なし・枠なし）+ 通を安全域(中央 ~60%)に収める。
 const ICONS = [
-  { file: 'icons/icon-192.png', size: 192, opts: { round: true, frame: true, glyphRatio: 0.72 } },
-  { file: 'icons/icon-512.png', size: 512, opts: { round: true, frame: true, glyphRatio: 0.72 } },
-  { file: 'icons/maskable-192.png', size: 192, opts: { round: false, frame: false, glyphRatio: 0.56 } },
-  { file: 'icons/maskable-512.png', size: 512, opts: { round: false, frame: false, glyphRatio: 0.56 } },
+  { file: 'icons/icon-192.png', dir: 'public', size: 192, opts: { round: true, frame: true, glyphRatio: 0.72 } },
+  { file: 'icons/icon-512.png', dir: 'public', size: 512, opts: { round: true, frame: true, glyphRatio: 0.72 } },
+  { file: 'icons/maskable-192.png', dir: 'public', size: 192, opts: { round: false, frame: false, glyphRatio: 0.56 } },
+  { file: 'icons/maskable-512.png', dir: 'public', size: 512, opts: { round: false, frame: false, glyphRatio: 0.56 } },
+  // iOS apple-touch-icon: iOS が自動で角丸マスクを掛ける。内枠を付けると四隅が
+  //   角丸で切れて「直線が途切れる」ため frame:false。round も false（PNG 側で
+  //   角丸を付けると二重になるので方形のまま iOS に任せる）。
+  { file: 'apple-icon.png', dir: 'app', size: 180, opts: { round: false, frame: false, glyphRatio: 0.64 } },
 ]
 
 // ── スプラッシュのデバイス（lib/pwa-splash-screens.ts と一致させること）──
@@ -117,6 +121,9 @@ function splashHtml(w, h) {
 const splashFile = (d) => `splash/apple-splash-${d.w * d.dpr}-${d.h * d.dpr}.png`
 
 async function run() {
+  // 引数で対象を絞れる: `node generate_pwa_assets.mjs icons` / `... splash`
+  const only = process.argv[2] // 'icons' | 'splash' | undefined(=全部)
+
   await mkdir(join(ROOT, 'public/icons'), { recursive: true })
   await mkdir(join(ROOT, 'public/splash'), { recursive: true })
 
@@ -128,6 +135,7 @@ async function run() {
   const page = await browser.newPage()
 
   // ── アイコン ──
+  if (only !== 'splash')
   for (const ic of ICONS) {
     await page.setViewport({ width: ic.size, height: ic.size, deviceScaleFactor: 1 })
     await page.setContent(
@@ -141,11 +149,12 @@ async function run() {
       clip: { x: 0, y: 0, width: ic.size, height: ic.size },
       omitBackground: true,
     })
-    await writeFile(join(ROOT, 'public', ic.file), buf)
-    console.log(`icon  ${ic.file}  (${buf.length} B)`)
+    await writeFile(join(ROOT, ic.dir, ic.file), buf)
+    console.log(`icon  ${ic.dir}/${ic.file}  (${buf.length} B)`)
   }
 
   // ── スプラッシュ ──
+  if (only !== 'icons')
   for (const d of SPLASH_DEVICES) {
     await page.setViewport({ width: d.w, height: d.h, deviceScaleFactor: d.dpr })
     await page.setContent(splashHtml(d.w, d.h), { waitUntil: 'domcontentloaded' })
