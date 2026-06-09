@@ -4,7 +4,7 @@
 > 商業化フェーズの詳細運用ランブックは [`affiliate-setup.md`](./affiliate-setup.md) を参照。
 > 基礎工程の戦略は [`adr/0002-just-in-time-architecture.md`](./adr/0002-just-in-time-architecture.md) を参照。
 
-最終整理日: 2026-06-06（英語版 (en) 上線 + 全駅名ローマ字化を反映、ドキュメント全体整理）
+最終整理日: 2026-06-09（PWA 化完了を反映）
 
 ---
 
@@ -31,7 +31,7 @@
 - **B: AdSense 申請進める**（運営側手動、審査 1-4 週） — 0 課金ユーザ段階での monetize 立ち上げ
 - **C: ~~i18n P2 残~~ 完了（2026-06-08）** — sitemap.ts に /zh・/en URL + hreflang 出力 / Legal は「日本語版が正文」告知 banner（zh・en locale、本文は ja のまま）/ `/to/[slug]` 30 駅を zh・en 完訳（intro + FAQ、destinations_v2/{zh,en}/）+ ページ chrome 多言語化 + per-page hreflang。commits `e05a31b` `3bbe9d3` `b480988` `0768c8c`。詳細は下記「多言語化 i18n」section
 - **D: ~~AI 推薦 funnel 計測（GA4 統合）~~ 完了（2026-06-08）** — コード実装 + property 設定 + 線上 E2E 検証まで全部済（下記「計測・解析」参照）。カスタムイベントが標準レポートに出るのは 24-48h 後
-- **E: PWA 化** — manifest + service worker、ホーム画面追加体験（1-2 日）
+- **E: ~~PWA 化~~ 完了（2026-06-09）** — manifest 強化（id/scope/categories + maskable 192/512 PNG）+ 依存ゼロの手書き Service Worker（`public/sw.js`：openfreemap タイル cache-first で「地下鉄内でも地図」/ `_next/static` cache-first / `/data/` SWR / navigation network-first→`offline.html` 兜底 / api・mp4 Range は bypass）+ **iOS 専用チューニング**（`apple-mobile-web-app-capable` / status-bar-style=default / **18 デバイス分の `apple-touch-startup-image` 起動スプラッシュ**）+ theme-color。tsc/eslint 0・build OK・headless(Edge) で SW 登録激活 + manifest + apple meta + 18 splash link を実機検証済。アセットは `scripts/generate_pwa_assets.mjs`（puppeteer+Edge）で再現可能。**未 commit / 未部署**（運営側で commit→Vercel→実機の「ホーム画面に追加」確認が残）
 - **F: ~~`/to/[slug]` 4.3MB 調査~~ 解消確認済（2026-06-08）** — 線上実測で再現せず：HTML 65KB / RSC 39KB / JS 合計 0.6MB / ページ総転送 0.44MB（headless 実ブラウザ計測、stations.geojson への fetch ゼロ）、ビルド産物の prerendered HTML も最大 67KB。stations.geojson は server-side `fs.readFile` のみで response に inline されない設計を確認。記録当時（2026-05-24）は next/font CJK preload 退化（`ac9fc6c` で 2026-06-06 根治）の時期で、font 切片の一括 preload を document の重さと誤認した可能性が高い
 - **G: A8 申請進める（運営側タスク）** — ドメイン + 住所 + 銀行口座揃ったら申請
 
@@ -423,3 +423,4 @@ React Native / フル native 書き換えは **永続的に非推奨**。
 | 2026-06-06 | ドキュメント全体整理（README / todo の駅数 1831 反映、英語版上線状態の同期、i18n section 再構成） |
 | 2026-06-06 (夜) | **Perf 深掘り第 1 弾**（commits `ac9fc6c` `93b511b`）。next/font の CJK preload 退化 (Shippori 364 切片 ~11MB を preload) を `preload: false` で根治 + 未使用 weight 700 削除 + welcome 動画 VP9 化 (-60%)。フォント転送 11.97MB → 1.02MB。併せて user-facing copy の駅数 1843 → 1831 全同期（messages 三語 / manifest / landing 30 頁 / credits / 注釈）。PSI の `/` → `/en` 302 問題を特定、localeDetection 現状維持と決定 |
 | 2026-06-06 (深夜) | **Perf 第 2 弾: MapView dynamic import**（commit `1fc16d7`）。MapLibre ~350KB を初回バンドルから分離、冷訪問は Welcome 中取得ゼロ・回訪は LoadingOverlay 背後で取得 (CDP 検証済)。線上実測 LCP 11.7 → **8.2s** / TBT 60ms / CLS 0 / 初回 JS 242KB。残 LCP は Welcome 演出由来 (render delay 2.5s) — 「演出優先」方針でここを均衡点とする |
+| 2026-06-09 (PWA) | **PWA 化完了（特に iOS チューニング）**。manifest 強化（id/scope/categories + maskable 192/512）+ 依存ゼロの手書き Service Worker（openfreemap タイル offline + `_next/static` cache-first + `/data/` SWR + navigation network-first→offline.html、api/mp4 bypass）+ iOS 専用（apple-mobile-web-app-capable / status-bar default / **18 デバイス分の起動スプラッシュ** apple-touch-startup-image）+ theme-color。新規: `public/sw.js`・`public/offline.html`・`components/ServiceWorkerRegistrar.tsx`・`lib/pwa-splash-screens.ts`・`scripts/generate_pwa_assets.mjs`・`public/icons/`(4)・`public/splash/`(18)。tsc/eslint 0・build OK・Edge headless 検証 PASS。**未 commit / 未部署** |

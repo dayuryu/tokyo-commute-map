@@ -15,6 +15,8 @@ import { Analytics } from '@vercel/analytics/next'
 import { routing } from '@/i18n/routing'
 import Providers from '@/app/providers'
 import AnalyticsGate from '@/components/AnalyticsGate'
+import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'
+import { appleStartupImages } from '@/lib/pwa-splash-screens'
 
 // preload: false が必須 — CJK フォントは latin-only subset を持たないため、
 // next/font が preload を「全 unicode-range 切片」(364 file / ~11MB) に退化させ、
@@ -153,6 +155,24 @@ export async function generateMetadata({
         { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
       ],
     },
+    // ── iOS PWA チューニング ──
+    // capable: ホーム画面起動時に Safari chrome を隠して standalone 表示。
+    // statusBarStyle 'default': welcome がクリーム色の明背景のため、白文字に
+    //   なる black-translucent は不可（時計が見えず内容も status bar 下に潜る）。
+    //   default は明背景で暗文字になり可読。
+    // startupImage: iOS は manifest からスプラッシュを生成しないので、デバイス
+    //   解像度ごとの起動画像を明示（未指定だと白画面）。SSOT は lib/pwa-splash-screens。
+    appleWebApp: {
+      capable: true,
+      title: 'Kayoha',
+      statusBarStyle: 'default',
+      startupImage: appleStartupImages(),
+    },
+    // Next 16 は appleWebApp.capable から標準の mobile-web-app-capable を出すが、
+    // iOS Safari（特に旧版）は依然 apple- 前缀の方しか認識しないため明示的に併記。
+    other: {
+      'apple-mobile-web-app-capable': 'yes',
+    },
   }
 }
 
@@ -161,6 +181,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
+  // PWA 工具栏 / Android status bar の着色（ブランド赤）。manifest の
+  // theme_color と一致させる。
+  themeColor: '#a8332b',
 }
 
 const jsonLd = {
@@ -227,6 +250,8 @@ export default async function LocaleLayout({ children, params }: Props) {
             {/* GA4 gate は CookieConsent と同じ Jotai store を購読する必要が
                 あるため、必ず Providers の内側に置く */}
             <AnalyticsGate />
+            {/* PWA: 本番のみ Service Worker を登録（オフライン地図キャッシュ） */}
+            <ServiceWorkerRegistrar />
             {children}
           </Providers>
         </NextIntlClientProvider>
