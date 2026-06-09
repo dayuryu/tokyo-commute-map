@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import re
 import subprocess
@@ -63,6 +64,12 @@ DRY_RUN_OUT_FOR_LANG = {
     "zh": HANDOFF_DIR / "dry_run_sample_zh.json",
     "en": HANDOFF_DIR / "dry_run_sample_en.json",
 }
+
+# LLM CLI binary。Windows では npm の `claude` shim が shell script / .cmd のため
+# Python subprocess (CreateProcess) から bare "claude" を起動できず WinError 2 になる。
+# その場合は CLAUDE_BIN に claude.exe の絶対パスを渡す
+# (例: .../npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe)。既定は "claude"。
+CLAUDE_BIN = os.environ.get("CLAUDE_BIN", "claude")
 
 MODEL = "sonnet"
 BATCH_SIZE = 40
@@ -363,7 +370,7 @@ def call_llm(user_prompt: str, lang: str, *, timeout: int = LLM_TIMEOUT) -> dict
     # CLI binary 名と引数は使用する LLM provider に応じて差し替える。
     # 現在は Claude CLI (`claude -p ... --output-format json`) を想定。
     cmd = [
-        "claude", "-p",
+        CLAUDE_BIN, "-p",
         "--model", MODEL,
         "--output-format", "json",
         "--tools", "",

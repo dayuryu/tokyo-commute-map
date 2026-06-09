@@ -15,7 +15,7 @@
 - 📊 **GTFS 真実時刻表** — 22 運営事業者の公開時刻表データから算出（rush-hour プールメディアン方式）
 - 🤖 **AI 駅推薦** — 6 問の偏好 Wizard → OpenAI が 20 駅を提案、地図上に一括ハイライト表示
 - 💰 **家賃目安** — SUUMO 101 駅の駅別相場 + 政府統計 1940 駅の区平均家賃（二層 fallback）
-- 🏘️ **周辺の特徴** — 全駅に AI 生成の街紹介テキスト（日本語 + 中文）
+- 🏘️ **周辺の特徴** — 全駅に AI 生成の街紹介テキスト（日本語 + 中文 + English）
 - 👥 **コミュニティ評価** — 物価・治安・電車混雑の 10 点スコア投稿 + 通勤時間訂正報告
 - ⭐ **お気に入り駅** — 駅を ★ で保存（最大 30 駅、localStorage）。地図に常駐表示 + 通勤時間つきリストで比較
 - 🏠 **物件検索連携** — SUUMO / HOME'S / CHINTAI 駅単位 deep link で迅速な物件探しへ
@@ -196,6 +196,7 @@ tokyo-commute-map/
 │   ├── graph.json              — 隣接グラフ（スクリプト生成物）
 │   ├── area_features.json      — 駅周辺特徴（日本語）
 │   ├── area_features_zh.json   — 駅周辺特徴（中文）
+│   ├── area_features_en.json   — 駅周辺特徴（English）
 │   ├── station_names_en.json   — 駅名ローマ字マップ（スクリプト生成物）
 │   ├── line_names_en.json      — 路線名英語マップ（スクリプト生成物）
 │   ├── destinations_v2/        — 30 駅 SEO ランディングページ用長文 JSON
