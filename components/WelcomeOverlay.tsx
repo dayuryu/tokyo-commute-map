@@ -89,6 +89,8 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
       clearTimeout(titleDoneT)
       clearTimeout(phaseT)
     }
+    // タイプライター演出は mount 時 1 回のみ。TITLE_TEXT は module 定数で不変のため deps 不要。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // mobile Safari blocks muted autoplay until a user gesture
@@ -247,7 +249,6 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
             willChange: 'transform',
           }}
         />
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video
           ref={setVideoEl}
           poster="/welcome-poster.jpg"

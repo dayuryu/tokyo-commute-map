@@ -1,6 +1,7 @@
 // components/StationDrawer.tsx
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslations, useLocale } from 'next-intl'
 import { supabase } from '@/lib/supabase'
@@ -48,6 +49,16 @@ interface AvgScore {
   avg_price:    number
   avg_safety:   number
   avg_crowd:    number
+}
+
+// station_reviews テーブル行（UI で参照するフィールドのみ厳密化、残りは任意）
+interface StationReview {
+  id:            number
+  comment:       string | null
+  created_at:    string
+  price_score?:  number | null
+  safety_score?: number | null
+  crowd_score?:  number | null
 }
 
 interface ReviewForm {
@@ -113,7 +124,7 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
   const areaFeatures = useAtomValue(areaFeaturesAtom)
   const stationEntrances = useAtomValue(stationEntrancesAtom)
   const [avgScore,   setAvgScore]   = useState<AvgScore | null>(null)
-  const [reviews,    setReviews]    = useState<any[]>([])
+  const [reviews,    setReviews]    = useState<StationReview[]>([])
   const [form,       setForm]       = useState<ReviewForm>({
     price_score: null, safety_score: null, crowd_score: null, comment: ''
   })
@@ -214,17 +225,7 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
     }
   }
 
-  useEffect(() => {
-    if (!station) return
-    setSubmitted(false)
-    setAvgScore(null)
-    setReviews([])
-    // 駅切替時に評価フォームを「未評価」状態にリセット
-    setForm({ price_score: null, safety_score: null, crowd_score: null, comment: '' })
-    fetchData(station.code)
-  }, [station])
-
-  async function fetchData(code: number) {
+  const fetchData = useCallback(async (code: number) => {
     const { data: avg } = await supabase
       .from('station_avg_scores')
       .select('*')
@@ -239,7 +240,20 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
       .order('created_at', { ascending: false })
       .limit(10)
     setReviews(revs || [])
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!station) return
+    // 駅切替時のリセット。本来は key による remount が React 推奨だが、親の描画構造を
+    // 変えずに同期 setState で reset する（cascading は station 変更時の 1 描画のみ）。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSubmitted(false)
+    setAvgScore(null)
+    setReviews([])
+    // 駅切替時に評価フォームを「未評価」状態にリセット
+    setForm({ price_score: null, safety_score: null, crowd_score: null, comment: '' })
+    fetchData(station.code)
+  }, [station, fetchData])
 
   // 3 項目すべてに評価が入っているかチェック。null が 1 つでもあれば送信不可。
   const allScored = form.price_score != null
@@ -682,9 +696,9 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
                   margin: '8px 0 0 0',
                 }}
               >
-                <a href="/legal/ads" className="underline" style={{ color: 'var(--ink-mute)' }}>
+                <Link href="/legal/ads" className="underline" style={{ color: 'var(--ink-mute)' }}>
                   {t('aboutAds')}
-                </a>
+                </Link>
               </p>
             </div>
 

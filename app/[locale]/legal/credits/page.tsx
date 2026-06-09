@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { getSiteInfo, LAST_UPDATED } from '@/lib/site-info'
 
 export const metadata: Metadata = {
@@ -264,7 +265,7 @@ export default function CreditsPage() {
         <h2 className="font-display text-xl text-sp-ink mb-3">7. アフィリエイトプログラム</h2>
         <p className="text-sm leading-relaxed text-sp-txt mb-3">
           本サイトは、以下のアフィリエイトサービスプロバイダを通じて広告収益を得ています。広告表示の詳細は{' '}
-          <a href="/legal/ads" className="underline hover:text-sp-ink">広告表示について</a>
+          <Link href="/legal/ads" className="underline hover:text-sp-ink">広告表示について</Link>
           {' '}をご確認ください。
         </p>
         <ul className="space-y-2">
@@ -287,7 +288,7 @@ export default function CreditsPage() {
         </p>
         <p className="text-sm leading-relaxed text-sp-txt mt-3">
           記載に漏れ・誤りがある場合は{' '}
-          <a href="/legal/contact" className="underline hover:text-sp-ink">お問い合わせ</a>
+          <Link href="/legal/contact" className="underline hover:text-sp-ink">お問い合わせ</Link>
           {' '}よりご指摘ください。
         </p>
       </section>

@@ -248,6 +248,11 @@ export default function AiWizard({
     return getDestinationDisplayName(d as FixedDestination, locale)
   }
 
+  // destLabel() は partialRef を読むため render 中の評価を 1 回に集約。destination は
+  // q>0 / result フェーズより前に確定し、ref 更新は常に state 駆動の再描画を伴うので表示は最新。
+  // eslint-disable-next-line react-hooks/refs
+  const currentDestLabel = destLabel()
+
   /** partialRef から WizardDestination object を再構築（partial が完備な前提）。 */
   function currentWizardDest(): WizardDestination | null {
     const d = partialRef.current.destination
@@ -483,7 +488,7 @@ export default function AiWizard({
           q={QUESTIONS[state.index - 1]}
           index={state.index}
           total={QUESTIONS.length + 1}
-          destinationLabel={destLabel()}
+          destinationLabel={currentDestLabel}
           isMobile={isMobile}
           onAnswer={answerQuestion}
           onBack={state.index < minBackIndex ? null : back}
@@ -493,7 +498,7 @@ export default function AiWizard({
       {state.phase === 'result'   && (
         <ResultView
           recs={state.recs}
-          destinationLabel={destLabel()}
+          destinationLabel={currentDestLabel}
           isFallback={state.isFallback}
           isCached={state.isCached}
           onStationClick={handleResolve}

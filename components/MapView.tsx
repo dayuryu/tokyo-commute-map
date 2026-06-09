@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useLocale } from 'next-intl'
 import maplibregl from 'maplibre-gl'
-import type { Destination, Station, CustomStation, CustomCommutesMap } from '@/lib/types'
+import type { Destination, CustomStation, CustomCommutesMap } from '@/lib/types'
 import { BUCKET_COLORS, getBucketThresholds, bucketize } from '@/lib/buckets'
 import { DESTINATIONS_META } from '@/lib/destinations'
 import { stationLabel } from '@/lib/station-label'
@@ -100,25 +100,43 @@ function createSelectedPinElement(label: string): HTMLElement {
 //
 // bucket 属性は maxMinutes に応じて毎回再計算する（lib/buckets.ts）。
 // これにより通勤上限スライダーを動かすたびに散点の色が範囲全体に再分布する。
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// stations.geojson のフィーチャ型。properties は template literal index signature で
+// 動的キー（min_to_<dest> / transfers_to_<dest> / bucket_<dest>）を number に解決する。
+interface StationProps {
+  code:        number
+  name:        string
+  name_en?:    string
+  bucket?:     number
+  line_names?: string[] | string
+  is_major?:   boolean
+  [key: `min_to_${string}`]:       number | undefined
+  [key: `transfers_to_${string}`]: number | undefined
+  [key: `bucket_${string}`]:       number | undefined
+}
+type StationFeature = {
+  type:       'Feature'
+  geometry:   { type: 'Point'; coordinates: [number, number] }
+  properties: StationProps
+}
+// MapLibre の feature.geometry（GeoJSON.Geometry union）から coordinates だけ取り出す用
+type PointGeom = { coordinates: [number, number] }
+
 function buildFilteredFeatures(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rawFeatures: any[],
+  rawFeatures: StationFeature[],
   destination: Destination,
   maxMinutes: number,
   maxTransfers: number,
   customStation: CustomStation | null,
   destInfo: Record<string, DestInfo>,
   customCommutes: CustomCommutesMap,
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-): any[] {
+): StationFeature[] {
   const thresholds = getBucketThresholds(maxMinutes)
 
   // custom destination は graph があれば Dijkstra 結果を、なければ haversine fallback。
   // どちらの場合も min_to_custom / transfers_to_custom プロパティに書き込む。
   let features = rawFeatures
   if (customStation) {
-    features = features.map((f: any) => {
+    features = features.map((f) => {
       let mins: number | null = null
       let xfers: number | null = null
       if (customCommutes) {
@@ -151,7 +169,7 @@ function buildFilteredFeatures(
     : (destInfo[destination]?.code ?? -1)
 
   // 絞り込み + bucket 動的再計算（properties.bucket を上書き）
-  return features.flatMap((f: any) => {
+  return features.flatMap((f) => {
     const p = f.properties
     if (p.code === excludeCode) return []
     const min = destination === 'custom'
@@ -281,7 +299,7 @@ export default function MapView({ onReady }: Props) {
       const geojson = await res.json()
 
       // is_major プロパティを注入（zoom 適応表示用）
-      geojson.features = geojson.features.map((f: any) => ({
+      geojson.features = geojson.features.map((f: StationFeature) => ({
         ...f,
         properties: {
           ...f.properties,
@@ -572,7 +590,7 @@ export default function MapView({ onReady }: Props) {
       stationLayers.forEach(layerId => {
         map.on('click', layerId, (e) => {
           const props = e.features?.[0]?.properties
-          const geo = e.features?.[0]?.geometry as any
+          const geo = e.features?.[0]?.geometry as unknown as PointGeom
           if (!props || !geo) return
           // MapLibre は GeoJSON properties の配列を JSON 文字列に
           // シリアライズすることがあるため、両方のケースを許容する
@@ -612,7 +630,7 @@ export default function MapView({ onReady }: Props) {
         map.on('mouseenter', layerId, (e) => {
           map.getCanvas().style.cursor = 'pointer'
           const props = e.features?.[0]?.properties
-          const geo = e.features?.[0]?.geometry as any
+          const geo = e.features?.[0]?.geometry as unknown as PointGeom
           if (!props || !geo) return
           const popupName = locale === 'en' ? (props.name_en ?? props.name) : props.name
           popup
@@ -631,10 +649,10 @@ export default function MapView({ onReady }: Props) {
         const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] })
         const clusterId = features[0]?.properties?.cluster_id
         if (clusterId == null) return
-        const source = map.getSource('stations-clustered') as any
+        const source = map.getSource('stations-clustered') as maplibregl.GeoJSONSource
         try {
           const zoom = await source.getClusterExpansionZoom(clusterId)
-          const geo = features[0].geometry as any
+          const geo = features[0].geometry as unknown as PointGeom
           map.easeTo({ center: geo.coordinates, zoom, duration: 600 })
         } catch {
           /* ignore */
@@ -658,6 +676,9 @@ export default function MapView({ onReady }: Props) {
       map.remove()
       mapRef.current = null
     }
+    // map 初期化は mount 時 1 回のみ。変化する値（destination / locale 等）は別 effect・ref で
+    // 反映する設計のため、deps を入れて map を再生成させない（意図的に空配列）。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── 両 source のデータをフィルター適用後に更新 ──
