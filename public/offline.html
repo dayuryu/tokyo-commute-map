@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>オフライン — Kayoha</title>
+    <style>
+      :root {
+        --cream: #faf8f5;
+        --red: #a8332b;
+        --paper: #f5e7d2;
+        --ink: #1f1d18;
+        --ink-soft: #5b574c;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        background: var(--cream);
+        color: var(--ink);
+        font-family: "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", Georgia, serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.4rem;
+        text-align: center;
+        padding: max(env(safe-area-inset-top), 24px) 24px max(env(safe-area-inset-bottom), 24px);
+        -webkit-font-smoothing: antialiased;
+      }
+      .seal {
+        width: 84px; height: 84px;
+        border-radius: 6px;
+        background: var(--red);
+        color: var(--paper);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 56px; font-weight: 700; line-height: 1;
+        box-shadow: 0 6px 18px rgba(122, 28, 20, 0.22);
+      }
+      h1 { font-size: 1.35rem; font-weight: 600; letter-spacing: 0.02em; }
+      p { color: var(--ink-soft); font-size: 0.95rem; line-height: 1.7; max-width: 22rem; }
+      .sub { font-size: 0.8rem; color: var(--ink-soft); opacity: 0.75; }
+      button {
+        margin-top: 0.4rem;
+        font: inherit; font-size: 0.95rem;
+        color: var(--paper); background: var(--red);
+        border: none; border-radius: 999px;
+        padding: 0.7rem 1.8rem; cursor: pointer;
+        box-shadow: 0 2px 10px rgba(168, 51, 43, 0.25);
+      }
+      button:active { transform: translateY(1px); }
+    </style>
+  </head>
+  <body>
+    <div class="seal" aria-hidden="true">通</div>
+    <h1>オフラインです</h1>
+    <p>
+      ネットワークに接続できません。電波の良い場所で再読み込みしてください。<br />
+      <span class="sub">You're offline. Reconnect and try again.</span>
+    </p>
+    <button onclick="location.reload()">再読み込み / Retry</button>
+  </body>
+</html>
