@@ -13,7 +13,7 @@ export async function generateMetadata({
   await params
   const title = '东京留学居住人格测试'
   const description =
-    '24 道题测出你的东京留学居住人格——16 型 + 隐藏型，以及你的本命车站。马场修行僧？港区のセレブ？还是 Warabistan 开拓者？由 Kayoha 制作。'
+    '24 道题测出你的东京留学居住人格——16 型 + 隐藏型，以及你的本命车站。马场修行僧？港区名流？还是西船桥追光者？由 Kayoha 制作。'
   return {
     title,
     description,

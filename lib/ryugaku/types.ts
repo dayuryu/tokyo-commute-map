@@ -32,11 +32,11 @@ export type Question = {
 /** 隐藏型 key */
 export type HiddenKey =
   | 'pilgrim' // 圣地巡礼者
-  | 'otome' // 中野乙女路の住民
-  | 'serebu' // 港区のセレブ
-  | 'dekasegi' // 出稼ぎ战士
+  | 'otome' // 中野乙女
+  | 'serebu' // 港区名流
+  | 'dekasegi' // 蒲田打工战神
   | 'fukushi' // 福祉大幸存者
-  | 'nishikasai' // 西葛西の名誉インド人
+  | 'nishikasai' // 西葛西咖喱党
 
 /** 彩蛋题：高分给某隐藏型加权 */
 export type BonusQuestion = {
@@ -50,8 +50,13 @@ export type PersonaCode = string
 
 export type Persona = {
   code: PersonaCode
+  /** 中文主标题（简洁有力，纯中文，不混の） */
   name: string
+  /** 日文副句（主题呼应、非直译；展示时必须用日文字体 + lang="ja"） */
+  nameJa: string
   slogan: string
+  /** 代表色（MBTI 式分组配色，结果页主题色） */
+  color: string
   /** 本命车站（映射区域，结果页/导流用） */
   stations: string[]
   /** 都心 I / 远郊 O（分组展示用） */
@@ -61,7 +66,9 @@ export type Persona = {
 export type HiddenPersona = {
   key: HiddenKey
   name: string
+  nameJa: string
   slogan: string
+  color: string
   stations: string[]
 }
 

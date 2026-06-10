@@ -5,7 +5,7 @@ import { AXES, AXIS_ORDER } from '@/lib/ryugaku/quiz-data'
 import { encodeAnswers, resultFace, resultStations } from '@/lib/ryugaku/scoring'
 import type { Answers } from '@/lib/ryugaku/scoring'
 import type { QuizResult as Result } from '@/lib/ryugaku/types'
-import { C, SERIF, SANS } from './theme'
+import { C, SERIF, SERIF_JA, SANS } from './theme'
 
 // 确定性"占比"（演示值，后续接真实统计）
 function pct(code: string, isHidden: boolean): string {
@@ -26,6 +26,7 @@ export default function QuizResult({
   onRestart: () => void
 }) {
   const face = resultFace(result)
+  const accent = face.color
   const stations = resultStations(result)
   const [copied, setCopied] = useState(false)
 
@@ -57,20 +58,25 @@ export default function QuizResult({
   return (
     <div style={{ width: '100%', maxWidth: 460, margin: '0 auto' }}>
       {face.isHidden && (
-        <div style={{ display: 'inline-block', fontSize: 12, fontWeight: 600, letterSpacing: '.08em', color: C.red, border: `1px solid ${C.red}`, borderRadius: 999, padding: '4px 14px', marginBottom: 16 }}>
+        <div style={{ display: 'inline-block', fontSize: 12, fontWeight: 600, letterSpacing: '.08em', color: accent, border: `1px solid ${accent}`, borderRadius: 999, padding: '4px 14px', marginBottom: 16 }}>
           稀有人格 · 全网约 {pct(face.code, true)}%
         </div>
       )}
 
       {/* 4 字母代号 */}
-      <div style={{ fontFamily: SERIF, fontSize: 'clamp(40px, 12vw, 60px)', fontWeight: 700, letterSpacing: '.14em', color: C.red, lineHeight: 1 }}>
+      <div style={{ fontFamily: SERIF, fontSize: 'clamp(40px, 12vw, 60px)', fontWeight: 700, letterSpacing: '.14em', color: accent, lineHeight: 1 }}>
         {face.code}
       </div>
 
-      {/* 型名 */}
+      {/* 型名（中文主标题） */}
       <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 7vw, 36px)', fontWeight: 600, margin: '12px 0 0', lineHeight: 1.3 }}>
         {face.name}
       </h1>
+
+      {/* 日文副句 — 必须日文字体 + lang="ja"，与中文标题分行各用各的字体 */}
+      <p lang="ja" style={{ fontFamily: SERIF_JA, fontSize: 15, letterSpacing: '.12em', color: accent, opacity: 0.85, margin: '10px 0 0' }}>
+        {face.nameJa}
+      </p>
 
       {!face.isHidden && (
         <p style={{ fontSize: 12, color: C.inkSoft, opacity: 0.75, margin: '8px 0 0' }}>
@@ -88,7 +94,8 @@ export default function QuizResult({
         {AXIS_ORDER.map(key => {
           const axis = AXES.find(a => a.key === key)!
           const v = result.axes[key] // -1..1
-          const posPct = ((v + 1) / 2) * 100
+          // pos 极在左、neg 极在右：v=+1 → 0%（最左），v=-1 → 100%（最右）
+          const posPct = ((1 - v) / 2) * 100
           const towardPos = v >= 0
           return (
             <div key={key} style={{ textAlign: 'left' }}>
@@ -102,7 +109,7 @@ export default function QuizResult({
                 </span>
               </div>
               <div style={{ position: 'relative', height: 6, background: C.line, borderRadius: 99 }}>
-                <div style={{ position: 'absolute', left: `calc(${posPct}% - 6px)`, top: -3, width: 12, height: 12, borderRadius: 99, background: C.red, boxShadow: '0 1px 4px rgba(168,51,43,.3)' }} />
+                <div style={{ position: 'absolute', left: `calc(${posPct}% - 6px)`, top: -3, width: 12, height: 12, borderRadius: 99, background: accent, boxShadow: '0 1px 4px rgba(0,0,0,.18)' }} />
               </div>
             </div>
           )
@@ -122,7 +129,7 @@ export default function QuizResult({
       </div>
 
       {/* CTA 导流地图 */}
-      <a href={mapHref} style={{ display: 'block', marginTop: 28, textDecoration: 'none', font: SANS, fontSize: 16, fontWeight: 600, color: C.paper, background: C.red, borderRadius: 999, padding: '15px 24px', boxShadow: '0 2px 12px rgba(168,51,43,0.28)' }}>
+      <a href={mapHref} style={{ display: 'block', marginTop: 28, textDecoration: 'none', fontFamily: SANS, fontSize: 16, fontWeight: 600, color: '#fff', background: accent, borderRadius: 999, padding: '15px 24px', boxShadow: '0 2px 12px rgba(0,0,0,0.2)' }}>
         在地图上看你的专属车站 →
       </a>
 
