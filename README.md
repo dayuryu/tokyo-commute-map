@@ -12,6 +12,7 @@
 ## 特長
 
 - 🗺️ **等時圏マップ** — 30 の主要目的地 + 任意のカスタム目的地への通勤時間で 1831 駅を 6 段階にカラーリング
+- 👫 **二拠点通勤** — 2 つ目の目的地を追加すると「両方に通える駅」だけを max(A, B) で着色（夫婦・カップルの双通勤向け、全駅指定可）
 - 📊 **GTFS 真実時刻表** — 22 運営事業者の公開時刻表データから算出（rush-hour プールメディアン方式）
 - 🤖 **AI 駅推薦** — 6 問の偏好 Wizard → OpenAI が 20 駅を提案、地図上に一括ハイライト表示
 - 💰 **家賃目安** — SUUMO 101 駅の駅別相場 + 政府統計 1940 駅の区平均家賃（二層 fallback）
@@ -154,7 +155,7 @@ tokyo-commute-map/
 │   ├── AiResultGrid.tsx        — AI 推薦 20 駅カード grid
 │   ├── AiRecallButton.tsx      — AI 推薦結果の再表示フロートボタン
 │   ├── DestinationAsk.tsx      — 通勤先選択（+ AI 推薦入口）
-│   ├── DestinationPicker.tsx   — 30 fixed + custom 目的地切替
+│   ├── DestinationPicker.tsx   — 30 fixed + custom 目的地切替 + 2 つ目の目的地（二拠点通勤）
 │   ├── WelcomeOverlay.tsx      — オンボーディング 1 段目
 │   ├── Story.tsx               — オンボーディング 2 段目（3 章物語）
 │   ├── HeaderMenu.tsx          — 右上ハンバーガーメニュー
