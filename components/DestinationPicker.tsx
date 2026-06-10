@@ -282,13 +282,23 @@ export default function DestinationPicker() {
         </div>
       ) : (
         !searchActive && (
+          /* 未設定時は「＋ 目的地を追加」のゴーストチップ — 破線枠で
+             「ここにもう 1 つチップを置ける」ことを視覚的に伝える */
           <button
             onClick={() => activateSearch('second')}
-            className="px-2 py-1 rounded hover:bg-black/5 transition-all text-sm leading-none"
-            style={{ color: 'var(--ink-mute)' }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded text-sm whitespace-nowrap hover:bg-black/5 transition-all"
+            style={{
+              border: '1px dashed rgba(28,24,18,.35)',
+              color: 'var(--ink-soft)',
+              fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+              letterSpacing: '.04em',
+            }}
             title={t('addSecondTitle')}
           >
-            ＋
+            <span style={{ fontWeight: 600 }}>＋</span>
+            {/* 狭幅（mobile）ではタブ列を圧迫しないよう短縮ラベル */}
+            <span className="hidden sm:inline">{t('addSecondLabel')}</span>
+            <span className="sm:hidden">{t('addSecondLabelShort')}</span>
           </button>
         )
       )}

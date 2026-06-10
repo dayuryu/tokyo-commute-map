@@ -220,6 +220,8 @@
   "destinationPicker": {
     "searchTitle": "Search stations",
     "searchPlaceholder": "Search stations...",
+    "addSecondLabel": "Add destination",
+    "addSecondLabelShort": "Add",
     "addSecondTitle": "Add a second destination (show stations reaching both)",
     "secondChipTitle": "Second destination (colors show the longer of the two)"
   },
