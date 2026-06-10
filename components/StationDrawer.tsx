@@ -1,7 +1,6 @@
 // components/StationDrawer.tsx
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslations, useLocale } from 'next-intl'
 import { supabase } from '@/lib/supabase'
@@ -676,28 +675,14 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
             {/* hairline divider */}
             <div className="h-px my-6" style={{ background: 'rgba(28,24,18,.10)' }} />
 
-            {/* affiliate 広告 — 住居検索（景表法 PR 表記済み）
-                a8mat 未設定時は targetUrl をそのまま開く fallback 動作
-                rel="sponsored" は Google + 景表法ガイドラインの推奨 */}
+            {/* 住居検索ポータルへの駅検索リンク。
+                ⚠️ 2026-06-10 現在アフィリエイト未契約 = 無報酬の素リンクのため
+                「PR」表記・rel="sponsored"・「広告について」link を撤去（表記が
+                事実と不一致だった）。**ASP 契約時は docs/affiliate-compliance.md
+                §3-1 に従い 3 点とも必ず復元すること**（ステマ規制）。 */}
             <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="smallcaps" style={{ color: 'var(--ink-mute)' }}>
-                  {t('findHousing')}
-                </div>
-                <span
-                  style={{
-                    fontFamily: 'var(--mono, monospace)',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: '.1em',
-                    color: 'var(--ink)',
-                    background: 'rgba(28,24,18,.08)',
-                    padding: '1px 6px',
-                    borderRadius: 2,
-                  }}
-                >
-                  PR
-                </span>
+              <div className="smallcaps mb-3" style={{ color: 'var(--ink-mute)' }}>
+                {t('findHousing')}
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {ALL_PROGRAMS.map((id) => (
@@ -705,7 +690,7 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
                     key={id}
                     href={buildAffiliateLink(station.name, id, suumoMap ?? undefined)}
                     target="_blank"
-                    rel="noopener noreferrer sponsored"
+                    rel="noopener noreferrer"
                     onClick={() => trackEvent('affiliate_click', { provider: id, station: station.name })}
                     className="text-center transition-opacity hover:opacity-70"
                     style={{
@@ -733,22 +718,6 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
                   </a>
                 ))}
               </div>
-              {/* PR 表記の詳細 link — 景表法ガイドライン推奨 */}
-              <p
-                style={{
-                  fontFamily: 'var(--display-italic, Garamond, serif)',
-                  fontStyle: 'italic',
-                  fontSize: 10.5,
-                  color: 'var(--ink-mute)',
-                  letterSpacing: '.02em',
-                  lineHeight: 1.5,
-                  margin: '8px 0 0 0',
-                }}
-              >
-                <Link href="/legal/ads" className="underline" style={{ color: 'var(--ink-mute)' }}>
-                  {t('aboutAds')}
-                </Link>
-              </p>
             </div>
 
             {/* hairline divider */}

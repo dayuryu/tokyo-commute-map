@@ -15,13 +15,16 @@ export default function AdsPage() {
         <h1 className="font-display text-3xl md:text-4xl text-sp-ink mb-4">
           広告表示について
         </h1>
+        {/* 2026-06-10 改訂：アフィリエイト未契約のため現状を事実記載に変更
+            （旧文言「広告が含まれています」は契約不在では不実表示になる）。
+            広告導入時は本段落を「含まれています」の現在形に戻すこと。 */}
         <p className="text-sm leading-relaxed text-sp-ink-soft">
-          {site.siteName}（以下「当サイト」）には、第三者によるアフィリエイト広告が含まれています。景品表示法に基づくステルスマーケティング規制（2023 年 10 月 1 日施行）に従い、広告であることを明示します。
+          {site.siteName}（以下「当サイト」）は、現在アフィリエイト広告を掲載していません。サイト内から SUUMO・LIFULL HOME&apos;S・CHINTAI 等の外部サービスへ遷移するリンクは、利用者の利便のための単なるリンクであり、当サイトに紹介報酬は発生しません。将来アフィリエイト広告を導入する場合は、景品表示法に基づくステルスマーケティング規制（2023 年 10 月 1 日施行）に従い、以下の方針のとおり広告であることを明示します。
         </p>
       </header>
 
       <section>
-        <h2 className="font-display text-xl text-sp-ink mb-3">1. 利用しているアフィリエイトプログラム</h2>
+        <h2 className="font-display text-xl text-sp-ink mb-3">1. 利用する可能性のあるアフィリエイトプログラム</h2>
         <ul className="space-y-2">
           {site.affiliatePartners.map(p => (
             <li
