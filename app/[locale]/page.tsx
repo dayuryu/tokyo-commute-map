@@ -22,6 +22,8 @@ import { STORAGE_KEYS } from '@/lib/storage-keys'
 import { trackEvent } from '@/lib/analytics'
 import { selectedStationAtom } from '@/lib/atoms/ui'
 import { stationByNameAtom } from '@/lib/atoms/data'
+import { bootstrapRyugakuHighlightAtom } from '@/lib/atoms/ryugaku'
+import RyugakuStationsChip from '@/components/RyugakuStationsChip'
 import { setDestinationAtom } from '@/lib/atoms/domain'
 import {
   aiCacheAtom,
@@ -103,6 +105,8 @@ export default function Home() {
   // mount effect — visited / forceWelcome 判定だけ残る。
   // destination 復元は useBootstrapDestination、aiCache 復元は useBootstrapAiCache、
   // overlay 初期状態は bootstrapOverlay が担当。
+  const bootstrapRyugakuHighlight = useSetAtom(bootstrapRyugakuHighlightAtom)
+
   useEffect(() => {
     let visited = false
     try { visited = localStorage.getItem(STORAGE_KEYS.visited) === '1' } catch {}
@@ -113,7 +117,15 @@ export default function Home() {
         sessionStorage.removeItem(STORAGE_KEYS.welcomeAfterLocaleSwitch)
       }
     } catch {}
-    bootstrapOverlay({ visited, forceWelcome })
+    // /ryugaku 測試からの導流 (?rstations=)。解析・検証は atom 層に封装。
+    // 流入時は初訪 user でも onboarding を飛ばして地図へ直行する
+    // （「自分の本命駅を見る」が来訪目的なので Welcome に埋めない。
+    //   visited は永続化しない — 次回オーガニック訪問では通常の Welcome を見せる）。
+    const hasRyugaku = bootstrapRyugakuHighlight(window.location.search)
+    bootstrapOverlay({
+      visited: visited || hasRyugaku,
+      forceWelcome: hasRyugaku ? false : forceWelcome,
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -272,6 +284,7 @@ export default function Home() {
 
             <HeaderMenu onHelp={handleHelpClick} />
             <FavoritesPanel />
+            <RyugakuStationsChip />
             <CookieConsent />
           </>
         )}
