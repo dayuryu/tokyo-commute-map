@@ -12,7 +12,7 @@
 import { atom } from 'jotai'
 import { computeCommutes } from '@/lib/dijkstra'
 import type { CustomCommutesMap } from '@/lib/types'
-import { customStationAtom, destinationAtom } from '@/lib/atoms/domain'
+import { customStationAtom, destinationAtom, secondCustomStationAtom } from '@/lib/atoms/domain'
 import { graphAtom, stationByNameAtom } from '@/lib/atoms/data'
 import { aiCacheAtom, isAiCacheFresh } from '@/lib/atoms/ai-cache'
 
@@ -26,6 +26,17 @@ export const customCommutesAtom = atom<CustomCommutesMap>((get) => {
   const graph = get(graphAtom)
   if (!customStation || !graph) return null
   return computeCommutes(graph, customStation.code)
+})
+
+/**
+ * 2 つ目の通勤先が custom 駅の時の全駅 → 駅 通勤 map。customCommutesAtom と同型。
+ * second が fixed slug の場合は geojson の min_to_<slug> を直接読むため null のまま。
+ */
+export const secondCommutesAtom = atom<CustomCommutesMap>((get) => {
+  const station = get(secondCustomStationAtom)
+  const graph = get(graphAtom)
+  if (!station || !graph) return null
+  return computeCommutes(graph, station.code)
 })
 
 /**

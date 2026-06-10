@@ -9,8 +9,13 @@ import { BUCKET_COLORS, getBucketThresholds, bucketize } from '@/lib/buckets'
 import { DESTINATIONS_META } from '@/lib/destinations'
 import { stationLabel } from '@/lib/station-label'
 import { maxMinutesAtom, maxTransfersAtom, selectedStationAtom } from '@/lib/atoms/ui'
-import { destinationAtom, customStationAtom } from '@/lib/atoms/domain'
-import { customCommutesAtom, aiHighlightFeaturesAtom } from '@/lib/atoms/derived'
+import {
+  destinationAtom,
+  customStationAtom,
+  secondDestinationAtom,
+  secondCustomStationAtom,
+} from '@/lib/atoms/domain'
+import { customCommutesAtom, secondCommutesAtom, aiHighlightFeaturesAtom } from '@/lib/atoms/derived'
 import { ryugakuHighlightFeaturesAtom } from '@/lib/atoms/ryugaku'
 import { favoriteFeaturesAtom } from '@/lib/atoms/favorites'
 
@@ -122,6 +127,51 @@ type StationFeature = {
 // MapLibre の feature.geometry（GeoJSON.Geometry union）から coordinates だけ取り出す用
 type PointGeom = { coordinates: [number, number] }
 
+// 2 つ目の通勤先（二拠点通勤モード）。null = 単一目的地。
+// custom 時の Dijkstra 結果（secondCommutesAtom）も束ねて持ち回る。
+interface SecondTarget {
+  destination:   Destination
+  customStation: CustomStation | null
+  commutes:      CustomCommutesMap
+}
+
+// custom 駅への通勤時間を全 feature に注入する。graph があれば Dijkstra 結果、
+// なければ haversine fallback。primary は min_to_custom、second は min_to_custom2 へ書く。
+function injectCustomCommute(
+  features: StationFeature[],
+  station: CustomStation,
+  commutes: CustomCommutesMap,
+  minKey: `min_to_${string}`,
+  transfersKey: `transfers_to_${string}`,
+): StationFeature[] {
+  return features.map((f) => {
+    let mins: number | null = null
+    let xfers: number | null = null
+    if (commutes) {
+      const r = commutes.get(f.properties.code)
+      if (r) {
+        mins  = r.mins
+        xfers = r.transfers
+      } else if (f.properties.code === station.code) {
+        mins  = 0
+        xfers = 0
+      }
+    } else {
+      // graph 未ロード時の fallback
+      const [lon, lat] = f.geometry.coordinates
+      mins = Math.round(haversineMin(station.lat, station.lon, lat, lon))
+    }
+    return {
+      ...f,
+      properties: {
+        ...f.properties,
+        [minKey]:       mins ?? undefined,
+        [transfersKey]: xfers ?? undefined,
+      },
+    }
+  })
+}
+
 function buildFilteredFeatures(
   rawFeatures: StationFeature[],
   destination: Destination,
@@ -130,69 +180,73 @@ function buildFilteredFeatures(
   customStation: CustomStation | null,
   destInfo: Record<string, DestInfo>,
   customCommutes: CustomCommutesMap,
+  second: SecondTarget | null,
 ): StationFeature[] {
   const thresholds = getBucketThresholds(maxMinutes)
 
-  // custom destination は graph があれば Dijkstra 結果を、なければ haversine fallback。
-  // どちらの場合も min_to_custom / transfers_to_custom プロパティに書き込む。
   let features = rawFeatures
   if (customStation) {
-    features = features.map((f) => {
-      let mins: number | null = null
-      let xfers: number | null = null
-      if (customCommutes) {
-        const r = customCommutes.get(f.properties.code)
-        if (r) {
-          mins  = r.mins
-          xfers = r.transfers
-        } else if (f.properties.code === customStation.code) {
-          mins  = 0
-          xfers = 0
-        }
-      } else {
-        // graph 未ロード時の fallback
-        const [lon, lat] = f.geometry.coordinates
-        mins = Math.round(haversineMin(customStation.lat, customStation.lon, lat, lon))
-      }
-      return {
-        ...f,
-        properties: {
-          ...f.properties,
-          min_to_custom:       mins ?? undefined,
-          transfers_to_custom: xfers ?? undefined,
-        },
-      }
-    })
+    features = injectCustomCommute(
+      features, customStation, customCommutes, 'min_to_custom', 'transfers_to_custom')
+  }
+  if (second?.customStation) {
+    features = injectCustomCommute(
+      features, second.customStation, second.commutes, 'min_to_custom2', 'transfers_to_custom2')
   }
 
-  const excludeCode = destination === 'custom'
-    ? (customStation?.code ?? -1)
-    : (destInfo[destination]?.code ?? -1)
+  // 目的地駅自身は散点から除外（primary + second 両方）
+  const excludeCodes = new Set<number>()
+  const primaryCode = destination === 'custom'
+    ? customStation?.code
+    : destInfo[destination]?.code
+  if (primaryCode != null) excludeCodes.add(primaryCode)
+  if (second) {
+    const secondCode = second.destination === 'custom'
+      ? second.customStation?.code
+      : destInfo[second.destination]?.code
+    if (secondCode != null) excludeCodes.add(secondCode)
+  }
 
   // 絞り込み + bucket 動的再計算（properties.bucket を上書き）
+  // 二拠点モードは max(A, B)（= 悪い方）で着色・filter する：
+  // 「両方の目的地に maxMinutes 以内」が表示条件、色は届きにくい方を反映。
   return features.flatMap((f) => {
     const p = f.properties
-    if (p.code === excludeCode) return []
-    const min = destination === 'custom'
+    if (excludeCodes.has(p.code)) return []
+    const minA = destination === 'custom'
       ? p.min_to_custom
       : p[`min_to_${destination}`]
-    if (min == null || min > maxMinutes) return []
+    if (minA == null || minA > maxMinutes) return []
+    let min = minA
+    if (second) {
+      const minB = second.destination === 'custom'
+        ? p.min_to_custom2
+        : p[`min_to_${second.destination}`]
+      if (minB == null || minB > maxMinutes) return []
+      min = Math.max(minA, minB)
+    }
     if (maxTransfers < 99) {
       // custom / fixed 両方とも乗換数フィルタが効くようにする。
       // custom かつ graph 未ロード（haversine fallback）の場合は transfers が
       // 取れないので、安全側に倒して filter を無効化する（= 全表示）。
-      const tr = destination === 'custom'
-        ? p.transfers_to_custom
-        : p[`transfers_to_${destination}`]
-      if (destination === 'custom' && tr == null) {
-        // haversine fallback 中 → filter skip
-      } else if (tr == null || tr > maxTransfers) {
-        return []
+      const transfersOk = (dest: Destination, customKey: 'custom' | 'custom2'): boolean => {
+        const tr = dest === 'custom'
+          ? p[`transfers_to_${customKey}`]
+          : p[`transfers_to_${dest}`]
+        if (dest === 'custom' && tr == null) return true // haversine fallback 中 → filter skip
+        return tr != null && tr <= maxTransfers
       }
+      if (!transfersOk(destination, 'custom')) return []
+      if (second && !transfersOk(second.destination, 'custom2')) return []
     }
     return [{
       ...f,
-      properties: { ...p, bucket: bucketize(min, thresholds) },
+      properties: {
+        ...p,
+        bucket: bucketize(min, thresholds),
+        // cluster 集計（sum_pair / cnt_pair）用の合成値。単一目的地時は注入しない
+        ...(second ? { min_to_pair: min } : {}),
+      },
     }]
   })
 }
@@ -212,15 +266,19 @@ function buildClusterProperties(): Record<string, any> {
   // custom（実行時に inject される min_to_custom 用）
   props.sum_custom = ['+', ['case', ['has', 'min_to_custom'], ['get', 'min_to_custom'], 0]]
   props.cnt_custom = ['+', ['case', ['has', 'min_to_custom'], 1, 0]]
+  // 二拠点モード（実行時に inject される min_to_pair = max(A, B) 用）
+  props.sum_pair = ['+', ['case', ['has', 'min_to_pair'], ['get', 'min_to_pair'], 0]]
+  props.cnt_pair = ['+', ['case', ['has', 'min_to_pair'], 1, 0]]
   return props
 }
 
 // cluster 円の色：destination の平均通勤時間で動的染色。
 // thresholds は maxMinutes に応じて変動するため、毎回式を組み直す。
 // custom も同じ step expression で扱う（sum_custom / cnt_custom が
-// clusterProperties で集計されている）。
+// clusterProperties で集計されている）。二拠点モードは 'pair'
+//（min_to_pair = max(A, B) の集計値）を使う。
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getClusterColor(destination: Destination, maxMinutes: number): any {
+function getClusterColor(destination: Destination | 'pair', maxMinutes: number): any {
   const thresholds = getBucketThresholds(maxMinutes)
   // step 式: [step, value, default, stop1, color1, stop2, color2, ...]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -251,6 +309,9 @@ export default function MapView({ onReady }: Props) {
   const destination = useAtomValue(destinationAtom)
   const customStation = useAtomValue(customStationAtom)
   const customCommutes = useAtomValue(customCommutesAtom)
+  const secondDestination = useAtomValue(secondDestinationAtom)
+  const secondCustomStation = useAtomValue(secondCustomStationAtom)
+  const secondCommutes = useAtomValue(secondCommutesAtom)
   const aiHighlightFeatures = useAtomValue(aiHighlightFeaturesAtom)
   const maxMinutes = useAtomValue(maxMinutesAtom)
   const maxTransfers = useAtomValue(maxTransfersAtom)
@@ -261,6 +322,8 @@ export default function MapView({ onReady }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const geojsonRef = useRef<any>(null)
   const markerRef = useRef<maplibregl.Marker | null>(null)
+  // 2 つ目の目的地ピン — primary (markerRef) と独立に add/remove する
+  const secondMarkerRef = useRef<maplibregl.Marker | null>(null)
   // 選択中駅ピン（黒）— 通勤先ピン (markerRef、赤) とは独立のマーカー
   const selectedMarkerRef = useRef<maplibregl.Marker | null>(null)
   // 30 個の fixed destination の info（onload で計算、destInfoReady を立てて re-render）
@@ -348,10 +411,17 @@ export default function MapView({ onReady }: Props) {
       destInfoRef.current = destInfo
       setDestInfoReady(true)
 
-      // 初期 props で絞り込み済みの features を作成し、両 source に流す
+      // 初期 props で絞り込み済みの features を作成し、両 source に流す。
+      // mount 後に atom が変わった場合（localStorage 復元等）は、destInfoReady を
+      // 依存に持つ下の update effect が source 生成直後に再絞り込みして追いつく。
+      const second: SecondTarget | null = secondDestination === null ? null : {
+        destination:   secondDestination,
+        customStation: secondCustomStation,
+        commutes:      secondCommutes,
+      }
       const initialFiltered = buildFilteredFeatures(
         geojson.features, destination, maxMinutes, maxTransfers, customStation, destInfo,
-        customCommutes,
+        customCommutes, second,
       )
       const initialData = { ...geojson, features: initialFiltered }
 
@@ -481,7 +551,7 @@ export default function MapView({ onReady }: Props) {
             30, 28,
             100, 36,
           ],
-          'circle-color': getClusterColor(destination, maxMinutes),
+          'circle-color': getClusterColor(second ? 'pair' : destination, maxMinutes),
           'circle-opacity': 0.85,
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
@@ -717,11 +787,16 @@ export default function MapView({ onReady }: Props) {
     const map = mapRef.current
     if (!map || !map.getSource('stations') || !geojsonRef.current) return
 
+    const second: SecondTarget | null = secondDestination === null ? null : {
+      destination:   secondDestination,
+      customStation: secondCustomStation,
+      commutes:      secondCommutes,
+    }
     const filtered = buildFilteredFeatures(
       geojsonRef.current.features,
       destination, maxMinutes, maxTransfers, customStation,
       destInfoRef.current,
-      customCommutes,
+      customCommutes, second,
     )
     const data = { ...geojsonRef.current, features: filtered }
     ;(map.getSource('stations')           as maplibregl.GeoJSONSource).setData(data)
@@ -729,9 +804,13 @@ export default function MapView({ onReady }: Props) {
 
     // cluster 円の step 式は maxMinutes に依存するため、ここで毎回更新
     if (map.getLayer('clusters')) {
-      map.setPaintProperty('clusters', 'circle-color', getClusterColor(destination, maxMinutes))
+      map.setPaintProperty('clusters', 'circle-color',
+        getClusterColor(second ? 'pair' : destination, maxMinutes))
     }
-  }, [destination, maxMinutes, maxTransfers, customStation, customCommutes])
+    // destInfoReady: source 生成（map load）前に atom が変わった場合（localStorage 復元と
+    // map load の race）、生成直後にこの effect が再実行されて最新 atom 値で絞り込み直す。
+  }, [destination, maxMinutes, maxTransfers, customStation, customCommutes,
+      secondDestination, secondCustomStation, secondCommutes, destInfoReady])
 
   // ── 目的地変化 → ピン更新 + flyTo + cluster 円色更新 ──
   // destInfoReady を依存に含めることで、geojson load 完了後の初回 marker 設置を保証
@@ -773,6 +852,41 @@ export default function MapView({ onReady }: Props) {
 
   }, [destination, customStation, destInfoReady, locale])
 
+  // ── 2 つ目の目的地ピン ──
+  // primary と同型の赤ピン（label で判別可能）。追加/削除時に flyTo はしない —
+  // 散点の色変化が即時 feedback になり、視点を奪わない方が二拠点比較に向く。
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    let coords: [number, number] | null = null
+    let label = ''
+
+    if (secondDestination === 'custom' && secondCustomStation) {
+      coords = [secondCustomStation.lon, secondCustomStation.lat]
+      label = stationLabel(secondCustomStation, locale)
+    } else if (secondDestination && secondDestination !== 'custom') {
+      const info = destInfoRef.current[secondDestination]
+      if (info) {
+        coords = info.coords
+        label = info.label
+      }
+    }
+
+    secondMarkerRef.current?.remove()
+    secondMarkerRef.current = null
+
+    if (coords) {
+      secondMarkerRef.current = new maplibregl.Marker({
+        element: createPinElement(label),
+        anchor: 'top-left',
+        offset: [-16, -44],
+      })
+        .setLngLat(coords)
+        .addTo(map)
+    }
+  }, [secondDestination, secondCustomStation, destInfoReady, locale])
+
   // ── 選択中駅 → 黒ピン更新 + 該当駅の散点/label 隠す + flyTo ──────────
   // 通勤先（赤ピン）と同一駅の場合はマーカー出さない（赤ピンが既にあるため）。
   // 散点と label を同時に隠すことで、黒ピン (anchor='top-left') と緑散点 (anchor=center)
@@ -800,12 +914,16 @@ export default function MapView({ onReady }: Props) {
       return
     }
 
-    // 通勤先と同じコードならば赤ピンに任せて黒ピンは出さない。
+    // 通勤先（primary / second どちらか）と同じコードならば赤ピンに任せて黒ピンは出さない。
     // この場合は散点も隠さない（赤ピンが上に乗っているので問題ない）。
     const destCode = destination === 'custom'
       ? customStation?.code
       : destInfoRef.current[destination]?.code
-    if (destCode != null && selectedStation.code === destCode) {
+    const secondCode = secondDestination === 'custom'
+      ? secondCustomStation?.code
+      : secondDestination ? destInfoRef.current[secondDestination]?.code : undefined
+    if ((destCode != null && selectedStation.code === destCode)
+      || (secondCode != null && selectedStation.code === secondCode)) {
       restoreFilters()
       return
     }
@@ -842,7 +960,7 @@ export default function MapView({ onReady }: Props) {
       essential: true,
       offset:   isDesktop ? [-190, 0] : [0, 0],
     })
-  }, [selectedStation, destination, customStation, destInfoReady, locale])
+  }, [selectedStation, destination, customStation, secondDestination, secondCustomStation, destInfoReady, locale])
 
   // ── AI highlight features 更新 ──
   // aiCache が新しく確定 / 失効 / リコール時に aiHighlightFeaturesAtom が変わる。

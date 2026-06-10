@@ -80,3 +80,50 @@ export const setDestinationAtom = atom(
     }
   },
 )
+
+/** 2 つ目の通勤先（二拠点通勤）。null = 未設定（単一目的地モード）。
+ *  不変量は commuteTargetAtom と同一 — destination === 'custom' ⟺ customStation !== null。
+ *  **module 私有** — 外部からは読み取り専用 atom + setSecondDestinationAtom 経由のみ。 */
+const secondTargetAtom = atom<{
+  destination:   Destination
+  customStation: CustomStation | null
+} | null>(null)
+
+/** 2 つ目の destination（読み取り専用）。未設定時は null。 */
+export const secondDestinationAtom = atom((get) => get(secondTargetAtom)?.destination ?? null)
+
+/** 2 つ目の customStation（読み取り専用）。second が custom 以外 / 未設定時は null。 */
+export const secondCustomStationAtom = atom((get) => get(secondTargetAtom)?.customStation ?? null)
+
+/**
+ * 2 つ目の通勤先を更新する**唯一の書き込み口**。target = null で解除（単一目的地に戻す）。
+ * 永続化 schema は destination と共通（destination-storage.ts）、キーのみ別。
+ */
+export const setSecondDestinationAtom = atom(
+  null,
+  (
+    _get,
+    set,
+    target: WizardDestination | null,
+    options: SetDestinationOptions = {},
+  ) => {
+    const next = target === null
+      ? null
+      : target.kind === 'fixed'
+        ? { destination: target.slug as Destination, customStation: null }
+        : { destination: 'custom' as Destination, customStation: target.station }
+
+    set(secondTargetAtom, next)
+
+    if (options.persist !== false) {
+      try {
+        if (next === null) {
+          localStorage.removeItem(STORAGE_KEYS.destination2)
+        } else {
+          const json = serializeDestination(next.destination, next.customStation)
+          if (json !== null) localStorage.setItem(STORAGE_KEYS.destination2, json)
+        }
+      } catch {}
+    }
+  },
+)

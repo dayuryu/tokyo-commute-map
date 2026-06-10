@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslations, useLocale } from 'next-intl'
-import type { CustomStation } from '@/lib/types'
+import type { CustomStation, WizardDestination } from '@/lib/types'
 import {
   QUICK_DESTINATIONS,
   DESTINATIONS_META,
+  getDestinationDisplayName,
   type FixedDestination,
 } from '@/lib/destinations'
 import { stationListAtom } from '@/lib/atoms/data'
@@ -16,6 +17,9 @@ import {
   destinationAtom,
   customStationAtom,
   setDestinationAtom,
+  secondDestinationAtom,
+  secondCustomStationAtom,
+  setSecondDestinationAtom,
 } from '@/lib/atoms/domain'
 
 // label は locale 依存のため render 時に destinationLabel() で決める
@@ -43,9 +47,14 @@ export default function DestinationPicker() {
   const value = useAtomValue(destinationAtom)
   const customStation = useAtomValue(customStationAtom)
   const setDestination = useSetAtom(setDestinationAtom)
+  const secondValue = useAtomValue(secondDestinationAtom)
+  const secondCustomStation = useAtomValue(secondCustomStationAtom)
+  const setSecondDestination = useSetAtom(setSecondDestinationAtom)
   const [query, setQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [searchActive, setSearchActive] = useState(false)
+  // 検索結果の書き込み先 — 'first' は通常の目的地切替、'second' は「＋」からの 2 拠点目追加
+  const [searchTarget, setSearchTarget] = useState<'first' | 'second'>('first')
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -59,48 +68,68 @@ export default function DestinationPicker() {
   // タブを表示するか（検索中でもカスタムモードでもない）
   const showTabs = !searchActive && !isCustomMode
 
+  // 2 つ目の目的地の表示ラベル（fixed は display 名、custom は駅名）
+  const secondLabel = secondValue === 'custom'
+    ? (secondCustomStation ? stationLabel(secondCustomStation, locale) : '')
+    : secondValue !== null ? getDestinationDisplayName(secondValue, locale) : ''
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setShowDropdown(false)
-        if (!isCustomMode) {
-          setSearchActive(false)
-          setQuery('')
-        }
+        setSearchActive(false)
+        setSearchTarget('first')
+        setQuery('')
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isCustomMode])
+  }, [])
 
-  function activateSearch() {
+  function activateSearch(target: 'first' | 'second' = 'first') {
+    setSearchTarget(target)
     setSearchActive(true)
     setTimeout(() => inputRef.current?.focus(), 30)
   }
 
   function deactivateSearch() {
     setSearchActive(false)
+    setSearchTarget('first')
     setQuery('')
     setShowDropdown(false)
   }
 
   function selectCustomStation(station: CustomStation) {
     // 30 個の fixed destination のいずれかに一致したら精度の高い fixed として扱う
-    // （min_to_<slug> がプリ計算済み）。それ以外は custom（距離推算 fallback）。
+    // （min_to_<slug> がプリ計算済み）。それ以外は custom（client Dijkstra）。
     const fixedSlug = NAME_TO_FIXED_SLUG[station.name]
-    if (fixedSlug) {
-      setDestination({ kind: 'fixed', slug: fixedSlug })
-    } else {
-      setDestination({ kind: 'custom', station })
+    const target: WizardDestination = fixedSlug
+      ? { kind: 'fixed', slug: fixedSlug }
+      : { kind: 'custom', station }
+    if (searchTarget === 'second') {
+      // primary と同一駅は二拠点として無意味 → 設定せず検索だけ閉じる
+      const samePrimary = fixedSlug
+        ? value === fixedSlug
+        : customStation?.code === station.code
+      if (!samePrimary) setSecondDestination(target)
+      deactivateSearch()
+      return
     }
+    setDestination(target)
     setQuery('')
     setShowDropdown(false)
+    // custom 選択時はチップ表示へ切替（render 条件が searchActive 優先のため明示的に落とす）
+    if (!fixedSlug) setSearchActive(false)
   }
 
   function clearCustom() {
     setDestination({ kind: 'fixed', slug: 'shinjuku' })
     setQuery('')
     setSearchActive(false)
+  }
+
+  function clearSecond() {
+    setSecondDestination(null)
   }
 
   return (
@@ -133,7 +162,7 @@ export default function DestinationPicker() {
         ))}
         {/* 検索アイコンボタン */}
         <button
-          onClick={activateSearch}
+          onClick={() => activateSearch('first')}
           className="px-2 py-1 rounded hover:bg-black/5 transition-all text-sm leading-none"
           style={{ color: 'var(--ink-mute)' }}
           title={t('searchTitle')}
@@ -144,7 +173,8 @@ export default function DestinationPicker() {
         </button>
       </div>
 
-      {/* ── 検索/カスタムモード（タブ非表示時に展開） ── */}
+      {/* ── 検索/カスタムモード（タブ非表示時に展開） ──
+          searchActive 優先 — primary が custom のままでも「＋」(second) の検索入力を出せる */}
       <div
         className="flex items-center gap-1 transition-all duration-300"
         style={{
@@ -153,7 +183,7 @@ export default function DestinationPicker() {
           overflow: showTabs ? 'hidden' : 'visible',
         }}
       >
-        {isCustomMode ? (
+        {isCustomMode && !searchActive ? (
           /* カスタム駅チップ */
           <div
             className="flex items-center gap-1 px-3 py-1 rounded text-sm shadow-sm whitespace-nowrap"
@@ -222,7 +252,7 @@ export default function DestinationPicker() {
         )}
 
         {/* 戻るボタン（検索中のみ） */}
-        {!isCustomMode && (
+        {searchActive && (
           <button
             onClick={deactivateSearch}
             className="px-2 py-1 rounded hover:bg-black/5 transition-all text-sm leading-none"
@@ -232,6 +262,36 @@ export default function DestinationPicker() {
           </button>
         )}
       </div>
+
+      {/* ── 2 つ目の目的地（二拠点通勤） ── */}
+      {secondValue !== null ? (
+        <div
+          className="flex items-center gap-1 px-3 py-1 rounded text-sm shadow-sm whitespace-nowrap"
+          style={{
+            background: 'var(--ink)',
+            color: '#f5e7d2',
+            fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+            fontWeight: 600,
+            letterSpacing: '.04em',
+          }}
+          title={t('secondChipTitle')}
+        >
+          <span style={{ opacity: 0.65, fontWeight: 500 }}>＋</span>
+          <span>{secondLabel}</span>
+          <button onClick={clearSecond} className="ml-1 hover:opacity-70 leading-none">×</button>
+        </div>
+      ) : (
+        !searchActive && (
+          <button
+            onClick={() => activateSearch('second')}
+            className="px-2 py-1 rounded hover:bg-black/5 transition-all text-sm leading-none"
+            style={{ color: 'var(--ink-mute)' }}
+            title={t('addSecondTitle')}
+          >
+            ＋
+          </button>
+        )
+      )}
 
     </div>
   )
