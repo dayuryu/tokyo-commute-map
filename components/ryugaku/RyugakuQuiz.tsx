@@ -98,7 +98,7 @@ export default function RyugakuQuiz() {
 
   if (phase === 'result' && result) {
     return (
-      <main style={{ ...shell, justifyContent: 'flex-start', paddingTop: 'max(env(safe-area-inset-top), 40px)' }}>
+      <main lang="zh" style={{ ...shell, justifyContent: 'flex-start', paddingTop: 'max(env(safe-area-inset-top), 40px)' }}>
         <QuizResult result={result} answers={answers} isShared={isShared} onRestart={restart} />
       </main>
     )
@@ -106,7 +106,7 @@ export default function RyugakuQuiz() {
 
   if (phase === 'intro') {
     return (
-      <main style={shell}>
+      <main lang="zh" style={shell}>
         <Seal />
         <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 7vw, 38px)', fontWeight: 600, lineHeight: 1.3, margin: '22px 0 0' }}>
           东京留学
@@ -135,7 +135,7 @@ export default function RyugakuQuiz() {
   const progress = (step / TOTAL_QUESTIONS) * 100
 
   return (
-    <main style={shell}>
+    <main lang="zh" style={shell}>
       <div style={{ width: '100%', maxWidth: 460 }}>
         {/* 进度 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 'clamp(28px, 8vh, 56px)' }}>

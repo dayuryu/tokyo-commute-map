@@ -112,12 +112,24 @@ export function resultStations(result: QuizResult): string[] {
   return result.hidden ? result.hidden.stations : result.persona.stations
 }
 
-/** 结果展示用：型名 + slogan（隐藏型优先） */
-export function resultFace(result: QuizResult): { name: string; slogan: string; code: string; isHidden: boolean } {
-  if (result.hidden) {
-    return { name: result.hidden.name, slogan: result.hidden.slogan, code: result.code, isHidden: true }
+/** 结果展示用：型名 + 日文副句 + slogan + 代表色（隐藏型优先） */
+export function resultFace(result: QuizResult): {
+  name: string
+  nameJa: string
+  slogan: string
+  color: string
+  code: string
+  isHidden: boolean
+} {
+  const p = result.hidden ?? result.persona
+  return {
+    name: p.name,
+    nameJa: p.nameJa,
+    slogan: p.slogan,
+    color: p.color,
+    code: result.code,
+    isHidden: result.hidden !== null,
   }
-  return { name: result.persona.name, slogan: result.persona.slogan, code: result.code, isHidden: false }
 }
 
 export { ALL_QUESTION_IDS }
