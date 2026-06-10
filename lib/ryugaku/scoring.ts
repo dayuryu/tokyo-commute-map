@@ -107,9 +107,14 @@ export function decodeAnswers(code: string): Answers | null {
   return answers
 }
 
-/** 本命车站（含隐藏型优先），导流地图用 */
+/** 本命车站显示名（含隐藏型优先），结果页展示用 */
 export function resultStations(result: QuizResult): string[] {
   return result.hidden ? result.hidden.stations : result.persona.stations
+}
+
+/** 本命车站 geojson 正规名（含消歧后缀），地图 ?rstations= 高亮用 */
+export function resultStationKeys(result: QuizResult): string[] {
+  return result.hidden ? result.hidden.stationKeys : result.persona.stationKeys
 }
 
 /** 结果展示用：型名 + 日文副句 + slogan + 代表色（隐藏型优先） */

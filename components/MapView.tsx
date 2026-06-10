@@ -11,6 +11,7 @@ import { stationLabel } from '@/lib/station-label'
 import { maxMinutesAtom, maxTransfersAtom, selectedStationAtom } from '@/lib/atoms/ui'
 import { destinationAtom, customStationAtom } from '@/lib/atoms/domain'
 import { customCommutesAtom, aiHighlightFeaturesAtom } from '@/lib/atoms/derived'
+import { ryugakuHighlightFeaturesAtom } from '@/lib/atoms/ryugaku'
 import { favoriteFeaturesAtom } from '@/lib/atoms/favorites'
 
 // 30 個の fixed destination の coord / code / label は stations.geojson 読み込み時に
@@ -272,6 +273,12 @@ export default function MapView({ onReady }: Props) {
   // ADR-0003 P4 諸動の verify で発覚）。
   const aiHighlightFeaturesRef = useRef(aiHighlightFeatures)
   useEffect(() => { aiHighlightFeaturesRef.current = aiHighlightFeatures }, [aiHighlightFeatures])
+  // /ryugaku 導流 highlight も同じ race 対策（query 読取 → atom set と map load の競合）。
+  const ryugakuFeatures = useAtomValue(ryugakuHighlightFeaturesAtom)
+  const ryugakuFeaturesRef = useRef(ryugakuFeatures)
+  useEffect(() => { ryugakuFeaturesRef.current = ryugakuFeatures }, [ryugakuFeatures])
+  // fitBounds は初回 features 確定時のみ（その後の地図操作を奪わない）
+  const ryugakuFittedRef = useRef(false)
   // お気に入り ★ も同じ race 対策（localStorage hydrate と map load の競合）。
   const favoriteFeatures = useAtomValue(favoriteFeaturesAtom)
   const favoriteFeaturesRef = useRef(favoriteFeatures)
@@ -550,6 +557,28 @@ export default function MapView({ onReady }: Props) {
           'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 8, 2.4, 14, 2.8],
           'circle-stroke-color': '#a8332b',
           'circle-stroke-opacity': 0.85,
+        },
+      })
+
+      // ── /ryugaku 測試の本命車站 highlight ──
+      // AI highlight と同型の外環だが、色は feature property（型の代表色）から取る。
+      // /ryugaku 結果頁 CTA `?rstations=` 経由でのみ非空。AI 環とは独立 source
+      // （ryugaku 流入 user は AI cache を持たないため実際は併存しない）。
+      map.addSource('stations-ryugaku-highlight', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: ryugakuFeaturesRef.current },
+      })
+      map.addLayer({
+        id: 'stations-ryugaku-highlight',
+        type: 'circle',
+        source: 'stations-ryugaku-highlight',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 26, 11, 14, 16, 20],
+          'circle-color': ['get', 'color'],
+          'circle-opacity': 0.12,
+          'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 8, 2.4, 14, 2.8],
+          'circle-stroke-color': ['get', 'color'],
+          'circle-stroke-opacity': 0.9,
         },
       })
 
@@ -847,6 +876,43 @@ export default function MapView({ onReady }: Props) {
       map.off('styledata', onData)
     }
   }, [aiHighlightFeatures])
+
+  // ── /ryugaku highlight features 更新 + 初回 fitBounds ──
+  // race 対策は AI highlight と同一パターン（sourcedata / styledata retry）。
+  // features が初めて非空で適用できた時のみ、本命車站が全部収まるよう fitBounds。
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    const apply = (): boolean => {
+      const src = map.getSource('stations-ryugaku-highlight') as maplibregl.GeoJSONSource | undefined
+      if (!src) return false
+      src.setData({ type: 'FeatureCollection', features: ryugakuFeatures })
+      if (ryugakuFeatures.length > 0 && !ryugakuFittedRef.current) {
+        ryugakuFittedRef.current = true
+        const bounds = new maplibregl.LngLatBounds()
+        for (const f of ryugakuFeatures) {
+          bounds.extend((f.geometry as GeoJSON.Point).coordinates as [number, number])
+        }
+        map.fitBounds(bounds, { padding: 110, maxZoom: 12.5, duration: 1600 })
+      }
+      return true
+    }
+
+    if (apply()) return
+    const onData = () => {
+      if (apply()) {
+        map.off('sourcedata', onData)
+        map.off('styledata', onData)
+      }
+    }
+    map.on('sourcedata', onData)
+    map.on('styledata', onData)
+    return () => {
+      map.off('sourcedata', onData)
+      map.off('styledata', onData)
+    }
+  }, [ryugakuFeatures])
 
   // ── お気に入り ★ features 更新 ──
   // toggle / bootstrap 復元で favoriteFeaturesAtom が変わる度に source を更新。

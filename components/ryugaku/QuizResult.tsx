@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useLocale } from 'next-intl'
 import { AXES, AXIS_ORDER } from '@/lib/ryugaku/quiz-data'
-import { encodeAnswers, resultFace, resultStations } from '@/lib/ryugaku/scoring'
+import { encodeAnswers, resultFace, resultStations, resultStationKeys } from '@/lib/ryugaku/scoring'
 import type { Answers } from '@/lib/ryugaku/scoring'
 import type { QuizResult as Result } from '@/lib/ryugaku/types'
 import { buildShareCard } from './shareCard'
@@ -26,6 +27,7 @@ export default function QuizResult({
   isShared: boolean
   onRestart: () => void
 }) {
+  const locale = useLocale()
   const face = resultFace(result)
   const accent = face.color
   const stations = resultStations(result)
@@ -84,7 +86,11 @@ export default function QuizResult({
     }
   }
 
-  const mapHref = `/?rstations=${encodeURIComponent(stations.join(','))}`
+  // 地图导流：传 geojson 正规站名（含消歧后缀）+ 型色，地图侧高亮并 fitBounds
+  const mapHref =
+    `${locale === 'ja' ? '/' : `/${locale}`}` +
+    `?rstations=${encodeURIComponent(resultStationKeys(result).join(','))}` +
+    `&rc=${accent.replace('#', '')}`
 
   return (
     <div style={{ width: '100%', maxWidth: 460, margin: '0 auto' }}>

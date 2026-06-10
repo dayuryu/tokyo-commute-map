@@ -57,8 +57,10 @@ export type Persona = {
   slogan: string
   /** 代表色（MBTI 式分组配色，结果页主题色） */
   color: string
-  /** 本命车站（映射区域，结果页/导流用） */
+  /** 本命车站（中文显示名，结果页展示用） */
   stations: string[]
+  /** 本命车站的 geojson 正规站名（含消歧后缀，地图高亮导流用，与 stations 同序） */
+  stationKeys: string[]
   /** 都心 I / 远郊 O（分组展示用） */
   zone: 'inner' | 'outer'
 }
@@ -70,6 +72,7 @@ export type HiddenPersona = {
   slogan: string
   color: string
   stations: string[]
+  stationKeys: string[]
 }
 
 /** 四轴累计分（正负决定字母） */
