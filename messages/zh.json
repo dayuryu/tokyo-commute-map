@@ -219,7 +219,9 @@
   },
   "destinationPicker": {
     "searchTitle": "搜索车站",
-    "searchPlaceholder": "搜索车站..."
+    "searchPlaceholder": "搜索车站...",
+    "addSecondTitle": "添加第二个目的地（显示两边都能通勤的车站）",
+    "secondChipTitle": "第二个目的地（颜色按较远一方的时间）"
   },
   "correctionReporter": {
     "triggerNormal": "这个时间不对？报告正确数值 →",

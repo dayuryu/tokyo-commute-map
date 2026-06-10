@@ -12,7 +12,7 @@
  */
 import { useEffect } from 'react'
 import { useSetAtom } from 'jotai'
-import { setDestinationAtom } from '@/lib/atoms/domain'
+import { setDestinationAtom, setSecondDestinationAtom } from '@/lib/atoms/domain'
 import { parseStoredDestination } from '@/lib/atoms/destination-storage'
 import { aiCacheAtom, readStoredAiCache } from '@/lib/atoms/ai-cache'
 import { favoritesAtom, readStoredFavorites } from '@/lib/atoms/favorites'
@@ -21,6 +21,7 @@ import { STORAGE_KEYS } from '@/lib/storage-keys'
 
 export function useBootstrapDestination() {
   const setDestination = useSetAtom(setDestinationAtom)
+  const setSecondDestination = useSetAtom(setSecondDestinationAtom)
 
   useEffect(() => {
     let raw: string | null = null
@@ -28,6 +29,14 @@ export function useBootstrapDestination() {
     const restored = parseStoredDestination(raw)
     if (restored) {
       setDestination(restored, { persist: false })
+    }
+
+    // 2 つ目の通勤先（schema 共通、キーのみ別）。未保存 / 壊れた値は no-op。
+    let raw2: string | null = null
+    try { raw2 = localStorage.getItem(STORAGE_KEYS.destination2) } catch {}
+    const restored2 = parseStoredDestination(raw2)
+    if (restored2) {
+      setSecondDestination(restored2, { persist: false })
     }
     // 初回 mount で 1 回だけ実行する。setter は安定 reference なので依存配列 [] で問題ない。
     // eslint-disable-next-line react-hooks/exhaustive-deps

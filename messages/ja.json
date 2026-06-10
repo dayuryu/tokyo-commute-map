@@ -219,7 +219,9 @@
   },
   "destinationPicker": {
     "searchTitle": "駅を検索",
-    "searchPlaceholder": "駅を検索..."
+    "searchPlaceholder": "駅を検索...",
+    "addSecondTitle": "2つ目の目的地を追加（両方に通える駅を表示）",
+    "secondChipTitle": "2つ目の目的地（色は遠い方の所要時間）"
   },
   "correctionReporter": {
     "triggerNormal": "この時間が違う？正しい値を報告 →",

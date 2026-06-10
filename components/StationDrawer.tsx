@@ -16,8 +16,13 @@ import {
   lineNamesEnAtom,
   stationEntrancesAtom,
 } from '@/lib/atoms/data'
-import { destinationAtom, customStationAtom } from '@/lib/atoms/domain'
-import { customCommutesAtom } from '@/lib/atoms/derived'
+import {
+  destinationAtom,
+  customStationAtom,
+  secondDestinationAtom,
+  secondCustomStationAtom,
+} from '@/lib/atoms/domain'
+import { customCommutesAtom, secondCommutesAtom } from '@/lib/atoms/derived'
 import { aiRecallAvailableAtom } from '@/lib/atoms/ai-cache'
 import { favoritesAtom, toggleFavoriteAtom } from '@/lib/atoms/favorites'
 import { areaFeaturesAtom } from '@/lib/atoms/area-features'
@@ -104,6 +109,9 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
   const destination = useAtomValue(destinationAtom)
   const customStation = useAtomValue(customStationAtom)
   const customCommutes = useAtomValue(customCommutesAtom)
+  const secondDestination = useAtomValue(secondDestinationAtom)
+  const secondCustomStation = useAtomValue(secondCustomStationAtom)
+  const secondCommutes = useAtomValue(secondCommutesAtom)
   const aiRecallAvailable = useAtomValue(aiRecallAvailableAtom)
   const favorites = useAtomValue(favoritesAtom)
   const toggleFavorite = useSetAtom(toggleFavoriteAtom)
@@ -315,6 +323,17 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
   const destLabel = destination === 'custom'
     ? (customStation ? stationLabel(customStation, locale) : t('customDestFallback'))
     : getDestinationDisplayName(destination, locale)
+
+  // 2 つ目の通勤先（二拠点通勤モード）への所要時間。fixed は預計算 min_to_<slug>、
+  // custom は secondCommutes（client Dijkstra）から引く。未設定時は表示しない。
+  const secondMin = (!station || secondDestination === null)
+    ? null
+    : secondDestination === 'custom'
+      ? secondCommutes?.get(station.code)?.mins ?? null
+      : (station[`min_to_${secondDestination}` as keyof Station] as number | undefined) ?? null
+  const secondDestLabel = secondDestination === 'custom'
+    ? (secondCustomStation ? stationLabel(secondCustomStation, locale) : t('customDestFallback'))
+    : secondDestination !== null ? getDestinationDisplayName(secondDestination, locale) : ''
 
   // 主要路線 — build_stations_geojson_v3.py が station_database/out/main/line/*.json
   // を反向走査して駅 code → 路線名リストとして注入する（MapView 側で Station に展開）。
@@ -582,6 +601,36 @@ export default function StationDrawer({ onRecallAi, onSetAsDestination }: Props)
                 )}
               </span>
             </div>
+
+            {/* 2 つ目の目的地への所要時間（二拠点通勤モード時のみ） */}
+            {secondDestination !== null && (
+              <div className="mt-2 flex items-baseline gap-2">
+                <span
+                  className="font-mono-num tabular-nums"
+                  style={{
+                    fontFamily: 'var(--display-italic, "Cormorant Garamond", Garamond, serif)',
+                    fontStyle: 'italic',
+                    fontWeight: 500,
+                    fontSize: 28,
+                    lineHeight: 1,
+                    color: 'var(--ink)',
+                    letterSpacing: '-.02em',
+                  }}
+                >
+                  {secondMin != null ? round5(secondMin) : '—'}
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'var(--display-font, "Shippori Mincho", serif)',
+                    fontSize: 13,
+                    color: 'var(--ink-soft)',
+                    letterSpacing: '.06em',
+                  }}
+                >
+                  {t('commuteToDest', { dest: secondDestLabel })}
+                </span>
+              </div>
+            )}
 
             {yahooTransitUrl && (
               <a

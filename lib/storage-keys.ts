@@ -18,6 +18,9 @@ export const STORAGE_KEYS = {
   /** 最後に選択した通勤先 (localStorage)。fixed slug or custom station JSON */
   destination: 'tcm.destination.v1',
 
+  /** 2 つ目の通勤先 (localStorage)。schema は destination と同一、未設定時はキー自体なし */
+  destination2: 'tcm.destination2.v1',
+
   /** AI 推薦 24h cache (localStorage)。recall は cache hit で OpenAI 呼ばずに再表示 */
   aiCache: 'tcm.ai_cache.v1',
 
