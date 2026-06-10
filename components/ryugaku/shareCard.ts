@@ -75,7 +75,7 @@ export async function buildShareCard(result: QuizResult, face: CardFace, pctText
   await Promise.all([
     document.fonts.load(`600 112px ${serif}`, face.code + face.name + '留' + stations.join('')),
     document.fonts.load(`500 38px ${serifJa}`, face.nameJa),
-    document.fonts.load(`400 38px ${sans}`, face.slogan + '全网约和你一样东京留学居住人格测试稀有 · %0123456789.' + pctText),
+    document.fonts.load(`400 38px ${sans}`, face.slogan + '全网约和你一样东京留学居住人格测试稀有 · %0123456789.' + pctText + face.code),
     document.fonts.load(`600 26px ${sans}`, axisText),
   ]).catch(() => {/* 字体加载失败时落系统字体，不阻塞出图 */})
 
@@ -157,30 +157,41 @@ export async function buildShareCard(result: QuizResult, face: CardFace, pctText
     ctx.fillText(label, W / 2, 184)
   }
 
-  // ── 代号 / 中文标题 / 日文副句 ──
+  // ── 中文标题 / 日文副句 / 代号小字 ──
+  // v2.1 称号主角化：自创 4 字母代号无先验认知，最大字号让给称号；
+  // 代号降为占比行前缀（QuizResult.tsx 同层级，两处需保持一致）
   ctx.textAlign = 'center'
   ctx.fillStyle = accent
-  ctx.font = `600 110px ${serif}`
-  ctx.letterSpacing = '16px'
-  ctx.fillText(face.code, W / 2 + 8, 302) // +8 补字距尾部偏移
-  ctx.letterSpacing = '0px'
-
-  ctx.fillStyle = INK
   ctx.font = `600 ${face.name.length >= 7 ? 92 : 104}px ${serif}`
-  ctx.fillText(face.name, W / 2, 442)
+  ctx.fillText(face.name, W / 2, 330)
 
-  ctx.fillStyle = accent
   ctx.font = `500 38px ${serifJa}`
   ctx.letterSpacing = '5px'
-  ctx.fillText(face.nameJa, W / 2 + 2, 528)
+  ctx.fillText(face.nameJa, W / 2 + 2, 420)
   ctx.letterSpacing = '0px'
 
   if (!face.isHidden) {
+    // 代号（serif 带字距）+ 占比（sans）拼一行，整体居中。
+    // 隐藏型不出代号 — 代号属 16 主型体系，稀有徽章已承载占比
+    ctx.letterSpacing = '6px'
+    ctx.font = `600 30px ${serif}`
+    const codeW = ctx.measureText(face.code).width
+    ctx.letterSpacing = '0px'
+    const rest = ` · 全网约 ${pctText}% 和你一样`
+    ctx.font = `400 26px ${sans}`
+    const restW = ctx.measureText(rest).width
+    const left = W / 2 - (codeW + restW) / 2
+    ctx.textAlign = 'left'
     ctx.fillStyle = INK_SOFT
+    ctx.letterSpacing = '6px'
+    ctx.font = `600 30px ${serif}`
+    ctx.fillText(face.code, left, 484)
+    ctx.letterSpacing = '0px'
     ctx.globalAlpha = 0.8
     ctx.font = `400 26px ${sans}`
-    ctx.fillText(`全网约 ${pctText}% 和你一样`, W / 2, 582)
+    ctx.fillText(rest, left + codeW, 484)
     ctx.globalAlpha = 1
+    ctx.textAlign = 'center'
   }
 
   // ── 分隔：菱形 + 细线 ──
@@ -230,17 +241,18 @@ export async function buildShareCard(result: QuizResult, face: CardFace, pctText
     const y = axTop + i * pitch
     const towardPos = v >= 0
     // 标签
+    // 标签带字母 — 代号 4 字母的含义在四维条上自解释（QuizResult.tsx 同型）
     ctx.font = `${towardPos ? 600 : 400} 26px ${sans}`
     ctx.fillStyle = towardPos ? INK : INK_SOFT
     ctx.globalAlpha = towardPos ? 1 : 0.65
     ctx.textAlign = 'right'
-    ctx.fillText(axis.pos.label, barL - 28, y)
+    ctx.fillText(`${axis.pos.letter} ${axis.pos.label}`, barL - 28, y)
     ctx.globalAlpha = 1
     ctx.font = `${!towardPos ? 600 : 400} 26px ${sans}`
     ctx.fillStyle = !towardPos ? INK : INK_SOFT
     ctx.globalAlpha = !towardPos ? 1 : 0.65
     ctx.textAlign = 'left'
-    ctx.fillText(axis.neg.label, barR + 28, y)
+    ctx.fillText(`${axis.neg.label} ${axis.neg.letter}`, barR + 28, y)
     ctx.globalAlpha = 1
     // 轨道 + 点（pos 在左：v=+1 → 最左）
     ctx.strokeStyle = 'rgba(31,29,24,0.14)'

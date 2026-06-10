@@ -35,7 +35,9 @@ export async function generateMetadata({
       title = `我是「${face.name}」(${face.code})`
       ogTitle = `我是「${face.name}」(${face.code}) — 东京留学居住人格测试`
       description = `${face.slogan} 你也来测测你的本命车站？`
-      ogImage = { url: `${SITE_URL}/api/ryugaku-og?t=${encodeURIComponent(t)}`, width: 800, height: 800 }
+      // v=2: v2.1 で称号主役のレイアウトに変更。route 側は s-maxage=1y immutable のため
+      // 版式変更時はここの version を上げて CDN/微信キャッシュを bust する
+      ogImage = { url: `${SITE_URL}/api/ryugaku-og?t=${encodeURIComponent(t)}&v=2`, width: 800, height: 800 }
     }
   }
 

@@ -100,24 +100,25 @@ export default function QuizResult({
         </div>
       )}
 
-      {/* 4 字母代号 */}
-      <div style={{ fontFamily: SERIF, fontSize: 'clamp(40px, 12vw, 60px)', fontWeight: 700, letterSpacing: '.14em', color: accent, lineHeight: 1 }}>
-        {face.code}
-      </div>
-
-      {/* 型名（中文主标题） */}
-      <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 7vw, 36px)', fontWeight: 600, margin: '12px 0 0', lineHeight: 1.3 }}>
+      {/* 型名（中文主标题）— v2.1 称号升为视觉主角：自创 4 字母代号对用户无先验认知，
+          情感载荷在称号上；代号降级为下方小字（含义由四维滑条的字母标注自解释） */}
+      <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(34px, 10vw, 48px)', fontWeight: 700, margin: 0, lineHeight: 1.25, color: accent }}>
         {face.name}
       </h1>
 
       {/* 日文副句 — 必须日文字体 + lang="ja"，与中文标题分行各用各的字体 */}
-      <p lang="ja" style={{ fontFamily: SERIF_JA, fontSize: 15, letterSpacing: '.12em', color: accent, opacity: 0.85, margin: '10px 0 0' }}>
+      <p lang="ja" style={{ fontFamily: SERIF_JA, fontSize: 15, letterSpacing: '.12em', color: accent, opacity: 0.85, margin: '12px 0 0' }}>
         {face.nameJa}
       </p>
 
+      {/* 4 字母代号（小字）。隐藏型不展示 — 代号属于 16 主型体系，
+          且稀有徽章已承载占比信息 */}
       {!face.isHidden && (
-        <p style={{ fontSize: 12, color: C.inkSoft, opacity: 0.75, margin: '8px 0 0' }}>
-          全网约 {pct(face.code, false)}% 和你一样
+        <p style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 600, letterSpacing: '.18em', color: C.inkSoft, margin: '12px 0 0' }}>
+          {face.code}
+          <span style={{ fontFamily: 'inherit', fontWeight: 400, letterSpacing: '.02em', opacity: 0.75, fontSize: 12 }}>
+            {' '}· 全网约 {pct(face.code, false)}% 和你一样
+          </span>
         </p>
       )}
 
@@ -136,13 +137,16 @@ export default function QuizResult({
           const towardPos = v >= 0
           return (
             <div key={key} style={{ textAlign: 'left' }}>
+              {/* 两极标签带字母 — 代号 4 字母的含义在这里自解释（P 省钱魂 ⋯ 生活质感 L） */}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
                 <span style={{ color: towardPos ? C.ink : C.inkSoft, fontWeight: towardPos ? 600 : 400 }}>
-                  {axis.pos.label}
+                  <span style={{ color: towardPos ? accent : C.inkSoft, fontWeight: 700 }}>{axis.pos.letter}</span>
+                  {' '}{axis.pos.label}
                 </span>
                 <span style={{ color: C.inkSoft, opacity: 0.6 }}>{axis.emoji}</span>
                 <span style={{ color: !towardPos ? C.ink : C.inkSoft, fontWeight: !towardPos ? 600 : 400 }}>
-                  {axis.neg.label}
+                  {axis.neg.label}{' '}
+                  <span style={{ color: !towardPos ? accent : C.inkSoft, fontWeight: 700 }}>{axis.neg.letter}</span>
                 </span>
               </div>
               <div style={{ position: 'relative', height: 6, background: C.line, borderRadius: 99 }}>

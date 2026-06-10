@@ -39,7 +39,9 @@ export const AXES: Axis[] = [
     emoji: '🗺️',
     label: '地理野心',
     pos: { letter: 'I', label: '死守都心' },
-    neg: { letter: 'O', label: '远郊妥协' },
+    // v2.1: 旧标签「远郊妥协」是 8 个极中唯一带道德评判的，违反两极道德对称原则，
+    // 且与 outer 8 型 slogan 的主动选择叙事（国立「静けさは、贅沢だ」等）自相矛盾。
+    neg: { letter: 'O', label: '远郊自在' },
   },
 ]
 

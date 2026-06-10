@@ -102,13 +102,11 @@ export async function GET(req: Request) {
           留
         </div>
 
-        {code ? (
-          <div style={{ fontSize: 64, letterSpacing: 14, opacity: 0.85, display: 'flex' }}>{code}</div>
-        ) : null}
+        {/* v2.1 称号主角化：称号最上最大，代号降为副句下方小字
+            （QuizResult.tsx / shareCard.ts と同层级） */}
         <div
           style={{
             fontSize: name.length >= 7 ? 96 : 112,
-            marginTop: 18,
             display: 'flex',
             textAlign: 'center',
             lineHeight: 1.2,
@@ -130,6 +128,9 @@ export async function GET(req: Request) {
           >
             {nameJa}
           </div>
+        ) : null}
+        {code ? (
+          <div style={{ fontSize: 36, letterSpacing: 10, opacity: 0.7, marginTop: 30, display: 'flex' }}>{code}</div>
         ) : null}
 
         <div
