@@ -5,6 +5,7 @@ import { AXES, AXIS_ORDER } from '@/lib/ryugaku/quiz-data'
 import { encodeAnswers, resultFace, resultStations } from '@/lib/ryugaku/scoring'
 import type { Answers } from '@/lib/ryugaku/scoring'
 import type { QuizResult as Result } from '@/lib/ryugaku/types'
+import { buildShareCard } from './shareCard'
 import { C, SERIF, SERIF_JA, SANS } from './theme'
 
 // 确定性"占比"（演示值，后续接真实统计）
@@ -29,6 +30,36 @@ export default function QuizResult({
   const accent = face.color
   const stations = resultStations(result)
   const [copied, setCopied] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  async function saveCard() {
+    if (saving) return
+    setSaving(true)
+    try {
+      const blob = await buildShareCard(result, face, pct(face.code, face.isHidden))
+      const file = new File([blob], `ryugaku-${face.code}.png`, { type: 'image/png' })
+      // 移动端优先唤起系统分享面板（直发小红书/相册）
+      if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: '东京留学居住人格测试' })
+          return
+        } catch {
+          /* 用户取消分享面板 → 不再强制下载 */
+          return
+        }
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = file.name
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      /* 出图失败静默，按钮恢复可重试 */
+    } finally {
+      setSaving(false)
+    }
+  }
 
   async function share() {
     const url =
@@ -133,10 +164,19 @@ export default function QuizResult({
         在地图上看你的专属车站 →
       </a>
 
+      {/* 保存分享卡（小红书发图用） */}
+      <button
+        onClick={saveCard}
+        disabled={saving}
+        style={{ ...secondaryBtn, width: '100%', marginTop: 12, color: accent, borderColor: accent, fontWeight: 600, opacity: saving ? 0.6 : 1 }}
+      >
+        {saving ? '正在生成卡片…' : '保存分享卡 ↓'}
+      </button>
+
       {/* 分享 + 重测 */}
-      <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+      <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
         <button onClick={share} style={secondaryBtn}>
-          {copied ? '链接已复制 ✓' : '分享我的结果'}
+          {copied ? '链接已复制 ✓' : '复制链接'}
         </button>
         <button onClick={onRestart} style={secondaryBtn}>
           {isShared ? '我也来测' : '重新测'}
