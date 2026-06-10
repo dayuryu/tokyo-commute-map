@@ -93,6 +93,10 @@ export default function DestinationPicker() {
   }
 
   function deactivateSearch() {
+    // blur を明示 — 折りたたみは input を DOM に残す（maxWidth:0）ため、iOS Safari では
+    // ボタンタップで focus が input から外れず、不可視 input がソフトキーボードを
+    // 開いたまま残す（モバイル実機で報告された「残留」）。
+    inputRef.current?.blur()
     setSearchActive(false)
     setSearchTarget('first')
     setQuery('')
@@ -116,10 +120,10 @@ export default function DestinationPicker() {
       return
     }
     setDestination(target)
-    setQuery('')
-    setShowDropdown(false)
-    // custom 選択時はチップ表示へ切替（render 条件が searchActive 優先のため明示的に落とす）
-    if (!fixedSlug) setSearchActive(false)
+    // fixed / custom どちらの選択でも検索を完全に閉じる。旧実装は fixed 選択時に
+    // 検索 input を開いたまま残しており（custom 時のみ chip 表示へ遷移）、モバイル
+    // では「選んだのに検索欄が残留する」非対称な挙動だった。
+    deactivateSearch()
   }
 
   function clearCustom() {
@@ -281,9 +285,15 @@ export default function DestinationPicker() {
           <button onClick={clearSecond} className="ml-1 hover:opacity-70 leading-none">×</button>
         </div>
       ) : (
-        !searchActive && (
-          /* 未設定時は「＋ 目的地を追加」のゴーストチップ — 破線枠で
-             「ここにもう 1 つチップを置ける」ことを視覚的に伝える */
+        /* 未設定時は「＋ 目的地を追加」のゴーストチップ — 破線枠で
+           「ここにもう 1 つチップを置ける」ことを視覚的に伝える。
+           検索中はタブ列と同じ collapse アニメで畳む（条件 render で即 mount/unmount
+           すると、検索容器の 300ms 収縮中にチップがカード右縁へ押し出されてから
+           滑り戻る「弾入残影」が出るため、常時 mount + maxWidth 遷移で対称にする） */
+        <div
+          className="overflow-hidden transition-all duration-300"
+          style={{ maxWidth: searchActive ? '0px' : '200px', opacity: searchActive ? 0 : 1 }}
+        >
           <button
             onClick={() => activateSearch('second')}
             className="flex items-center gap-1 px-2.5 py-1 rounded text-sm whitespace-nowrap hover:bg-black/5 transition-all"
@@ -294,13 +304,14 @@ export default function DestinationPicker() {
               letterSpacing: '.04em',
             }}
             title={t('addSecondTitle')}
+            tabIndex={searchActive ? -1 : 0}
           >
             <span style={{ fontWeight: 600 }}>＋</span>
             {/* 狭幅（mobile）ではタブ列を圧迫しないよう短縮ラベル */}
             <span className="hidden sm:inline">{t('addSecondLabel')}</span>
             <span className="sm:hidden">{t('addSecondLabelShort')}</span>
           </button>
-        )
+        </div>
       )}
 
     </div>

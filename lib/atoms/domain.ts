@@ -38,6 +38,29 @@ const commuteTargetAtom = atom<{
   customStation: null,
 })
 
+/** 2 つ目の通勤先（二拠点通勤）。null = 未設定（単一目的地モード）。
+ *  不変量は commuteTargetAtom と同一 — destination === 'custom' ⟺ customStation !== null。
+ *  加えて **primary と同一の値は持たない**（下記 sameTarget ガード）。
+ *  **module 私有** — 外部からは読み取り専用 atom + setSecondDestinationAtom 経由のみ。 */
+const secondTargetAtom = atom<{
+  destination:   Destination
+  customStation: CustomStation | null
+} | null>(null)
+
+/** 通勤先ペア状態と WizardDestination 意図の同一性判定（same-kind のみ）。
+ *  fixed は slug、custom は駅 code で照合。fixed ⟷ custom 跨種の物理同一駅は
+ *  駅名解決が必要なためここでは扱わない（UI 層が 30 駅名を fixed に正規化する
+ *  ため、実用上この層には到達しない）。 */
+function sameTarget(
+  current: { destination: Destination; customStation: CustomStation | null },
+  target: WizardDestination,
+): boolean {
+  return target.kind === 'fixed'
+    ? current.destination === target.slug
+    : current.destination === 'custom'
+      && current.customStation?.code === target.station.code
+}
+
 /** 現在の destination（読み取り専用）。fixed slug or 'custom'。 */
 export const destinationAtom = atom((get) => get(commuteTargetAtom).destination)
 
@@ -61,7 +84,7 @@ interface SetDestinationOptions {
 export const setDestinationAtom = atom(
   null,
   (
-    _get,
+    get,
     set,
     target: WizardDestination,
     options: SetDestinationOptions = {},
@@ -72,6 +95,15 @@ export const setDestinationAtom = atom(
 
     set(commuteTargetAtom, next)
 
+    // 不変量: primary === second の重複ペアを残さない。
+    // タブ / AI 推薦 / 抽屉「目的地に設定」経由で primary が既存の second と
+    // 同一になった場合、second は二拠点として無意味になるため自動解除する。
+    const second = get(secondTargetAtom)
+    if (second && sameTarget(second, target)) {
+      set(secondTargetAtom, null)
+      try { localStorage.removeItem(STORAGE_KEYS.destination2) } catch {}
+    }
+
     if (options.persist !== false) {
       const json = serializeDestination(next.destination, next.customStation)
       if (json !== null) {
@@ -80,14 +112,6 @@ export const setDestinationAtom = atom(
     }
   },
 )
-
-/** 2 つ目の通勤先（二拠点通勤）。null = 未設定（単一目的地モード）。
- *  不変量は commuteTargetAtom と同一 — destination === 'custom' ⟺ customStation !== null。
- *  **module 私有** — 外部からは読み取り専用 atom + setSecondDestinationAtom 経由のみ。 */
-const secondTargetAtom = atom<{
-  destination:   Destination
-  customStation: CustomStation | null
-} | null>(null)
 
 /** 2 つ目の destination（読み取り専用）。未設定時は null。 */
 export const secondDestinationAtom = atom((get) => get(secondTargetAtom)?.destination ?? null)
@@ -102,11 +126,15 @@ export const secondCustomStationAtom = atom((get) => get(secondTargetAtom)?.cust
 export const setSecondDestinationAtom = atom(
   null,
   (
-    _get,
+    get,
     set,
     target: WizardDestination | null,
     options: SetDestinationOptions = {},
   ) => {
+    // 不変量: primary と同一の second は持たない — 同一値の設定要求は無視する
+    // （UI 層にも同等ガードがあるが、bootstrap 復元等の別経路も構造的に塞ぐ）。
+    if (target !== null && sameTarget(get(commuteTargetAtom), target)) return
+
     const next = target === null
       ? null
       : target.kind === 'fixed'
