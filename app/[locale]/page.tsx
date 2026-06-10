@@ -22,7 +22,7 @@ import { STORAGE_KEYS } from '@/lib/storage-keys'
 import { trackEvent } from '@/lib/analytics'
 import { selectedStationAtom } from '@/lib/atoms/ui'
 import { stationByNameAtom } from '@/lib/atoms/data'
-import { ryugakuHighlightAtom } from '@/lib/atoms/ryugaku'
+import { bootstrapRyugakuHighlightAtom } from '@/lib/atoms/ryugaku'
 import RyugakuStationsChip from '@/components/RyugakuStationsChip'
 import { setDestinationAtom } from '@/lib/atoms/domain'
 import {
@@ -105,7 +105,7 @@ export default function Home() {
   // mount effect — visited / forceWelcome 判定だけ残る。
   // destination 復元は useBootstrapDestination、aiCache 復元は useBootstrapAiCache、
   // overlay 初期状態は bootstrapOverlay が担当。
-  const setRyugakuHighlight = useSetAtom(ryugakuHighlightAtom)
+  const bootstrapRyugakuHighlight = useSetAtom(bootstrapRyugakuHighlightAtom)
 
   useEffect(() => {
     let visited = false
@@ -117,24 +117,11 @@ export default function Home() {
         sessionStorage.removeItem(STORAGE_KEYS.welcomeAfterLocaleSwitch)
       }
     } catch {}
-    // /ryugaku 測試からの導流 (?rstations=駅名,...&rc=型色hex)。
-    // 高亮 atom を set し、初訪 user でも onboarding を飛ばして地図へ直行する
+    // /ryugaku 測試からの導流 (?rstations=)。解析・検証は atom 層に封装。
+    // 流入時は初訪 user でも onboarding を飛ばして地図へ直行する
     // （「自分の本命駅を見る」が来訪目的なので Welcome に埋めない。
     //   visited は永続化しない — 次回オーガニック訪問では通常の Welcome を見せる）。
-    let hasRyugaku = false
-    try {
-      const sp = new URLSearchParams(window.location.search)
-      const r = sp.get('rstations')
-      if (r) {
-        const names = r.split(',').map(s => s.trim()).filter(Boolean).slice(0, 8)
-        if (names.length > 0) {
-          const rc = sp.get('rc') ?? ''
-          const color = /^[0-9a-fA-F]{6}$/.test(rc) ? `#${rc}` : '#a8332b'
-          setRyugakuHighlight({ stations: names, color })
-          hasRyugaku = true
-        }
-      }
-    } catch {}
+    const hasRyugaku = bootstrapRyugakuHighlight(window.location.search)
     bootstrapOverlay({
       visited: visited || hasRyugaku,
       forceWelcome: hasRyugaku ? false : forceWelcome,

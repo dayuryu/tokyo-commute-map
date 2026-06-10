@@ -5,9 +5,9 @@
  * 「この色環は何？」の答えを与えつつ、✕ で highlight を消せる。
  * 文言は内蔵 3 locale（メッセージファイル追加を避ける軽量実装 — 表示は一過性）。
  */
-import { useAtom } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { useLocale } from 'next-intl'
-import { ryugakuHighlightAtom } from '@/lib/atoms/ryugaku'
+import { ryugakuHighlightAtom, dismissRyugakuHighlightAtom } from '@/lib/atoms/ryugaku'
 import { useIsMobile } from '@/lib/useIsMobile'
 
 const LABELS: Record<string, string> = {
@@ -17,21 +17,12 @@ const LABELS: Record<string, string> = {
 }
 
 export default function RyugakuStationsChip() {
-  const [hl, setHl] = useAtom(ryugakuHighlightAtom)
+  const hl = useAtomValue(ryugakuHighlightAtom)
+  // 「状態クリア + URL query 剥離」の成対不変量は atom 層に封装済み
+  const dismiss = useSetAtom(dismissRyugakuHighlightAtom)
   const locale = useLocale()
   const isMobile = useIsMobile()
   if (!hl) return null
-
-  function dismiss() {
-    setHl(null)
-    // query を剥がして reload 時の再点灯を防ぐ（履歴は汚さない）
-    try {
-      const url = new URL(window.location.href)
-      url.searchParams.delete('rstations')
-      url.searchParams.delete('rc')
-      window.history.replaceState(null, '', url.pathname + url.search)
-    } catch {}
-  }
 
   return (
     <div
