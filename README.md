@@ -22,6 +22,8 @@
 - 🌐 **多言語対応** — 日本語 / English / 中文、next-intl による `[locale]` ルーティング + 全駅名・路線名のローマ字表記（EN）
 - 📄 **目的地ページ** — 30 駅の長文 SEO/AEO コンテンツ + FAQ 構造化データ
 - 📱 **モバイル最適化** — dvh viewport + responsive layout + タッチジェスチャー + safe area 対応
+- 📲 **PWA 対応** — 手書き Service Worker（地図タイル offline cache）+ ホーム画面追加 + iOS 起動スプラッシュ 18 デバイス分
+- 🎯 **留学居住人格テスト `/ryugaku`** — 中国人留学生向け診断（中文、24 問 → 16 主型 + 6 隠し型）。型色の共有カード生成 + 微信 OG カード + 本命駅を地図にハイライト導流
 
 ---
 
@@ -137,12 +139,14 @@ tokyo-commute-map/
 │   ├── globals.css             — MapLibre + Springs editorial palette tokens
 │   ├── sitemap.ts / robots.ts  — SEO
 │   ├── api/recommend/          — AI 推薦 API endpoint (OpenAI + Supabase)
+│   ├── api/ryugaku-og/         — /ryugaku 微信共有用 OG 画像生成 (edge / next-og)
 │   └── [locale]/               — next-intl i18n routing (ja / en / zh)
 │       ├── layout.tsx          — html/body + fonts + metadata + JSON-LD
 │       ├── page.tsx            — メインマップページ（orchestrator、状態は lib/atoms/）
 │       ├── legal/              — 法務 5 ページ (commerce / privacy / ads / contact / credits)
-│       └── to/[slug]/          — 30 駅 SEO ランディングページ + FAQ Schema.org
-├── components/                 — 18 コンポーネント
+│       ├── to/[slug]/          — 30 駅 SEO ランディングページ + FAQ Schema.org
+│       └── ryugaku/            — 留学居住人格テスト（中文診断、?a= 共有で動的 OG metadata）
+├── components/                 — 20+ コンポーネント
 │   ├── MapView.tsx             — MapLibre 地図 + cluster + Dijkstra + AI highlight + お気に入り ★
 │   ├── StationDrawer.tsx       — 駅ドロワー（通勤 + 家賃 + 周辺特徴 + 評価 + 物件検索 + ★ toggle）
 │   ├── FavoritesPanel.tsx      — お気に入り駅リスト（通勤時間つき、HeaderMenu から開く）
@@ -160,6 +164,9 @@ tokyo-commute-map/
 │   ├── CorrectionReporter.tsx  — 通勤時間訂正報告 UI
 │   ├── CookieConsent.tsx       — Cookie 同意バナー
 │   ├── AnalyticsGate.tsx       — GA4 script 注入（Cookie 同意「すべて承認」時のみ）
+│   ├── ServiceWorkerRegistrar.tsx — PWA Service Worker 登録
+│   ├── RyugakuStationsChip.tsx — /ryugaku 導流時の「本命駅」説明 chip
+│   ├── ryugaku/                — 診断テスト UI（RyugakuQuiz / QuizResult / shareCard / theme）
 │   └── LoadingOverlay.tsx      — ローディング画面
 ├── i18n/                       — next-intl 設定
 │   ├── routing.ts              — locales (ja / en / zh) / defaultLocale / localePrefix
@@ -175,7 +182,8 @@ tokyo-commute-map/
 │   └── useBootstrap.ts         — localStorage からの状態復元（destination / AI cache / お気に入り / Cookie 同意）
 ├── lib/
 │   ├── ai-recommend/           — AI 推薦 backend モジュール（7 ファイル）
-│   ├── atoms/                  — Jotai atom 層（UI / data / domain / overlay 状態管理）
+│   ├── atoms/                  — Jotai atom 層（UI / data / domain / overlay / ryugaku 状態管理）
+│   ├── ryugaku/                — 診断テストの SSOT（types / quiz-data / scoring、純前端採点）
 │   ├── dijkstra.ts             — client-side Dijkstra（カスタム目的地用）
 │   ├── destinations.ts         — 30 fixed destination メタデータ（ja / en 表示名）
 │   ├── station-label.ts        — 駅名の locale 別表示・検索マッチヘルパ（EN ローマ字対応）
@@ -191,22 +199,25 @@ tokyo-commute-map/
 │   ├── constants.ts            — 定数 SSOT
 │   ├── types/                  — 共有型定義
 │   └── ...                     — device-id / line-styles / yahoo-url / useIsMobile 等
-├── public/data/
-│   ├── stations.geojson        — 1831 駅 + 30 destinations 通勤時間（スクリプト生成物）
-│   ├── graph.json              — 隣接グラフ（スクリプト生成物）
-│   ├── area_features.json      — 駅周辺特徴（日本語）
-│   ├── area_features_zh.json   — 駅周辺特徴（中文）
-│   ├── area_features_en.json   — 駅周辺特徴（English）
-│   ├── station_names_en.json   — 駅名ローマ字マップ（スクリプト生成物）
-│   ├── line_names_en.json      — 路線名英語マップ（スクリプト生成物）
-│   ├── destinations_v2/        — 30 駅 SEO ランディングページ用長文 JSON
-│   ├── suumo_stations.json     — SUUMO 駅 deep link マップ
-│   ├── manual_rent_data.json   — SUUMO 101 駅家賃データ
-│   ├── station_government_rent.json — 政府統計 1940 駅家賃
-│   ├── station_entrances.json  — OSM 駅出入口座標
-│   ├── line_styles.json        — 路線色 / シンボル
-│   ├── congestion.json         — 路線混雑率
-│   └── ...
+├── public/
+│   ├── sw.js / offline.html    — PWA Service Worker + オフライン fallback
+│   ├── icons/ · splash/        — PWA アイコン (maskable) + iOS 起動スプラッシュ 18 枚
+│   └── data/
+│       ├── stations.geojson    — 1831 駅 + 30 destinations 通勤時間（スクリプト生成物）
+│       ├── graph.json              — 隣接グラフ（スクリプト生成物）
+│       ├── area_features.json      — 駅周辺特徴（日本語）
+│       ├── area_features_zh.json   — 駅周辺特徴（中文）
+│       ├── area_features_en.json   — 駅周辺特徴（English）
+│       ├── station_names_en.json   — 駅名ローマ字マップ（スクリプト生成物）
+│       ├── line_names_en.json      — 路線名英語マップ（スクリプト生成物）
+│       ├── destinations_v2/        — 30 駅 SEO ランディングページ用長文 JSON
+│       ├── suumo_stations.json     — SUUMO 駅 deep link マップ
+│       ├── manual_rent_data.json   — SUUMO 101 駅家賃データ
+│       ├── station_government_rent.json — 政府統計 1940 駅家賃
+│       ├── station_entrances.json  — OSM 駅出入口座標
+│       ├── line_styles.json        — 路線色 / シンボル
+│       ├── congestion.json         — 路線混雑率
+│       └── ...
 ├── scripts/
 │   ├── build_stations_geojson_v3.py  — GTFS 通勤時間 + graph.json 生成
 │   ├── build_suumo_station_map.py    — SUUMO 駅 deep link クロール

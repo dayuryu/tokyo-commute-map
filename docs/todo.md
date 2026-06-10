@@ -4,7 +4,7 @@
 > 商業化フェーズの詳細運用ランブックは [`affiliate-setup.md`](./affiliate-setup.md) を参照。
 > 基礎工程の戦略は [`adr/0002-just-in-time-architecture.md`](./adr/0002-just-in-time-architecture.md) を参照。
 
-最終整理日: 2026-06-09（PWA 化完了を反映）
+最終整理日: 2026-06-10（/ryugaku 全面上線を反映）
 
 ---
 
@@ -25,6 +25,8 @@
      ローカル / 線上計測時は `--extra-headers` で `{"Accept-Language":"ja"}` 固定すること
 2. **Rich Results Test で FAQPage 検証**（運営側 5 分） — push 済の commit `afcba79` の Schema.org JSON-LD が Google に認識されるか
    `search.google.com/test/rich-results` で `https://kayoha.com/to/shinjuku` を測定
+3. **/ryugaku 真機検証 + 小紅書引流開始**（運営側） — 漏斗は全部上線済（下記「留学居住人格テスト」section）。
+   真機で 測試 → 分享卡保存 → 地図導流 を通し確認 + 微信でリンク共有（縮図表示と kayoha.com 可達性）→ 小紅書投稿開始
 
 ### 🥈 次の大物候補（プロダクト方針で 1 つ選ぶ）
 - **A: URL 索引リクエスト 30 駅**（運営側手動、1 日 10 quota、3 日で完走） — Search Console で長文 v2 ページの recrawl を加速
@@ -42,6 +44,37 @@
 - AI 推薦 prompt 改善（production データ蓄積後）
 - Sentry 接入（~30 分）
 - 旧 `destination_descriptions.json` 削除（page.tsx は読まなくなった、legacy として残してるだけ）
+
+---
+
+## 🎯 留学居住人格テスト /ryugaku（2026-06-09〜10 全面上線）
+
+> 小紅書の中国人留学生向け人群細分流入口。MBTI 式 24 問 → 16 主型 + 6 隠し型 → 本命駅を
+> kayoha 地図にハイライト導流。「先にトラフィック、収益化は後」戦略の主力施策。
+> 設計: `ryugaku-quiz-design.md`（v1 架構）+ `ryugaku-quiz-copy-v2.md`（文案 v2 定稿）。
+> コード SSOT: `lib/ryugaku/`（types / quiz-data / scoring）+ `components/ryugaku/` + `lib/atoms/ryugaku.ts`。
+
+### 上線済（merge 時系列、全て 2026-06-09〜10）
+- `5c5ca90` **MVP** — 4 軸（💰P/L · 🌶️C/J · 🎯R/D · 🗺️I/O）24 問 + 16 主型 + 6 隠し型、純前端採点、URL `?a=` 共有復元
+- `4b05534` **文案 v2** — A 路線 slogan（梗 + 専属細節の真話で締め）/「中文タイトル + 日文副句」二行制（〇〇の××混写廃止）/
+  中日 font 分流（Noto SC ⇔ Shippori + lang 属性）/ MBTI 式 4 色族配色（C/J×R/D）/ 全 22 型車站の零重複再配置 /
+  四維 slider 方向反転 bug 修正
+- `0494db1` **保存分享卡** — canvas 純前端 1080×1440 PNG（小紅書 3:4）、移動端 navigator.share 直発
+- `eda9e1a` **地図導流閉環** — `?rstations=`（geojson 正規駅名 = quiz-data の `stationKeys`）+ `rc` 型色 →
+  型色 ring + 初回 fitBounds + 下部 chip。流入時は onboarding skip（visited 非永続）。atom は domain.ts 流の書き込み封装
+- `f8ea31e` **微信 OG** — `/api/ryugaku-og?t=`（edge、800×800 方形型色卡、Google Fonts `text=` 子集）+
+  `?a=` 連動 SSR metadata（頁は SSG → dynamic）。**X カード / 多言語は不做と決定**（国内留学生のみ対象）
+
+### 残タスク
+- [ ] **真機検証**（運営側、最優先 section 参照） — 通し流れ + 微信共有
+- [ ] 隠し型 otome / nishikasai のトリガー問題追加（scoring.ts は現状 4 隠し型のみ到達可能、この 2 型は到達不能）
+- [ ] 「全網 X%」は演示値（決定論 hash、`QuizResult.tsx` の `pct()`）→ 実統計に接続
+- [ ] 運営: 小紅書での引流投稿開始（次の本丸）
+
+### 決定済み（蒸し返さない）
+- 人物イラストは**不做**（ChatGPT 生図 brief → 幾何 SVG 試作の両方を経て 2026-06-10 放棄、文字型カードで確定）
+- 問題数は 20+4 のまま増やさない（精度の瓶颈は串扰であって問数でない / 完成率 = 流量漏斗）
+- 車站は全 22 型で零重複（一地名一型挂名）。地名→geojson 消歧後缀の対応は quiz-data `stationKeys` が SSOT
 
 ---
 
@@ -424,3 +457,4 @@ React Native / フル native 書き換えは **永続的に非推奨**。
 | 2026-06-06 (夜) | **Perf 深掘り第 1 弾**（commits `ac9fc6c` `93b511b`）。next/font の CJK preload 退化 (Shippori 364 切片 ~11MB を preload) を `preload: false` で根治 + 未使用 weight 700 削除 + welcome 動画 VP9 化 (-60%)。フォント転送 11.97MB → 1.02MB。併せて user-facing copy の駅数 1843 → 1831 全同期（messages 三語 / manifest / landing 30 頁 / credits / 注釈）。PSI の `/` → `/en` 302 問題を特定、localeDetection 現状維持と決定 |
 | 2026-06-06 (深夜) | **Perf 第 2 弾: MapView dynamic import**（commit `1fc16d7`）。MapLibre ~350KB を初回バンドルから分離、冷訪問は Welcome 中取得ゼロ・回訪は LoadingOverlay 背後で取得 (CDP 検証済)。線上実測 LCP 11.7 → **8.2s** / TBT 60ms / CLS 0 / 初回 JS 242KB。残 LCP は Welcome 演出由来 (render delay 2.5s) — 「演出優先」方針でここを均衡点とする |
 | 2026-06-09 (PWA) | **PWA 化完了（特に iOS チューニング）**。manifest 強化（id/scope/categories + maskable 192/512）+ 依存ゼロの手書き Service Worker（openfreemap タイル offline + `_next/static` cache-first + `/data/` SWR + navigation network-first→offline.html、api/mp4 bypass）+ iOS 専用（apple-mobile-web-app-capable / status-bar default / **18 デバイス分の起動スプラッシュ** apple-touch-startup-image）+ theme-color。新規: `public/sw.js`・`public/offline.html`・`components/ServiceWorkerRegistrar.tsx`・`lib/pwa-splash-screens.ts`・`scripts/generate_pwa_assets.mjs`・`public/icons/`(4)・`public/splash/`(18)。tsc/eslint 0・build OK・Edge headless 検証 PASS。**main 部署済（merge `f19bccd`）** |
+| 2026-06-09/10 | **留学居住人格テスト /ryugaku 全面上線**（MVP `5c5ca90` → 文案 v2 `4b05534` → 保存分享卡 `0494db1` → 地図導流閉環 `eda9e1a` → 微信 OG `f8ea31e`）。小紅書中国人留学生向けの人群細分流入口、漏斗完成。専用 section 新設 + README 特長/構成更新。人物イラストは試作の上で不採用と決定 |
