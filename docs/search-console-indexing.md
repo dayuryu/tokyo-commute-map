@@ -2,14 +2,16 @@
 
 > 2026-06-11 作成。インデックス API は一般ページ非対応のため、ここだけは手動が必要。
 > 1 日の上限は約 10 件。下記の優先順に上から消化する。
+> ⚠️ `/inspect?resource_id=...` の deep link は外部から開くと 404（2026-06-11 実証）。
+> 必ず Search Console 内の上部検索ボックスに URL を貼る方式で行うこと。
 
 ## 手順（1 件 30 秒）
 
-1. [Search Console](https://search.google.com/search-console) → プロパティ `kayoha.com`
+1. [Search Console](https://search.google.com/search-console) → プロパティ `kayoha.com`（sc-domain 型）
 2. 上部の「URL 検査」に下記 URL を貼る → Enter
 3. 「インデックス登録をリクエスト」をクリック（既に「登録済み」なら skip して次へ）
 
-## Day 1（最優先 — hub と流入軸）
+## ✅ Day 1（最優先 — hub と流入軸）— 完了 2026-06-11
 
 - https://kayoha.com/to
 - https://kayoha.com/ryugaku
