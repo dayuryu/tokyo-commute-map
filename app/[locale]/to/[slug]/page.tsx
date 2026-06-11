@@ -8,22 +8,12 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
   DESTINATIONS_META,
+  destinationLabel,
   isFixedDestination,
-  type FixedDestination,
 } from '@/lib/destinations'
+import { loadDestinationStats } from '@/lib/destination-stats'
 import { staticMessages, fillMessage, localeHref } from '@/lib/static-messages'
 import ToActionButtons from './ToActionButtons'
-
-/** locale 別の目的地表示名（en はローマ字、ja / zh は漢字のまま）。 */
-function destDisplayName(meta: (typeof DESTINATIONS_META)[number], locale: string) {
-  return locale === 'en' ? meta.displayNameEn : meta.displayName
-}
-
-type DestStats = {
-  within30: number
-  within45: number
-  avgRent: number
-}
 
 type V2Content = {
   slug: string
@@ -56,40 +46,6 @@ const loadDestinationV2 = cache(
   },
 )
 
-const loadStats = cache(async (): Promise<Record<FixedDestination, DestStats>> => {
-  const geojsonPath = path.join(process.cwd(), 'public/data/stations.geojson')
-  const rentPath = path.join(process.cwd(), 'public/data/station_government_rent.json')
-  const [geoRaw, rentRaw] = await Promise.all([
-    fs.readFile(geojsonPath, 'utf-8'),
-    fs.readFile(rentPath, 'utf-8'),
-  ])
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const geo = JSON.parse(geoRaw) as { features: any[] }
-  const rent = JSON.parse(rentRaw) as { stations: Record<string, number> }
-
-  const stats = {} as Record<FixedDestination, DestStats>
-  for (const meta of DESTINATIONS_META) {
-    let within30 = 0
-    let within45 = 0
-    const rents: number[] = []
-    for (const f of geo.features) {
-      const min = f.properties[`min_to_${meta.slug}`]
-      if (typeof min !== 'number') continue
-      if (min <= 30) within30 += 1
-      if (min <= 45) {
-        within45 += 1
-        const r = rent.stations[String(f.properties.code)]
-        if (typeof r === 'number') rents.push(r / 10000)
-      }
-    }
-    const avgRent = rents.length
-      ? rents.reduce((a, b) => a + b, 0) / rents.length
-      : 0
-    stats[meta.slug] = { within30, within45, avgRent }
-  }
-  return stats
-})
-
 export async function generateStaticParams() {
   return DESTINATIONS_META.map(m => ({ slug: m.slug }))
 }
@@ -105,7 +61,7 @@ export async function generateMetadata({
   if (!isFixedDestination(slug)) return {}
   const meta = DESTINATIONS_META.find(m => m.slug === slug)!
   const t = staticMessages(locale).toLanding
-  const name = destDisplayName(meta, locale)
+  const name = destinationLabel(meta, locale)
   const title = fillMessage(t.title, { name })
   const description = fillMessage(t.metaDescription, { name })
   const ogLocale = locale === 'zh' ? 'zh_CN' : locale === 'en' ? 'en_US' : 'ja_JP'
@@ -157,7 +113,7 @@ export default async function ToDestinationPage({
   if (!isFixedDestination(slug)) notFound()
   const meta = DESTINATIONS_META.find(m => m.slug === slug)!
   const [allStats, content] = await Promise.all([
-    loadStats(),
+    loadDestinationStats(),
     loadDestinationV2(slug, locale),
   ])
   const stats = allStats[slug]
@@ -165,7 +121,7 @@ export default async function ToDestinationPage({
 
   const messages = staticMessages(locale)
   const t = messages.toLanding
-  const name = destDisplayName(meta, locale)
+  const name = destinationLabel(meta, locale)
   const pageTitle = fillMessage(t.title, { name })
   const fallbackDescription = fillMessage(t.fallbackDescription, { name })
 
@@ -193,6 +149,17 @@ export default async function ToDestinationPage({
     },
   }
 
+  // パンくず: Top → 通勤先ガイド (/to hub) → 本頁。footer の実リンクと対応。
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Kayoha', item: `https://kayoha.com${localeHref(locale, '/')}` },
+      { '@type': 'ListItem', position: 2, name: messages.toIndex.title, item: `https://kayoha.com${localeHref(locale, '/to')}` },
+      { '@type': 'ListItem', position: 3, name: pageTitle },
+    ],
+  }
+
   const faqJsonLd = content?.faq && content.faq.length > 0
     ? {
         '@context': 'https://schema.org',
@@ -210,6 +177,10 @@ export default async function ToDestinationPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       {faqJsonLd && (
         <script
@@ -304,7 +275,7 @@ export default async function ToDestinationPage({
                   href={localeHref(locale, `/to/${m.slug}`)}
                   className="text-ed-ink/75 hover:text-ed-accent transition-colors"
                 >
-                  {destDisplayName(m, locale)}
+                  {destinationLabel(m, locale)}
                 </Link>
               </li>
             ))}
@@ -314,6 +285,9 @@ export default async function ToDestinationPage({
         <footer className="mt-20 md:mt-32 pt-8 border-t border-ed-ink/10 text-center text-xs text-ed-ink/50 space-x-4">
           <Link href={localeHref(locale, '/')} className="hover:text-ed-ink/80 transition-colors">
             {t.footerTop}
+          </Link>
+          <Link href={localeHref(locale, '/to')} className="hover:text-ed-ink/80 transition-colors">
+            {t.footerGuide}
           </Link>
           <Link href={localeHref(locale, '/legal')} className="hover:text-ed-ink/80 transition-colors">
             {t.footerLegal}

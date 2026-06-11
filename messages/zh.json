@@ -9,7 +9,11 @@
     "legal": "法律信息",
     "legalSub": "隐私 · 用户协议",
     "ads": "广告说明",
-    "adsSub": "推广广告披露"
+    "adsSub": "推广广告披露",
+    "guide": "通勤地指南",
+    "guideSub": "30 大通勤目的地长文指南",
+    "ryugaku": "留学居住人格测试",
+    "ryugakuSub": "16 型人格 + 你的本命车站"
   },
   "legend": {
     "commuteTime": "通勤时间",
@@ -267,7 +271,13 @@
     "footerLegal": "运营信息",
     "footerPrivacy": "隐私政策",
     "footerAds": "关于广告",
+    "footerGuide": "通勤地指南",
     "ctaMap": "在地图上查看",
     "ctaAi": "让 AI 推荐适合通勤{name}的街区"
+  },
+  "toIndex": {
+    "title": "通勤地指南 — 从 30 大通勤目的地找住处",
+    "metaDescription": "新宿、涩谷、东京站等 30 个主要通勤目的地：30 分钟圈车站数、房租参考与街区长文指南。来自覆盖东京圈 1831 站的通勤时间地图 Kayoha。",
+    "lead": "选择你的通勤目的地，查看 30 / 45 分钟圈的车站数、房租参考和街区长文指南。"
   }
 }

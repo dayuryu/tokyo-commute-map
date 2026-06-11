@@ -9,7 +9,11 @@
     "legal": "Legal",
     "legalSub": "Privacy & Terms",
     "ads": "About ads",
-    "adsSub": "Affiliate disclosure"
+    "adsSub": "Affiliate disclosure",
+    "guide": "Destination guides",
+    "guideSub": "In-depth guides for 30 hubs",
+    "ryugaku": "Housing personality quiz",
+    "ryugakuSub": "16 types + your station (中文)"
   },
   "legend": {
     "commuteTime": "Commute time",
@@ -267,7 +271,13 @@
     "footerLegal": "Site Info",
     "footerPrivacy": "Privacy",
     "footerAds": "Advertising",
+    "footerGuide": "Destination guides",
     "ctaMap": "View on the map",
     "ctaAi": "Let AI suggest neighborhoods for {name}"
+  },
+  "toIndex": {
+    "title": "Destination Guides — Find a Home by Commute",
+    "metaDescription": "Guides for 30 major Tokyo commute destinations — Shinjuku, Shibuya, Tokyo Sta. and more: stations within 30 minutes, rent estimates, and neighborhood deep dives from Kayoha.",
+    "lead": "Pick your commute destination to see stations within 30 / 45 minutes, rent estimates, and an in-depth area guide."
   }
 }

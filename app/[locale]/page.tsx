@@ -1,8 +1,9 @@
 'use client'
 import { useEffect } from 'react'
 import dynamic from 'next/dynamic'
+import NextLink from 'next/link'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import TimeSlider from '@/components/TimeSlider'
 import DestinationPicker from '@/components/DestinationPicker'
 import StationDrawer from '@/components/StationDrawer'
@@ -65,6 +66,7 @@ import type {
 
 export default function Home() {
   const locale = useLocale()
+  const tHeader = useTranslations('header')
   // destination / customStation / customCommutes / aiHighlightFeatures は全て atom 層へ
   // 移行済（ADR-0003 P3/P4）。消費 component が各 atom を直接購読するため、page では
   // 「handler 内で書き込む / Wizard cachedResult 構築で読む」用途に限って setter / 値を
@@ -287,6 +289,37 @@ export default function Home() {
             <RyugakuStationsChip />
             <CookieConsent />
           </>
+        )}
+
+        {/* SEO: welcomeOpen=null は SSR / hydration 前のみ。この間だけ /to 等への
+            内部リンクを素の HTML に出す（第一波クロール用）。hydration 後は
+            WelcomeOverlay 底部の可視リンク / HeaderMenu が同じリンクを担う。 */}
+        {overlay.welcomeOpen === null && (
+          <nav
+            style={{
+              position: 'absolute',
+              bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
+              left: 0,
+              right: 0,
+              display: 'flex',
+              justifyContent: 'center',
+              gap: 20,
+              fontSize: 11,
+              color: 'var(--ink-mute)',
+            }}
+          >
+            <NextLink href={locale === 'ja' ? '/to' : `/${locale}/to`} style={{ color: 'inherit', textDecoration: 'none' }}>
+              {tHeader('guide')}
+            </NextLink>
+            {locale === 'zh' && (
+              <NextLink href="/zh/ryugaku" style={{ color: 'inherit', textDecoration: 'none' }}>
+                {tHeader('ryugaku')}
+              </NextLink>
+            )}
+            <NextLink href={locale === 'ja' ? '/legal' : `/${locale}/legal`} style={{ color: 'inherit', textDecoration: 'none' }}>
+              {tHeader('legal')}
+            </NextLink>
+          </nav>
         )}
       </main>
 

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { useIsMobile } from '@/lib/useIsMobile'
@@ -24,6 +25,7 @@ const BTN_GHOST_HOVER = 'rgba(245,231,210,.12)'
 
 export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
   const t = useTranslations('welcome')
+  const tHeader = useTranslations('header')
   const locale = useLocale()
   const TITLE_TEXT = t('tagline')
   const isMobile = useIsMobile()
@@ -345,6 +347,36 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
         <LocaleLink locale="zh" active={locale === 'zh'} label="ZH" inkActive={INK_S} inkIdle={INK_M} />
         <LocaleLink locale="en" active={locale === 'en'} label="EN" inkActive={INK_S} inkIdle={INK_M} />
       </div>
+
+      {/* ── footer nav (bottom-center): /to ガイド + /ryugaku(zh) ──
+          冷訪問の SSR DOM に載る唯一の内部リンク（HeaderMenu は mapMounted 後のみ）。
+          SEO: トップ → ガイド hub のリンク木をここで成立させる。 */}
+      <nav
+        style={{
+          position: 'absolute',
+          bottom: `calc(env(safe-area-inset-bottom, 0px) + ${isMobile ? 14 : 24}px)`,
+          left: 0,
+          right: 0,
+          zIndex: 5,
+          display: 'flex',
+          justifyContent: 'center',
+          gap: isMobile ? 18 : 26,
+          fontFamily: 'var(--mono, ui-monospace, monospace)',
+          fontSize: isMobile ? 9.5 : 10.5,
+          letterSpacing: '.16em',
+          color: INK_M,
+          textShadow: '0 1px 8px rgba(0,0,0,.5)',
+        }}
+      >
+        <Link href={locale === 'ja' ? '/to' : `/${locale}/to`} style={{ color: 'inherit', textDecoration: 'none' }}>
+          {tHeader('guide')}
+        </Link>
+        {locale === 'zh' && (
+          <Link href="/zh/ryugaku" style={{ color: 'inherit', textDecoration: 'none' }}>
+            {tHeader('ryugaku')}
+          </Link>
+        )}
+      </nav>
 
       {/* ── brand mark (top-left): Kayoha + 通葉 ────────── */}
       <div

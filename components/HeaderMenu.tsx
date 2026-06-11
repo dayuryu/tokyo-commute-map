@@ -125,6 +125,43 @@ export default function HeaderMenu({ onHelp }: Props) {
 
           <div className="mx-3 h-px" style={{ background: 'rgba(28,24,18,.08)' }} />
 
+          {/* SEO 内链：/to hub と /ryugaku（zh のみ）。dropdown は CSS 隠しの
+              常駐 DOM なので crawler からも見える（準孤児頁解消の要） */}
+          <MenuLink
+            href="/to"
+            onNavigate={() => setOpen(false)}
+            icon={
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M8 14s4.5-4.4 4.5-7.5a4.5 4.5 0 1 0-9 0C3.5 9.6 8 14 8 14z"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinejoin="round"
+                />
+                <circle cx="8" cy="6.5" r="1.6" stroke="currentColor" strokeWidth="1.3" />
+              </svg>
+            }
+            label={t('guide')}
+            sub={t('guideSub')}
+          />
+
+          {locale === 'zh' && (
+            <MenuLink
+              href="/ryugaku"
+              onNavigate={() => setOpen(false)}
+              icon={
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M2.5 4.2h11M4 6.5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                  <path d="M4.6 4.2L4.2 13M11.4 4.2l.4 8.8M3 2.6c2.2.6 7.8.6 10 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+              }
+              label={t('ryugaku')}
+              sub={t('ryugakuSub')}
+            />
+          )}
+
+          <div className="mx-3 h-px" style={{ background: 'rgba(28,24,18,.08)' }} />
+
           <MenuLink
             href="/legal"
             onNavigate={() => setOpen(false)}

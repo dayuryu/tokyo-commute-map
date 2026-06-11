@@ -59,6 +59,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.3,
   }))
 
+  // 通勤先ガイド hub（/to）— 30 駅個別頁への internal link 集約点。
+  const toHub: MetadataRoute.Sitemap = [
+    {
+      url: `${base}/to`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.8,
+      alternates: {
+        languages: {
+          ja: `${base}/to`,
+          zh: `${base}/zh/to`,
+          en: `${base}/en/to`,
+          'x-default': `${base}/to`,
+        },
+      },
+    },
+  ]
+
   // /to/[slug] は 30 駅すべて ja / zh / en 完訳済み（destinations_v2/{zh,en}/）。
   // ja URL を代表 entry とし、各駅で 3 言語の相互 hreflang を出力する。
   const destinations: MetadataRoute.Sitemap = DESTINATIONS_META.map(m => ({
@@ -86,5 +104,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ]
 
-  return [...main, ...ryugaku, ...legal, ...destinations]
+  return [...main, ...ryugaku, ...toHub, ...destinations, ...legal]
 }
