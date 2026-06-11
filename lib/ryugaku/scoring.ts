@@ -50,6 +50,9 @@ function resolveCode(raw: AxisScores): string {
 
 // ── 隐藏型触发 ───────────────────────────────────────────
 // 条件 = 对应彩蛋题高分 + 主轴极值。多个命中取信号最强（彩蛋题分最高）。
+// 题量 20+4 已定不加（docs/todo.md 決定済み），otome / nishikasai 不设新彩蛋题，
+// 从现有答案组合触发：x1 信号按地理轴切成乙女（强I 谷子圣地常驻）/ 巡礼者（跨城奔赴现场）两型；
+// 咖喱党 = 彩蛋全「看情况」+ 主轴全无强倾向（误打误撞随遇而安），与其余 4 型天然互斥。
 type HiddenHit = { key: keyof typeof HIDDEN_PERSONAS; strength: number }
 
 function resolveHidden(answers: Answers, raw: AxisScores) {
@@ -61,12 +64,21 @@ function resolveHidden(answers: Answers, raw: AxisScores) {
 
   // 港区のセレブ：家里给钱 + 有钱(L) + 不为学历
   if (x3 >= 1 && raw.budget <= -4 && raw.goal <= 0) hits.push({ key: 'serebu', strength: x3 })
-  // 圣地巡礼者：为爱发电(非常同意) + 强追梦
-  if (x1 >= 2 && raw.goal <= -2) hits.push({ key: 'pilgrim', strength: x1 })
+  // 中野乙女：为爱发电(非常同意) + 强追梦 + 死守都心（住在谷子圣地隔壁）
+  if (x1 >= 2 && raw.goal <= -2 && raw.geo >= 4) hits.push({ key: 'otome', strength: x1 })
+  // 圣地巡礼者：为爱发电(非常同意) + 强追梦（非强都心 → 跨城奔赴湾岸场馆）
+  if (x1 >= 2 && raw.goal <= -2 && raw.geo < 4) hits.push({ key: 'pilgrim', strength: x1 })
   // 出稼ぎ战士：打工优先 + 省钱(P) + 远郊倾向
   if (x2 >= 1 && raw.budget >= 4 && raw.geo <= 0) hits.push({ key: 'dekasegi', strength: x2 })
   // 福祉大幸存者：学历含糊 + 省钱(P)
   if (x4 >= 1 && raw.budget >= 4) hits.push({ key: 'fukushi', strength: x4 })
+  // 西葛西咖喱党：彩蛋全「看情况」+ 四轴全在 ±2 内 —— 对什么都随缘的人，把意外住成日常
+  if (
+    x1 === 0 && x2 === 0 && x3 === 0 && x4 === 0 &&
+    AXIS_ORDER.every(k => Math.abs(raw[k]) <= 2)
+  ) {
+    hits.push({ key: 'nishikasai', strength: 1 })
+  }
 
   if (hits.length === 0) return null
   hits.sort((a, b) => b.strength - a.strength)
