@@ -33,6 +33,7 @@ export default function QuizResult({
   const stations = resultStations(result)
   const [copied, setCopied] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [momentsGuide, setMomentsGuide] = useState<null | 'wechat' | 'other'>(null)
 
   async function saveCard() {
     if (saving) return
@@ -63,11 +64,30 @@ export default function QuizResult({
     }
   }
 
+  function buildShareUrl() {
+    return `${window.location.origin}${window.location.pathname}?a=${encodeAnswers(answers)}`
+  }
+
+  // 网页无法直接调起朋友圈（JS-SDK 需认证服务号）：微信内引导右上角菜单，微信外复制链接
+  async function shareToMoments() {
+    const url = buildShareUrl()
+    if (/MicroMessenger/i.test(navigator.userAgent)) {
+      // 右上角菜单分享的是当前地址 + 当前 title：先把 ?a= 写回，接收方打开即还原结果（SSR 个性化 OG）
+      window.history.replaceState(null, '', url)
+      document.title = `我是「${face.name}」— 东京留学居住人格测试`
+      setMomentsGuide('wechat')
+    } else {
+      try {
+        await navigator.clipboard.writeText(url)
+      } catch {
+        /* 复制失败也照常引导，蒙层文案不依赖剪贴板成功 */
+      }
+      setMomentsGuide('other')
+    }
+  }
+
   async function share() {
-    const url =
-      typeof window !== 'undefined'
-        ? `${window.location.origin}${window.location.pathname}?a=${encodeAnswers(answers)}`
-        : ''
+    const url = typeof window !== 'undefined' ? buildShareUrl() : ''
     const text = `我是「${face.name}」(${face.code}) — 东京留学居住人格测试`
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
@@ -183,6 +203,14 @@ export default function QuizResult({
         {saving ? '正在生成卡片…' : '保存分享卡 ↓'}
       </button>
 
+      {/* 朋友圈：微信内弹「右上角 ···」引导蒙层，微信外复制链接引导去微信粘贴 */}
+      <button
+        onClick={shareToMoments}
+        style={{ ...secondaryBtn, width: '100%', marginTop: 10, color: accent, borderColor: accent, fontWeight: 600 }}
+      >
+        分享到朋友圈
+      </button>
+
       {/* 分享 + 重测 */}
       <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
         <button onClick={share} style={secondaryBtn}>
@@ -192,6 +220,40 @@ export default function QuizResult({
           {isShared ? '我也来测' : '重新测'}
         </button>
       </div>
+
+      {momentsGuide && (
+        <div
+          onClick={() => setMomentsGuide(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.78)', cursor: 'pointer' }}
+        >
+          {momentsGuide === 'wechat' ? (
+            <div style={{ position: 'absolute', top: 10, right: 20, textAlign: 'right', color: '#fff' }}>
+              <svg width="56" height="68" viewBox="0 0 56 68" fill="none" style={{ display: 'inline-block' }}>
+                <path d="M10 64 C 28 50, 42 32, 47 10" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M39 16 L47 7 L52 18" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <p style={{ fontFamily: SANS, fontSize: 17, lineHeight: 1.9, margin: '10px 4px 0' }}>
+                点右上角「···」
+                <br />
+                选择 <b>分享到朋友圈</b>
+              </p>
+            </div>
+          ) : (
+            <div
+              style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: 'min(80vw, 320px)', color: '#fff', fontFamily: SANS, fontSize: 16, lineHeight: 2 }}
+            >
+              链接已复制 ✓
+              <br />
+              打开微信，粘贴给好友或发到朋友圈
+              <p style={{ fontSize: 13, opacity: 0.75, marginTop: 14, lineHeight: 1.8 }}>
+                发图更醒目：可以先「保存分享卡」，
+                <br />
+                再到朋友圈发图片
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <p style={{ color: C.inkSoft, opacity: 0.6, fontSize: 11, marginTop: 22, lineHeight: 1.7 }}>
         娱乐测试 · 占比为演示值 · 由 Kayoha 制作
