@@ -371,6 +371,11 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
         <Link href={locale === 'ja' ? '/to' : `/${locale}/to`} style={{ color: 'inherit', textDecoration: 'none' }}>
           {tHeader('guide')}
         </Link>
+        {locale === 'ja' && (
+          <Link href="/area" style={{ color: 'inherit', textDecoration: 'none' }}>
+            {tHeader('area')}
+          </Link>
+        )}
         {locale === 'zh' && (
           <Link href="/zh/ryugaku" style={{ color: 'inherit', textDecoration: 'none' }}>
             {tHeader('ryugaku')}

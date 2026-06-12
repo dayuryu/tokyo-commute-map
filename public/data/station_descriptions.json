@@ -1,0 +1,8 @@
+{
+ "_meta": {
+  "purpose": "駅ページ（/st/{slug}）の編集性本文 150-250 字。外部 LLM 批量初稿 + 運営レビュー。",
+  "workflow": "scripts/generate_station_description_prompts.mjs で prompt 生成 → 外部 LLM → merge",
+  "created": "2026-06-12"
+ },
+ "stations": {}
+}

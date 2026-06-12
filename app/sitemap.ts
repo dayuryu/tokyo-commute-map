@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { DESTINATIONS_META } from '@/lib/destinations'
+import { loadStationPages } from '@/lib/station-pages/data'
 
 const base = 'https://kayoha.com'
 
@@ -15,7 +16,7 @@ const mainAlternates = {
   },
 }
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
 
   const main: MetadataRoute.Sitemap = [
@@ -104,5 +105,25 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ]
 
-  return [...main, ...ryugaku, ...toHub, ...destinations, ...legal]
+  // 駅ページ + 区市 hub（ja 専用、hreflang 無し）。lastmod はデータ基準日
+  //（build 時刻だと毎デプロイで全頁更新扱いになり信号が薄まる）。
+  const { list, wards, dataDate } = await loadStationPages()
+  const stationDataDate = new Date(dataDate)
+  const areaPages: MetadataRoute.Sitemap = [
+    { url: `${base}/area`, lastModified: stationDataDate, changeFrequency: 'monthly', priority: 0.7 },
+    ...wards.map(w => ({
+      url: `${base}/area/${w.slug}`,
+      lastModified: stationDataDate,
+      changeFrequency: 'monthly' as const,
+      priority: 0.6,
+    })),
+  ]
+  const stationPages: MetadataRoute.Sitemap = list.map(s => ({
+    url: `${base}/st/${s.slug}`,
+    lastModified: stationDataDate,
+    changeFrequency: 'monthly',
+    priority: 0.7,
+  }))
+
+  return [...main, ...ryugaku, ...toHub, ...areaPages, ...stationPages, ...destinations, ...legal]
 }

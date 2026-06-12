@@ -311,6 +311,11 @@ export default function Home() {
             <NextLink href={locale === 'ja' ? '/to' : `/${locale}/to`} style={{ color: 'inherit', textDecoration: 'none' }}>
               {tHeader('guide')}
             </NextLink>
+            {locale === 'ja' && (
+              <NextLink href="/area" style={{ color: 'inherit', textDecoration: 'none' }}>
+                {tHeader('area')}
+              </NextLink>
+            )}
             {locale === 'zh' && (
               <NextLink href="/zh/ryugaku" style={{ color: 'inherit', textDecoration: 'none' }}>
                 {tHeader('ryugaku')}
