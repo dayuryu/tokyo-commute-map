@@ -162,6 +162,21 @@ export default function HeaderMenu({ onHelp }: Props) {
             />
           )}
 
+          {locale === 'ja' && (
+            <MenuLink
+              href="/guide"
+              onNavigate={() => setOpen(false)}
+              icon={
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 3.2C6.8 2.3 5 2.2 3 2.6v10.2c2-.4 3.8-.3 5 .6 1.2-.9 3-.999 5-.6V2.6c-2-.4-3.8-.3-5 .6z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                  <path d="M8 3.4v9.8" stroke="currentColor" strokeWidth="1.3" />
+                </svg>
+              }
+              label={t('howtoPage')}
+              sub={t('howtoPageSub')}
+            />
+          )}
+
           {locale === 'zh' && (
             <MenuLink
               href="/ryugaku"

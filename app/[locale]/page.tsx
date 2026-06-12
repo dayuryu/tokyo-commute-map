@@ -329,6 +329,7 @@ export default function Home() {
                 <li>駅・エリアガイド — <NextLink href="/to" style={{ color: 'inherit' }}>通勤先別ガイド</NextLink>と<NextLink href="/area" style={{ color: 'inherit' }}>区市別の駅データ一覧</NextLink>で、家賃と通勤時間をデータで比較</li>
               </ul>
               <nav style={{ fontSize: 13, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                <NextLink href="/guide" style={{ color: 'inherit' }}>{tHeader('howtoPage')}</NextLink>
                 <NextLink href="/to" style={{ color: 'inherit' }}>{tHeader('guide')}</NextLink>
                 <NextLink href="/area" style={{ color: 'inherit' }}>{tHeader('area')}</NextLink>
                 <NextLink href="/legal" style={{ color: 'inherit' }}>{tHeader('legal')}</NextLink>

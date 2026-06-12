@@ -95,6 +95,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   }))
 
+  // 使い方ガイド（ja 専用、HowTo/FAQPage 持ち）
+  const guide: MetadataRoute.Sitemap = [
+    {
+      url: `${base}/guide`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+  ]
+
   // 留学居住人格测试（独立引流入口 /ryugaku、canonical 统一到此）
   const ryugaku: MetadataRoute.Sitemap = [
     {
@@ -125,5 +135,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }))
 
-  return [...main, ...ryugaku, ...toHub, ...areaPages, ...stationPages, ...destinations, ...legal]
+  return [...main, ...guide, ...ryugaku, ...toHub, ...areaPages, ...stationPages, ...destinations, ...legal]
 }
