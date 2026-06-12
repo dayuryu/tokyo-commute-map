@@ -26,6 +26,7 @@
   },
   "welcome": {
     "tagline": "Turn the page at the next station.",
+    "seoLine": "A commute time map covering 1,831 stations in Greater Tokyo — with rent data, neighborhood guides, and AI picks.",
     "consentLead": "Before continuing, please confirm that you ",
     "consentBold": "are interested in life in the Greater Tokyo area",
     "consentTail": ".",

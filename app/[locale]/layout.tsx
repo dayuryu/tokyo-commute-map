@@ -78,8 +78,20 @@ const notoSansSC = Noto_Sans_SC({
 })
 
 const SITE_URL = 'https://kayoha.com'
-const SITE_DESCRIPTION = '東京圏 1831 駅を通勤時間でカラーリング。AI 推薦・家賃目安・周辺の特徴・コミュニティ評価で、次に住む街を探す地図。'
-const SITE_TITLE_DEFAULT = 'Kayoha — 次の駅で、暮らしをめくる。'
+
+// title は「ブランド + 完全一致キーワード」混合式。SERP の「通勤時間 マップ」系
+// クエリ群で競合（通えるマップ等）の title は「移動時間」のみで、
+// 「通勤時間マップ」の完全一致は空位 — ここを取る（2026-06 競合調査）。
+const SITE_TITLE_FOR_LOCALE: Record<string, string> = {
+  ja: 'Kayoha 通勤時間マップ — 東京圏1831駅から住む街を探す',
+  zh: 'Kayoha 通勤时间地图 — 东京圈1831站找住处',
+  en: 'Kayoha Commute Time Map — Find Where to Live in Greater Tokyo',
+}
+const SITE_DESCRIPTION_FOR_LOCALE: Record<string, string> = {
+  ja: '東京圏1831駅を通勤時間で色分けする無料の通勤時間マップ。駅ごとの家賃相場・街の特徴・AI推薦つきで、通勤・通学圏からどこに住むかを探せます。実際の時刻表データで算出、登録不要。',
+  zh: '用通勤时间给东京圈1831个车站着色的免费地图。含房租行情、街区特征与AI推荐，按通勤、通学圈寻找住处。基于真实时刻表数据，无需注册。',
+  en: 'A free commute time map coloring 1,831 stations across Greater Tokyo. Rent data, neighborhood guides, and AI picks help you decide where to live. Built on real timetable data.',
+}
 
 export async function generateMetadata({
   params,
@@ -93,15 +105,17 @@ export async function generateMetadata({
   // 言語別ターゲティングは alternates.languages の hreflang で Google に伝える。
   const canonicalUrl = SITE_URL
   const ogLocale = locale === 'zh' ? 'zh_CN' : locale === 'en' ? 'en_US' : 'ja_JP'
+  const siteTitle = SITE_TITLE_FOR_LOCALE[locale] ?? SITE_TITLE_FOR_LOCALE.ja
+  const siteDescription = SITE_DESCRIPTION_FOR_LOCALE[locale] ?? SITE_DESCRIPTION_FOR_LOCALE.ja
 
   return {
     metadataBase: new URL(SITE_URL),
     title: {
-      default: SITE_TITLE_DEFAULT,
+      default: siteTitle,
       template: '%s | Kayoha',
     },
-    description: SITE_DESCRIPTION,
-    keywords: ['通勤時間', '東京', '駅', '家賃', '引っ越し', '住む街', 'AI 推薦', '通勤地図', 'Kayoha', '通葉'],
+    description: siteDescription,
+    keywords: ['通勤時間マップ', '通勤時間', '通勤圏', '到達圏', 'アイソクロン', '東京', '駅', '家賃', '引っ越し', '住む街', 'どこに住む', 'AI 推薦', '通勤地図', 'Kayoha', '通葉'],
     authors: [{ name: 'Kayoha' }],
     applicationName: 'Kayoha',
     alternates: {
@@ -125,8 +139,8 @@ export async function generateMetadata({
       },
     },
     openGraph: {
-      title: SITE_TITLE_DEFAULT,
-      description: SITE_DESCRIPTION,
+      title: siteTitle,
+      description: siteDescription,
       url: canonicalUrl,
       siteName: 'Kayoha',
       locale: ogLocale,
@@ -136,14 +150,14 @@ export async function generateMetadata({
           url: '/opengraph-image.png',
           width: 1200,
           height: 630,
-          alt: SITE_TITLE_DEFAULT,
+          alt: siteTitle,
         },
       ],
     },
     twitter: {
       card: 'summary_large_image',
-      title: SITE_TITLE_DEFAULT,
-      description: SITE_DESCRIPTION,
+      title: siteTitle,
+      description: siteDescription,
       images: ['/opengraph-image.png'],
     },
     icons: {
@@ -192,10 +206,10 @@ const jsonLd = {
     {
       '@type': 'WebSite',
       '@id': 'https://kayoha.com/#website',
-      name: 'Kayoha',
-      alternateName: '通葉',
+      name: 'Kayoha 通勤時間マップ',
+      alternateName: ['Kayoha', '通葉'],
       url: 'https://kayoha.com',
-      description: '東京圏 1831 駅を通勤時間でカラーリング。AI 推薦・家賃目安・周辺の特徴・コミュニティ評価で、次に住む街を探す地図。',
+      description: '東京圏1831駅を通勤時間で色分けする無料の通勤時間マップ。駅ごとの家賃相場・街の特徴・AI推薦つきで、通勤・通学圏からどこに住むかを探せます。',
       inLanguage: 'ja-JP',
       publisher: { '@id': 'https://kayoha.com/#organization' },
     },
@@ -211,6 +225,24 @@ const jsonLd = {
         width: 180,
         height: 180,
       },
+    },
+    // 競合（通えるマップ等）はアプリ系 schema 不実装 — WebApplication で
+    // ツール型クエリのリッチリザルト適格性を先取りする。
+    {
+      '@type': 'WebApplication',
+      '@id': 'https://kayoha.com/#app',
+      name: 'Kayoha 通勤時間マップ',
+      alternateName: ['通葉', 'Kayoha Commute Time Map'],
+      url: 'https://kayoha.com',
+      applicationCategory: 'TravelApplication',
+      operatingSystem: 'Web',
+      browserRequirements: 'Requires JavaScript',
+      inLanguage: ['ja-JP', 'zh-CN', 'en'],
+      isAccessibleForFree: true,
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'JPY' },
+      featureList:
+        '東京圏1831駅の通勤時間カラーリング地図／実時刻表ベースの所要時間／駅ごとの家賃相場・街の特徴／AI による住む街推薦／二拠点通勤（2つの通勤先）対応／乗換回数フィルタ',
+      publisher: { '@id': 'https://kayoha.com/#organization' },
     },
   ],
 }

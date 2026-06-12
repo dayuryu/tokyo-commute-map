@@ -291,10 +291,51 @@ export default function Home() {
           </>
         )}
 
-        {/* SEO: welcomeOpen=null は SSR / hydration 前のみ。この間だけ /to 等への
-            内部リンクを素の HTML に出す（第一波クロール用）。hydration 後は
-            WelcomeOverlay 底部の可視リンク / HeaderMenu が同じリンクを担う。 */}
-        {overlay.welcomeOpen === null && (
+        {/* SEO: welcomeOpen=null は SSR / hydration 前のみ。この間、素の HTML に
+            実コンテンツ（h1 + 使い方 + 機能 + 内部リンク）を出す（第一波クロール用）。
+            競合調査 2026-06: 「通勤時間 マップ」SERP は静的テキストを持つ側が勝つ。
+            hydration 後は WelcomeOverlay（同趣旨の文言 + 可視リンク）/ HeaderMenu が引き継ぐ。
+            ja のみ — 目標クエリが日本語のため（station-pages-design.md と同方針）。 */}
+        {overlay.welcomeOpen === null && (locale === 'ja' ? (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              overflow: 'auto',
+              background: 'var(--paper, #f3ecdd)',
+              color: 'var(--ink, #2b2620)',
+              fontFamily: 'var(--font-shippori), "Shippori Mincho", serif',
+              padding: '48px 24px calc(env(safe-area-inset-bottom, 0px) + 32px)',
+            }}
+          >
+            <div style={{ maxWidth: 640, margin: '0 auto', lineHeight: 1.9 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 12px' }}>
+                Kayoha 通勤時間マップ — 東京圏1831駅から住む街を探す
+              </h1>
+              <p style={{ margin: '0 0 20px', fontSize: 14 }}>
+                通勤先を選ぶだけで、東京圏の全1831駅が通勤時間で色分けされます。実際の時刻表データで算出した所要時間に、駅ごとの家賃相場・街の特徴・コミュニティ評価を重ねて、「どこに住むか」をひと目で比較できる無料の通勤時間マップです。登録は不要です。
+              </p>
+              <h2 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 8px' }}>使い方</h2>
+              <ol style={{ margin: '0 0 20px', paddingLeft: 22, fontSize: 14 }}>
+                <li>通勤先（職場・学校など）の駅を選ぶ</li>
+                <li>地図上の全駅が通勤時間で色分けされる — スライダーで「何分圏内」を絞り込み</li>
+                <li>気になる駅をタップして家賃相場・街の特徴・住民の評価を確認</li>
+              </ol>
+              <h2 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 8px' }}>主な機能</h2>
+              <ul style={{ margin: '0 0 20px', paddingLeft: 22, fontSize: 14 }}>
+                <li>通勤・通学圏の確認 — 乗換回数フィルタつきで、実時刻表ベースの通勤圏がわかります</li>
+                <li>二拠点通勤 — 2つの通勤先（共働き・ダブルワーク）の両方に通いやすいエリアを合成表示</li>
+                <li>AI 住む街推薦 — 希望条件を伝えると、候補駅を理由つきで提案</li>
+                <li>駅・エリアガイド — <NextLink href="/to" style={{ color: 'inherit' }}>通勤先別ガイド</NextLink>と<NextLink href="/area" style={{ color: 'inherit' }}>区市別の駅データ一覧</NextLink>で、家賃と通勤時間をデータで比較</li>
+              </ul>
+              <nav style={{ fontSize: 13, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                <NextLink href="/to" style={{ color: 'inherit' }}>{tHeader('guide')}</NextLink>
+                <NextLink href="/area" style={{ color: 'inherit' }}>{tHeader('area')}</NextLink>
+                <NextLink href="/legal" style={{ color: 'inherit' }}>{tHeader('legal')}</NextLink>
+              </nav>
+            </div>
+          </div>
+        ) : (
           <nav
             style={{
               position: 'absolute',
@@ -308,24 +349,19 @@ export default function Home() {
               color: 'var(--ink-mute)',
             }}
           >
-            <NextLink href={locale === 'ja' ? '/to' : `/${locale}/to`} style={{ color: 'inherit', textDecoration: 'none' }}>
+            <NextLink href={`/${locale}/to`} style={{ color: 'inherit', textDecoration: 'none' }}>
               {tHeader('guide')}
             </NextLink>
-            {locale === 'ja' && (
-              <NextLink href="/area" style={{ color: 'inherit', textDecoration: 'none' }}>
-                {tHeader('area')}
-              </NextLink>
-            )}
             {locale === 'zh' && (
               <NextLink href="/zh/ryugaku" style={{ color: 'inherit', textDecoration: 'none' }}>
                 {tHeader('ryugaku')}
               </NextLink>
             )}
-            <NextLink href={locale === 'ja' ? '/legal' : `/${locale}/legal`} style={{ color: 'inherit', textDecoration: 'none' }}>
+            <NextLink href={`/${locale}/legal`} style={{ color: 'inherit', textDecoration: 'none' }}>
               {tHeader('legal')}
             </NextLink>
           </nav>
-        )}
+        ))}
       </main>
 
       {/* curtain — Welcome ↔ Story 過渡中、地図が隙間から透けないよう

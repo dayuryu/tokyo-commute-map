@@ -65,6 +65,8 @@ export type WardPage = WardMeta & {
   stations: StationPage[]
   /** hub 配下で頁を持つ駅数 */
   pageCount: number
+  /** 冒頭リード文 200-300 字（ward_descriptions.json、未生成は null） */
+  description: string | null
 }
 
 type Bundle = {
@@ -78,7 +80,7 @@ type Bundle = {
 }
 
 export const loadStationPages = cache(async (): Promise<Bundle> => {
-  const [geo, slugs, batches, muni, gov, manual, features, descriptions, graph] =
+  const [geo, slugs, batches, muni, gov, manual, features, descriptions, wardDescs, graph] =
     await Promise.all([
       read('stations.geojson'),
       read('station_slugs.json'),
@@ -88,6 +90,7 @@ export const loadStationPages = cache(async (): Promise<Bundle> => {
       read('manual_rent_data.json'),
       read('area_features.json'),
       read('station_descriptions.json'),
+      read('ward_descriptions.json'),
       read('graph.json'),
     ])
 
@@ -205,7 +208,12 @@ export const loadStationPages = cache(async (): Promise<Bundle> => {
   // 区市 hub: 配下に頁持ち駅が 1 つ以上ある hub のみ生成
   const wards: WardPage[] = WARDS.map(w => {
     const stations = list.filter(s => s.ward?.slug === w.slug)
-    return { ...w, stations, pageCount: stations.length }
+    return {
+      ...w,
+      stations,
+      pageCount: stations.length,
+      description: wardDescs.wards[w.slug] ?? null,
+    }
   }).filter(w => w.pageCount > 0)
 
   return {

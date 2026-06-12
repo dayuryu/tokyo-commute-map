@@ -600,6 +600,23 @@ export default function WelcomeOverlay({ onEnterMap, onEnterStory }: Props) {
                 {t('consentTail')}
               </div>
 
+              {/* サービス説明の一文 — hydration 後の DOM にも核心キーワードを
+                  保持する（SEO ブロックは hydration で外れるため）。 */}
+              <p
+                style={{
+                  margin: '-12px 0 0',
+                  maxWidth: isMobile ? '100%' : 380,
+                  fontFamily: 'var(--ui-font, system-ui, -apple-system, sans-serif)',
+                  fontSize: isMobile ? 10.5 : 11.5,
+                  lineHeight: 1.7,
+                  color: INK_M,
+                  textAlign: 'center',
+                  padding: isMobile ? '0 4px' : 0,
+                }}
+              >
+                {t('seoLine')}
+              </p>
+
               <div
                 style={{
                   display: 'flex',

@@ -121,7 +121,15 @@ export default async function WardPageView({
             {w.name}の住みやすさ
             <span className="block mt-2 text-lg md:text-xl text-ed-ink/60">主要 {w.pageCount} 駅を家賃と通勤時間で比較</span>
           </h1>
-          <p className="font-shippori text-base md:text-lg leading-loose text-ed-ink/85">
+          {/* 冒頭リード文（編集文 200-300 字。未生成は出さない） */}
+          {w.description && (
+            <p className="font-shippori text-base md:text-lg leading-loose text-ed-ink/85 mb-4">
+              {w.description}
+            </p>
+          )}
+          <p className={w.description
+            ? 'font-shippori text-sm leading-relaxed text-ed-ink/60'
+            : 'font-shippori text-base md:text-lg leading-loose text-ed-ink/85'}>
             {w.pref}{w.name}の主要駅について、30 の通勤地への実時刻表ベース所要時間と政府統計の家賃相場をデータで比較できます。駅名から各駅の詳細ガイドへ。
           </p>
         </header>
