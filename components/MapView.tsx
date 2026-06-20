@@ -1,6 +1,6 @@
 // components/MapView.tsx
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useLocale } from 'next-intl'
 import maplibregl from 'maplibre-gl'
@@ -8,6 +8,7 @@ import type { Destination, CustomStation, CustomCommutesMap } from '@/lib/types'
 import { BUCKET_COLORS, getBucketThresholds, bucketize } from '@/lib/buckets'
 import { DESTINATIONS_META } from '@/lib/destinations'
 import { stationLabel } from '@/lib/station-label'
+import { computeCommutes } from '@/lib/dijkstra'
 import { maxMinutesAtom, maxTransfersAtom, selectedStationAtom } from '@/lib/atoms/ui'
 import {
   destinationAtom,
@@ -15,6 +16,7 @@ import {
   secondDestinationAtom,
   secondCustomStationAtom,
 } from '@/lib/atoms/domain'
+import { graphAtom } from '@/lib/atoms/data'
 import { customCommutesAtom, secondCommutesAtom, aiHighlightFeaturesAtom } from '@/lib/atoms/derived'
 import { ryugakuHighlightFeaturesAtom } from '@/lib/atoms/ryugaku'
 import { favoriteFeaturesAtom } from '@/lib/atoms/favorites'
@@ -181,6 +183,10 @@ function buildFilteredFeatures(
   destInfo: Record<string, DestInfo>,
   customCommutes: CustomCommutesMap,
   second: SecondTarget | null,
+  // 乗換上限フィルタ用「≤K 乗換 最短時間」map（primary / second 各々）。
+  // 99（無制限）or graph 未ロード時は null → 従来の transfers_to_* 判定に fallback。
+  transferTimes: CustomCommutesMap,
+  transferTimesSecond: CustomCommutesMap,
 ): StationFeature[] {
   const thresholds = getBucketThresholds(maxMinutes)
 
@@ -207,37 +213,47 @@ function buildFilteredFeatures(
     if (secondCode != null) excludeCodes.add(secondCode)
   }
 
+  const filterActive = maxTransfers < 99
+
+  // 各目的地の「有効通勤時間」を返す（到達不可 / 乗換上限超過なら null＝除外）。
+  // 乗換フィルタ active かつ transferTimes 有 → 「≤K 乗換の最短時間」(t0/t1) を採用し、
+  //   これで filter + 着色する。これにより「最速は乗換ありだが一本道でも到達できる駅」
+  //   （例: 大久保→錦糸町、中央総武線各停で直通）の取りこぼしを防ぐ。
+  // transferTimes が無い間（graph 未ロード）は従来の transfers_to_* フィールドに fallback。
+  const effMinOf = (
+    p: StationProps,
+    dest: Destination,
+    customKey: 'custom' | 'custom2',
+    tt: CustomCommutesMap,
+  ): number | null => {
+    const base = dest === 'custom'
+      ? p[`min_to_${customKey}`]
+      : p[`min_to_${dest}`]
+    if (!filterActive) return base ?? null
+    if (tt) {
+      const r = tt.get(p.code)
+      return maxTransfers === 0 ? (r?.t0 ?? null) : (r?.t1 ?? null)
+    }
+    // graph 未ロード fallback: 旧 transfers フィールドで判定（base をそのまま使う）。
+    const tr = dest === 'custom' ? p[`transfers_to_${customKey}`] : p[`transfers_to_${dest}`]
+    if (dest === 'custom' && tr == null) return base ?? null // haversine fallback 中 → filter skip
+    if (tr == null || tr > maxTransfers) return null
+    return base ?? null
+  }
+
   // 絞り込み + bucket 動的再計算（properties.bucket を上書き）
   // 二拠点モードは max(A, B)（= 悪い方）で着色・filter する：
-  // 「両方の目的地に maxMinutes 以内」が表示条件、色は届きにくい方を反映。
+  // 「両方の目的地に maxMinutes 以内（かつ乗換上限内）」が表示条件、色は届きにくい方を反映。
   return features.flatMap((f) => {
     const p = f.properties
     if (excludeCodes.has(p.code)) return []
-    const minA = destination === 'custom'
-      ? p.min_to_custom
-      : p[`min_to_${destination}`]
-    if (minA == null || minA > maxMinutes) return []
-    let min = minA
+    const effA = effMinOf(p, destination, 'custom', transferTimes)
+    if (effA == null || effA > maxMinutes) return []
+    let min = effA
     if (second) {
-      const minB = second.destination === 'custom'
-        ? p.min_to_custom2
-        : p[`min_to_${second.destination}`]
-      if (minB == null || minB > maxMinutes) return []
-      min = Math.max(minA, minB)
-    }
-    if (maxTransfers < 99) {
-      // custom / fixed 両方とも乗換数フィルタが効くようにする。
-      // custom かつ graph 未ロード（haversine fallback）の場合は transfers が
-      // 取れないので、安全側に倒して filter を無効化する（= 全表示）。
-      const transfersOk = (dest: Destination, customKey: 'custom' | 'custom2'): boolean => {
-        const tr = dest === 'custom'
-          ? p[`transfers_to_${customKey}`]
-          : p[`transfers_to_${dest}`]
-        if (dest === 'custom' && tr == null) return true // haversine fallback 中 → filter skip
-        return tr != null && tr <= maxTransfers
-      }
-      if (!transfersOk(destination, 'custom')) return []
-      if (second && !transfersOk(second.destination, 'custom2')) return []
+      const effB = effMinOf(p, second.destination, 'custom2', transferTimesSecond)
+      if (effB == null || effB > maxMinutes) return []
+      min = Math.max(effA, effB)
     }
     return [{
       ...f,
@@ -312,6 +328,7 @@ export default function MapView({ onReady }: Props) {
   const secondDestination = useAtomValue(secondDestinationAtom)
   const secondCustomStation = useAtomValue(secondCustomStationAtom)
   const secondCommutes = useAtomValue(secondCommutesAtom)
+  const graph = useAtomValue(graphAtom)
   const aiHighlightFeatures = useAtomValue(aiHighlightFeaturesAtom)
   const maxMinutes = useAtomValue(maxMinutesAtom)
   const maxTransfers = useAtomValue(maxTransfersAtom)
@@ -330,6 +347,31 @@ export default function MapView({ onReady }: Props) {
   const destInfoRef = useRef<Record<string, DestInfo>>({})
   const [destInfoReady, setDestInfoReady] = useState(false)
   const isFirstRender = useRef(true)
+
+  // 乗換上限フィルタ用「≤K 乗換 最短時間」map（primary / second）。無制限時は null（算出しない）。
+  //  - custom destination: customCommutes / secondCommutes を再利用（既に t0/t1 を含む）。
+  //  - fixed destination: 同じ graph から源駅起点で client Dijkstra を実時計算。
+  // destInfoReady を依存に含めるのは destInfoRef（ref）の確定を反映させるため。
+  // maxMinutes は依存に含めない（スライダー操作で再計算させない）。
+  const transferTimes = useMemo<CustomCommutesMap>(() => {
+    if (maxTransfers >= 99) return null
+    if (destination === 'custom') return customCommutes
+    if (!graph) return null
+    const code = destInfoRef.current[destination]?.code
+    if (code == null) return null
+    return computeCommutes(graph, code)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxTransfers, destination, customCommutes, graph, destInfoReady])
+
+  const transferTimesSecond = useMemo<CustomCommutesMap>(() => {
+    if (maxTransfers >= 99 || secondDestination === null) return null
+    if (secondDestination === 'custom') return secondCommutes
+    if (!graph) return null
+    const code = destInfoRef.current[secondDestination]?.code
+    if (code == null) return null
+    return computeCommutes(graph, code)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxTransfers, secondDestination, secondCommutes, graph, destInfoReady])
   // map.on('load') closure が capture する古い aiHighlightFeatures 値を回避するため ref を追従。
   // addSource 時に ref.current を使うことで source 創建瞬間の最新値が確実に反映される
   // （atomWithStorage hydrate と map load の race で「source は空のまま」になるバグの根治、
@@ -421,7 +463,7 @@ export default function MapView({ onReady }: Props) {
       }
       const initialFiltered = buildFilteredFeatures(
         geojson.features, destination, maxMinutes, maxTransfers, customStation, destInfo,
-        customCommutes, second,
+        customCommutes, second, transferTimes, transferTimesSecond,
       )
       const initialData = { ...geojson, features: initialFiltered }
 
@@ -796,7 +838,7 @@ export default function MapView({ onReady }: Props) {
       geojsonRef.current.features,
       destination, maxMinutes, maxTransfers, customStation,
       destInfoRef.current,
-      customCommutes, second,
+      customCommutes, second, transferTimes, transferTimesSecond,
     )
     const data = { ...geojsonRef.current, features: filtered }
     ;(map.getSource('stations')           as maplibregl.GeoJSONSource).setData(data)
@@ -810,7 +852,8 @@ export default function MapView({ onReady }: Props) {
     // destInfoReady: source 生成（map load）前に atom が変わった場合（localStorage 復元と
     // map load の race）、生成直後にこの effect が再実行されて最新 atom 値で絞り込み直す。
   }, [destination, maxMinutes, maxTransfers, customStation, customCommutes,
-      secondDestination, secondCustomStation, secondCommutes, destInfoReady])
+      secondDestination, secondCustomStation, secondCommutes, destInfoReady,
+      transferTimes, transferTimesSecond])
 
   // ── 目的地変化 → ピン更新 + flyTo + cluster 円色更新 ──
   // destInfoReady を依存に含めることで、geojson load 完了後の初回 marker 設置を保証

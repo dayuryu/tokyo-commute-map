@@ -126,6 +126,14 @@ class MinHeap {
 export interface CommuteResult {
   mins:      number
   transfers: number
+  // ▼ 乗換上限フィルタ用の付加情報（client 側のみ算出）。
+  //   t0 = 乗換 0 回（直通一本道）で到達できる最短総時間。到達不能なら null。
+  //   t1 = 乗換 1 回以内で到達できる最短総時間。到達不能なら null。
+  //   mins/transfers は「最速経路」の値であり、最速が乗換ありだと一本道情報が
+  //   失われる。乗換上限フィルタはこの t0/t1 を見ることで一本道駅の取りこぼしを防ぐ。
+  //   注: mins/transfers 自体は従来と byte 一致（Python dijkstra_v3 との 1:1 を保つ）。
+  t0:        number | null
+  t1:        number | null
 }
 
 export function computeCommutes(
@@ -135,9 +143,12 @@ export function computeCommutes(
   const { adj, params } = graph
   const { transferWalkMin, minHeadwayMin, maxHeadwayMin, cutoffMin } = params
 
-  // best[station][curRoute] = [mins, xfers, lastEfreq]
-  // station -> Map<curRoute, [mins, xfers, lastEfreq]>
-  const best = new Map<number, Map<number, [number, number, number]>>()
+  // best[station][enc(curRoute, min(xfers,2))] = [mins, xfers, lastEfreq, curRoute]
+  // 乗換次元を key に加えることで「乗換ありの高速経路」が「乗換 0 の一本道到達」を
+  // 同一 (station,route) slot から押し出す現象を防ぐ（フィルタ取りこぼしの根治）。
+  // xfers は 0/1/2+ の 3 段に丸める（UI の乗換上限が 0/1 の 2 段しか無いため十分）。
+  const enc = (route: number, xfers: number) => route * 4 + (xfers > 2 ? 2 : xfers)
+  const best = new Map<number, Map<number, [number, number, number, number]>>()
 
   const heap = new MinHeap()
   // 始点は curRoute = -1（未割当）
@@ -145,14 +156,15 @@ export function computeCommutes(
 
   while (heap.size > 0) {
     const [mins, xfers, station, curRoute, lastEfreq] = heap.pop()!
+    const key = enc(curRoute, xfers)
 
     let stationBest = best.get(station)
     if (!stationBest) {
       stationBest = new Map()
       best.set(station, stationBest)
     }
-    if (stationBest.has(curRoute)) continue
-    stationBest.set(curRoute, [mins, xfers, lastEfreq])
+    if (stationBest.has(key)) continue
+    stationBest.set(key, [mins, xfers, lastEfreq, curRoute])
 
     if (mins >= cutoffMin) continue
 
@@ -195,7 +207,7 @@ export function computeCommutes(
 
       if (newMins > cutoffMin) continue
       const toBest = best.get(to)
-      if (toBest && toBest.has(newRoute)) continue
+      if (toBest && toBest.has(enc(newRoute, newXfers))) continue
       heap.push([newMins, newXfers, to, newRoute, newEfreq])
     }
   }
@@ -203,12 +215,22 @@ export function computeCommutes(
   // 各 station に対し best_per_station 相当の処理
   // best[station][curRoute] -> 初乗り待ち時間を加えた totalMins の最小値を選ぶ
   const result = new Map<number, CommuteResult>()
-  for (const [station, perRoute] of best) {
+  for (const [station, perKey] of best) {
     if (station === source) continue
-    let bestTotal:    number | null = null
-    let bestTransfers: number = 0
-    for (const [curRoute, [mins, xfers, lastEfreq]] of perRoute) {
+
+    // ── unlimited（mins/transfers）── 従来ロジックの完全再現。
+    // route ごとに min-mins 条目のみを残し（旧 best_per_route と等価）、その上で
+    // route 横断の min-total を採る。乗換次元 slot を加えても min-mins 条目＝従来の
+    // 唯一生存条目なので、出力は従来と byte 一致する（1:1 不変量を保つ）。
+    const minMinsByRoute = new Map<number, [number, number, number]>() // route -> [mins,xfers,lastEfreq]
+    for (const [, [mins, xfers, lastEfreq, curRoute]] of perKey) {
       if (curRoute === -1) continue
+      const cur = minMinsByRoute.get(curRoute)
+      if (!cur || mins < cur[0]) minMinsByRoute.set(curRoute, [mins, xfers, lastEfreq])
+    }
+    let bestTotal:     number | null = null
+    let bestTransfers: number = 0
+    for (const [, [mins, xfers, lastEfreq]] of minMinsByRoute) {
       const wait = lastEfreq > 0
         ? headwayToWait(lastEfreq, minHeadwayMin, maxHeadwayMin)
         : maxHeadwayMin
@@ -218,10 +240,25 @@ export function computeCommutes(
         bestTransfers = xfers
       }
     }
+
+    // ── t0 / t1 ── 乗換 0 回 / 1 回以内で到達できる最短総時間（乗換上限フィルタ用）。
+    // unlimited の min-mins 制約は掛けず、全 slot を走査する。
+    let t0: number | null = null
+    let t1: number | null = null
+    for (const [, [mins, xfers, lastEfreq]] of perKey) {
+      const total = mins + (lastEfreq > 0
+        ? headwayToWait(lastEfreq, minHeadwayMin, maxHeadwayMin)
+        : maxHeadwayMin)
+      if (xfers === 0 && (t0 === null || total < t0)) t0 = total
+      if (xfers <= 1 && (t1 === null || total < t1)) t1 = total
+    }
+
     if (bestTotal !== null) {
       result.set(station, {
         mins:      Math.round(bestTotal),
         transfers: bestTransfers,
+        t0:        t0 === null ? null : Math.round(t0),
+        t1:        t1 === null ? null : Math.round(t1),
       })
     }
   }
